@@ -12,7 +12,7 @@ import Shove95Kit
 struct shove95App: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }
