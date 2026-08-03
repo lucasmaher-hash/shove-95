@@ -20,7 +20,7 @@ The technical implementation must deliver two things to earn the product's posit
 
 ### Magic Moment
 
-Flicking a task from Today to Tomorrow with a thumb: swipe left → row slides off the screen edge → rows close the gap → status bar reads `Repair bike → Tomorrow` with an Undo button. Requirements this places on the implementation: gesture recognition must coexist with vertical scrolling without dead zones; commit must be instant (no spring-back-then-commit); the date write + placement must be synchronous so the destination tab is already correct if tapped immediately.
+Flicking a task from Today to Tomorrow with a thumb: swipe right → row slides off the screen edge → rows close the gap → status bar reads `Repair bike → Tomorrow` with an Undo button. Requirements this places on the implementation: gesture recognition must coexist with vertical scrolling without dead zones; commit must be instant (no spring-back-then-commit); the date write + placement must be synchronous so the destination tab is already correct if tapped immediately.
 
 ### Success Criteria
 
