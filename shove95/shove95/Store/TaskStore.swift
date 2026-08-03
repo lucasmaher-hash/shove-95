@@ -63,8 +63,20 @@ final class TaskStore {
     // MARK: Queries
 
     private func allTasksSorted() -> [TaskItem] {
-        let descriptor = FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.sortOrder)])
+        // createdAt is the deterministic tie-breaker: legacy data written before
+        // the 2026-08-04 collision fix can hold equal sortOrders, and midpoint
+        // math can in principle land on a completed task's order.
+        let descriptor = FetchDescriptor<TaskItem>(
+            sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)])
         return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// Every task currently mapping to the bucket — completed included.
+    /// Bottom-anchor placements must clear completed tasks' kept sortOrders,
+    /// or unticking loses its position (bug report 2026-08-04).
+    private func allInBucket(_ bucket: Bucket) -> [TaskItem] {
+        let now = now()
+        return allTasksSorted().filter { $0.bucket(now: now, calendar: calendar) == bucket }
     }
 
     /// A tab's visible tasks: active (by sortOrder) and completed-not-archived
@@ -107,7 +119,7 @@ final class TaskStore {
         let task = TaskItem()
         task.title = title
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
-        task.sortOrder = Placement.sortOrderForNewTask(visible: tasks(in: bucket).active)
+        task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
         context.insert(task)
         commit()
     }
@@ -135,13 +147,15 @@ final class TaskStore {
     /// arrival placement (important → under the destination's important block).
     func move(_ task: TaskItem, to bucket: Bucket) {
         let destinationActive = tasks(in: bucket).active.filter { $0 !== task }
+        let destinationAll = allInBucket(bucket).filter { $0 !== task }
         lastAction = .moved(
             taskID: task.id, title: task.title, to: bucket,
             previousDueDate: task.dueDate, previousSortOrder: task.sortOrder,
             previousOverduePlaced: task.overduePlaced)
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
         task.overduePlaced = false // dueDate changed → eligible for future rollover placement
-        task.sortOrder = Placement.sortOrderForArrival(isImportant: task.isImportant, visible: destinationActive)
+        task.sortOrder = Placement.sortOrderForArrival(
+            isImportant: task.isImportant, visible: destinationActive, allInBucket: destinationAll)
         commit()
     }
 
@@ -176,6 +190,23 @@ final class TaskStore {
             overduePlaced: task.overduePlaced, photoData: task.photoData))
         context.delete(task)
         commit()
+    }
+
+    /// Long-press-drag reorder (TASK-025): move `task` by whole row steps
+    /// within its bucket's active list. Free placement — the user's order is
+    /// theirs afterwards (locked Q17-B).
+    func reorder(_ task: TaskItem, byRowSteps steps: Int) {
+        guard steps != 0 else { return }
+        let bucket = task.bucket(now: now(), calendar: calendar)
+        let active = tasks(in: bucket).active
+        guard let index = active.firstIndex(where: { $0 === task }) else { return }
+        let target = max(0, min(active.count - 1, index + steps))
+        guard target != index else { return }
+        var rest = active
+        rest.remove(at: index)
+        let above = target > 0 ? rest[target - 1].sortOrder : nil
+        let below = target < rest.count ? rest[target].sortOrder : nil
+        reorder(task, betweenSortOrders: above, and: below)
     }
 
     /// Drag-reorder to a slot between two neighbors' sortOrders.
@@ -254,7 +285,7 @@ final class TaskStore {
                 task.dueDate = DateEngine.targetDate(for: bucket, now: now, calendar: calendar)
             }
             task.isImportant = important
-            task.sortOrder = Placement.sortOrderForNewTask(visible: tasks(in: bucket).active)
+            task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
             if important {
                 task.sortOrder = Placement.sortOrderForFlagImportant(visible: tasks(in: bucket).active)
             }
@@ -268,6 +299,20 @@ final class TaskStore {
         make("Call dentist", bucket: .tomorrow)
         make("File taxes", bucket: .week)
         make("Build portfolio", bucket: .general)
+        revision += 1
+    }
+
+    /// 15 filler rows in Today — enough height to exercise scrolling
+    /// against the row pan (TASK-019 spike verification).
+    func seedScrollFillers() {
+        for i in 1...15 {
+            let task = TaskItem()
+            task.title = "Filler \(i)"
+            task.dueDate = DateEngine.startOfToday(now: now(), calendar: calendar)
+            task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(.today))
+            context.insert(task)
+            try? context.save()
+        }
         revision += 1
     }
     #endif

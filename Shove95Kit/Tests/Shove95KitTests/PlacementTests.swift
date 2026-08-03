@@ -6,7 +6,7 @@ import Testing
 /// ModelContext) — @Model classes work as plain objects for pure-logic tests.
 private func task(
     _ title: String, sortOrder: Double, important: Bool = false,
-    due: Date? = nil, overduePlaced: Bool = false
+    due: Date? = nil, overduePlaced: Bool = false, completed: Bool = false
 ) -> TaskItem {
     let t = TaskItem()
     t.title = title
@@ -14,23 +14,41 @@ private func task(
     t.isImportant = important
     t.dueDate = due
     t.overduePlaced = overduePlaced
+    t.isCompleted = completed
+    if completed { t.completedAt = Date(timeIntervalSince1970: 1_780_000_000) }
     return t
 }
 
 @Suite("Placement: creation and arrival")
 struct PlacementInsertTests {
     @Test func newTaskGoesToBottom() {
-        let visible = [task("a", sortOrder: 1), task("b", sortOrder: 2)]
-        #expect(Placement.sortOrderForNewTask(visible: visible) == 3)
+        let all = [task("a", sortOrder: 1), task("b", sortOrder: 2)]
+        #expect(Placement.sortOrderForNewTask(allInBucket: all) == 3)
     }
 
     @Test func newTaskInEmptyListStartsAtOne() {
-        #expect(Placement.sortOrderForNewTask(visible: []) == 1)
+        #expect(Placement.sortOrderForNewTask(allInBucket: []) == 1)
+    }
+
+    @Test func newTaskClearsCompletedTasksOrders() {
+        // Bug report 2026-08-04: tick B (order 2), add C, untick B —
+        // B must return ABOVE C. So C's order must clear B's even though
+        // B is invisible while completed.
+        let a = task("a", sortOrder: 1)
+        let b = task("b", sortOrder: 2, completed: true)
+        let order = Placement.sortOrderForNewTask(allInBucket: [a, b])
+        #expect(order > 2)
     }
 
     @Test func normalArrivalGoesToBottom() {
         let visible = [task("imp", sortOrder: 1, important: true), task("a", sortOrder: 2)]
-        #expect(Placement.sortOrderForArrival(isImportant: false, visible: visible) == 3)
+        #expect(Placement.sortOrderForArrival(isImportant: false, visible: visible, allInBucket: visible) == 3)
+    }
+
+    @Test func arrivalAlsoClearsCompletedTasksOrders() {
+        let visible = [task("a", sortOrder: 1)]
+        let all = visible + [task("done", sortOrder: 5, completed: true)]
+        #expect(Placement.sortOrderForArrival(isImportant: false, visible: visible, allInBucket: all) == 6)
     }
 
     @Test func importantArrivalSlotsUnderImportantBlock() {
@@ -41,23 +59,23 @@ struct PlacementInsertTests {
             task("imp2", sortOrder: 2, important: true),
             task("normal", sortOrder: 3),
         ]
-        let order = Placement.sortOrderForArrival(isImportant: true, visible: visible)
+        let order = Placement.sortOrderForArrival(isImportant: true, visible: visible, allInBucket: visible)
         #expect(order > 2 && order < 3)
     }
 
     @Test func importantArrivalWithNoImportantsGoesToVeryTop() {
         let visible = [task("a", sortOrder: 5), task("b", sortOrder: 6)]
-        let order = Placement.sortOrderForArrival(isImportant: true, visible: visible)
+        let order = Placement.sortOrderForArrival(isImportant: true, visible: visible, allInBucket: visible)
         #expect(order < 5)
     }
 
     @Test func importantArrivalWhenAllImportantGoesToBottom() {
         let visible = [task("imp1", sortOrder: 1, important: true), task("imp2", sortOrder: 2, important: true)]
-        #expect(Placement.sortOrderForArrival(isImportant: true, visible: visible) == 3)
+        #expect(Placement.sortOrderForArrival(isImportant: true, visible: visible, allInBucket: visible) == 3)
     }
 
     @Test func importantArrivalIntoEmptyList() {
-        #expect(Placement.sortOrderForArrival(isImportant: true, visible: []) == -1)
+        #expect(Placement.sortOrderForArrival(isImportant: true, visible: [], allInBucket: []) == -1)
     }
 }
 

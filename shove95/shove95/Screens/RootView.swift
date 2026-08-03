@@ -23,11 +23,39 @@ struct RootView: View {
             #if DEBUG
             HStack {
                 Button("Seed debug data") { store.seedDebugData() }
-                    .font(.caption)
+                Button("Seed fillers") { store.seedScrollFillers() }
+                Button("Defer 1st") {  // TEMP: headless undo verification
+                    if let first = store.tasks(in: .today).active.first {
+                        store.step(first, direction: .deferOne)
+                    }
+                }
                 Spacer()
+                Text(GestureDebug.shared.last).foregroundStyle(.purple)
             }
+            .font(.caption)
             .padding(.horizontal)
             #endif
+
+            // Status bar (FR-009, TASK-024): persistent record of the last
+            // move/delete with Undo — plain for now, Win95 sunken panel in
+            // Phase 3. Always present (window furniture), empty when idle.
+            HStack(spacing: 8) {
+                Text(store.lastAction?.statusText ?? "")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                if store.lastAction != nil {
+                    Button("Undo") {
+                        withAnimation(.spring(duration: 0.25)) {
+                            store.undoLastAction()
+                        }
+                    }
+                }
+            }
+            .font(.footnote)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 24)
+            .background(Color(white: 0.93))
 
             // Placeholder tab strip — becomes the Win95 taskbar in Phase 3.
             HStack(spacing: 0) {
