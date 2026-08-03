@@ -192,6 +192,23 @@ final class TaskStore {
         commit()
     }
 
+    /// Long-press-drag reorder (TASK-025): move `task` by whole row steps
+    /// within its bucket's active list. Free placement — the user's order is
+    /// theirs afterwards (locked Q17-B).
+    func reorder(_ task: TaskItem, byRowSteps steps: Int) {
+        guard steps != 0 else { return }
+        let bucket = task.bucket(now: now(), calendar: calendar)
+        let active = tasks(in: bucket).active
+        guard let index = active.firstIndex(where: { $0 === task }) else { return }
+        let target = max(0, min(active.count - 1, index + steps))
+        guard target != index else { return }
+        var rest = active
+        rest.remove(at: index)
+        let above = target > 0 ? rest[target - 1].sortOrder : nil
+        let below = target < rest.count ? rest[target].sortOrder : nil
+        reorder(task, betweenSortOrders: above, and: below)
+    }
+
     /// Drag-reorder to a slot between two neighbors' sortOrders.
     func reorder(_ task: TaskItem, betweenSortOrders above: Double?, and below: Double?) {
         task.sortOrder = Placement.sortOrder(between: above, and: below)
@@ -282,6 +299,20 @@ final class TaskStore {
         make("Call dentist", bucket: .tomorrow)
         make("File taxes", bucket: .week)
         make("Build portfolio", bucket: .general)
+        revision += 1
+    }
+
+    /// 15 filler rows in Today — enough height to exercise scrolling
+    /// against the row pan (TASK-019 spike verification).
+    func seedScrollFillers() {
+        for i in 1...15 {
+            let task = TaskItem()
+            task.title = "Filler \(i)"
+            task.dueDate = DateEngine.startOfToday(now: now(), calendar: calendar)
+            task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(.today))
+            context.insert(task)
+            try? context.save()
+        }
         revision += 1
     }
     #endif
