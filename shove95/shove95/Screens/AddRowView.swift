@@ -13,12 +13,15 @@ import Shove95Kit
 struct AddRowView: View {
     let bucket: Bucket
     @Environment(TaskStore.self) private var store
+    @Environment(\.pixel) private var pixel
 
     @State private var text = ""
     @FocusState private var focused: Bool
 
     var body: some View {
         TextField("+ new task", text: $text)
+            .font(W95Font.standard(pixel))
+            .foregroundStyle(Win95.text)
             .focused($focused)
             .submitLabel(.return)
             .onSubmit {
@@ -30,6 +33,10 @@ struct AddRowView: View {
                     focused = true
                 }
             }
+            .padding(.horizontal, Win95.Px.grid * pixel)
             .frame(minHeight: Win95.rowMinHeight)
+            .background(Win95.highlight)
+            .bevelSunken(pixel)
+            .padding(.top, Win95.Px.grid * pixel)
     }
 }

@@ -15,6 +15,7 @@ import Shove95Kit
 struct TaskRowView: View {
     let task: TaskItem
     @Environment(TaskStore.self) private var store
+    @Environment(\.pixel) private var pixel
 
     @State private var isEditing = false
     @State private var draft = ""
@@ -78,18 +79,15 @@ struct TaskRowView: View {
     // MARK: - Content
 
     private var rowContent: some View {
-        HStack(spacing: 12) {
-            Button {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            Win95Checkbox(isChecked: task.isCompleted) {
                 store.toggleCompleted(task)
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(task.isCompleted ? Color.gray : Color.primary)
             }
-            .buttonStyle(.plain)
-            .frame(minWidth: 32, minHeight: Win95.rowMinHeight)
 
             if isEditing {
                 TextField("", text: $draft)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
                     .focused($editFocused)
                     .onSubmit { commitEdit() }
                     .onChange(of: editFocused) { _, focused in
@@ -97,8 +95,12 @@ struct TaskRowView: View {
                     }
             } else {
                 Text(task.title)
+                    .font(W95Font.standard(pixel))
                     .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? Color.gray : (task.isImportant ? Win95.important : Color.primary))
+                    // Colour carries exactly one meaning: red = Important.
+                    // Completed is grey + strikethrough; overdue is the chip.
+                    .foregroundStyle(task.isCompleted ? Win95.shadow
+                                     : (task.isImportant ? Win95.important : Win95.text))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .contentShape(Rectangle())
@@ -110,18 +112,20 @@ struct TaskRowView: View {
                     }
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Win95.Px.grid * pixel)
 
             // Trailing chip column — fixed width so chips align (locked Q23).
-            if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
-                                           now: store.now(), calendar: store.calendar) {
-                Text(chip)
-                    .foregroundStyle(Color.gray)
-                    .monospacedDigit()
-                    .frame(width: 44, alignment: .trailing)
+            Group {
+                if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                               now: store.now(), calendar: store.calendar) {
+                    DateChip(label: chip)
+                }
             }
+            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
         }
+        .padding(.trailing, Win95.Px.grid * pixel)
         .frame(minHeight: Win95.rowMinHeight)
+        .background(Win95.highlight) // the well is white; rows sit on it
     }
 
     // MARK: - Swipe (FR-002: left = defer, right = pull forward)
@@ -145,13 +149,13 @@ struct TaskRowView: View {
                     let direction: StepDirection = t.width < 0 ? .deferOne : .pullOne
                     if currentBucket.steppedOnce(direction) == nil {
                         // Dead end: resistance + one light haptic (FR-002/021).
-                        dragOffset = t.width * Self.rubberResistance
+                        dragOffset = snapped(t.width * Self.rubberResistance)
                         if abs(t.width) > 20, !rubberBandBuzzed {
                             rubberBandBuzzed = true
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } else {
-                        dragOffset = t.width
+                        dragOffset = snapped(t.width)
                     }
                 }
             }
@@ -189,6 +193,12 @@ struct TaskRowView: View {
                     dragOffset = 0 // row identity survives the move; clear the committed offset
                 }
             }
+    }
+
+    /// Movement travels in whole 1995-pixels — smooth but quantised, like a
+    /// sprite (design.md §8). Appearance changes stay instant.
+    private func snapped(_ value: CGFloat) -> CGFloat {
+        (value / pixel).rounded() * pixel
     }
 
     private var currentBucket: Bucket {
