@@ -9,9 +9,12 @@ unreliable for long-press recognition (see "Simulator limitations" below).
 
 -----
 
-## 1. One-flick defer  ✅ verified on simulator 2026-08-04
+## 1. One-flick defer (swipe right)  ✅ verified on simulator 2026-08-04
 
-- [x] Swipe a Today row left past ~40% of row width → row slides off the left
+> Direction reversed 2026-08-04 on device feedback: right = defer, left = pull forward.
+> The whole row is swipeable (previously only the text was hit-testable).
+
+- [x] Swipe a Today row **right** past ~40% of row width → row slides off the left
       edge, the list closes the gap
 - [x] The task's date becomes tomorrow: it is present in the **Tomorrow** tab
       immediately after switching (checked against the SQLite store, not just
@@ -21,16 +24,16 @@ unreliable for long-press recognition (see "Simulator limitations" below).
       animation, one-handed, thumb only
 - [ ] **Device:** a light haptic fires on commit
 
-## 2. Pull forward  ✅ verified on simulator
+## 2. Pull forward (swipe left)  ✅ verified on simulator
 
-- [x] Swipe right in Week → task lands in Tomorrow
-- [x] Swipe right in Tomorrow → task lands in Today
+- [x] Swipe **left** in Week → task lands in Tomorrow
+- [x] Swipe **left** in Tomorrow → task lands in Today
 
 ## 3. Rubber-band at the dead ends  ✅ verified on simulator
 
-- [x] Swipe **right** on a Today row → row resists (~0.3× translation) and
+- [x] Swipe **left** on a Today row → row resists (~0.3× translation) and
       springs back; nothing changes (debug readout: `spring back 300`)
-- [ ] Swipe **left** on a General row → same
+- [ ] Swipe **right** on a General row → same
 - [ ] **Device:** one light haptic per dead-end gesture, not repeated
 
 ## 4. Undo  ✅ verified on simulator 2026-08-04

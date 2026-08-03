@@ -107,7 +107,7 @@
 
 - [x] **TASK-016** — Add row with keep-focus capture
   Files: `Shove95/Screens/AddRowView.swift`, `Shove95/Screens/TaskListView.swift`
-  Notes: Permanent last row: TextField, `@FocusState`; onSubmit → `store.addTask(title:in:currentBucket)` then clear text and **re-set focus** (defer via `Task { @MainActor in ... }` if needed so the keyboard never dismisses); empty/whitespace → no-op; collapse pasted newlines to spaces. Verify: type 5 tasks hitting return each time — keyboard never drops, all 5 append in order.
+  Notes: DONE — onSubmit now **dismisses** the keyboard (reversed 2026-08-04 on device feedback). Permanent last row: TextField, `@FocusState`; onSubmit → `store.addTask(title:in:currentBucket)` then clear text (defer via `Task { @MainActor in ... }` if needed so the keyboard never dismisses); empty/whitespace → no-op; collapse pasted newlines to spaces. Verify: type 5 tasks hitting return each time — keyboard never drops, all 5 append in order.
 
 - [x] **TASK-017** — Inline edit + completion behavior
   Files: `Shove95/Screens/TaskRowView.swift`

@@ -124,11 +124,21 @@ struct TaskRowView: View {
             .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
         }
         .padding(.trailing, Win95.Px.grid * pixel)
-        .frame(minHeight: Win95.rowMinHeight)
+        .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
         .background(Win95.highlight) // the well is white; rows sit on it
+        .contentShape(Rectangle())   // the ENTIRE row is swipeable, not just the text
     }
 
-    // MARK: - Swipe (FR-002: left = defer, right = pull forward)
+    // MARK: - Swipe
+    //
+    // DIRECTION REVERSED 2026-08-04 on device feedback. The original spec said
+    // left = defer, but that fights the taskbar: the tabs read
+    // Today | Tomorrow | Week | General left-to-right, so dragging a row LEFT
+    // should carry it toward the LEFT tab (Today = pull forward) and dragging
+    // RIGHT should carry it toward the right tabs (defer). Content follows the
+    // finger, which is what a spatial interface demands.
+    //   swipe left  → pull forward (toward Today)
+    //   swipe right → defer        (toward General)
 
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 12, coordinateSpace: .local)
@@ -146,7 +156,7 @@ struct TaskRowView: View {
                 case .vertical:
                     break
                 case .horizontal:
-                    let direction: StepDirection = t.width < 0 ? .deferOne : .pullOne
+                    let direction: StepDirection = t.width < 0 ? .pullOne : .deferOne
                     if currentBucket.steppedOnce(direction) == nil {
                         // Dead end: resistance + one light haptic (FR-002/021).
                         dragOffset = snapped(t.width * Self.rubberResistance)
@@ -167,7 +177,7 @@ struct TaskRowView: View {
 
                 let translation = value.translation.width
                 let velocity = value.velocity.width
-                let direction: StepDirection = translation < 0 ? .deferOne : .pullOne
+                let direction: StepDirection = translation < 0 ? .pullOne : .deferOne
 
                 let overThreshold = abs(translation) > rowWidth * Self.commitFraction
                     || abs(velocity) > Self.commitVelocity

@@ -74,7 +74,7 @@ struct Win95Checkbox: View {
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
             }
         }
-        .frame(width: Win95.rowMinHeight, height: Win95.rowMinHeight) // 44pt tap target
+        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel)) // ≥44pt tap target
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .accessibilityHidden(true) // the row carries the label + actions

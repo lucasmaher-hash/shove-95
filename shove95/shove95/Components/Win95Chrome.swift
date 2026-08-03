@@ -132,7 +132,11 @@ struct Taskbar: View {
                 }
             }
 
-            ClockWell()
+            // At 4× the four buttons need the full width; the clock is the
+            // first thing to go (it is decoration, the tabs are not).
+            if pixel < 4 {
+                ClockWell()
+            }
         }
         .padding(.horizontal, pixel)
         .padding(.vertical, pixel)

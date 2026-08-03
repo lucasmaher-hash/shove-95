@@ -27,14 +27,14 @@ struct AddRowView: View {
             .onSubmit {
                 store.addTask(title: text, in: bucket) // empty → no-op (store guards)
                 text = ""
-                // Re-assert focus on the next runloop tick — the keyboard
-                // must never dismiss during rapid entry (US-007).
-                Task { @MainActor in
-                    focused = true
-                }
+                // Keyboard DISMISSES on commit (changed 2026-08-04 on device
+                // feedback, overriding the original keep-focus rider): a field
+                // that stays open reads as "still typing" and hides the list
+                // you just added to. Tap the row again to add another.
+                focused = false
             }
             .padding(.horizontal, Win95.Px.grid * pixel)
-            .frame(minHeight: Win95.rowMinHeight)
+            .frame(minHeight: Win95.rowHeight(pixel))
             .background(Win95.highlight)
             .bevelSunken(pixel)
             .padding(.top, Win95.Px.grid * pixel)

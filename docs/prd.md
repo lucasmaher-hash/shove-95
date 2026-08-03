@@ -195,7 +195,7 @@ public final class TaskItem {
 | Visible in tab T | matches T's bucket filter && `!isArchived` |
 | Chip label | overdue 1–6 days: weekday abbreviation of `dueDate` (`Mon`); ≥7 days: `Nd` (e.g. `12d`) |
 
-**The line:** `today ↔ tomorrow ↔ week ↔ general`. Swipe left = one step right on the line (defer); swipe right = one step left (pull forward). Ends rubber-band. Context menu shows only non-adjacent destinations: from Today `> Week`, `>> General`; from Tomorrow `> General`; from Week `< Today`; from General `< Tomorrow`, `<< Today` (arrow = direction of travel, count = distance).
+**The line:** `today ↔ tomorrow ↔ week ↔ general`. **Swipe right = defer** (one step toward General); **swipe left = pull forward** (one step toward Today). Reversed from the original spec on device feedback 2026-08-04: the taskbar reads Today | Tomorrow | Week | General left-to-right, so the row must travel the same direction as the destination tab — content follows the finger. Ends rubber-band. Context menu shows only non-adjacent destinations: from Today `> Week`, `>> General`; from Tomorrow `> General`; from Week `< Today`; from General `< Tomorrow`, `<< Today` (arrow = direction of travel, count = distance).
 
 ### Relationships
 
@@ -294,15 +294,15 @@ As Lucas, I want tasks parked in Week to surface in Tomorrow and then Today as t
 
 **US-003: One-flick defer**
 As Lucas, I want to push a task one step away with a left swipe, so that updating my plan costs nothing.
-- [ ] Given a task in Today, when I swipe it left past the commit threshold, then it slides off the edge, the list closes the gap, its date becomes tomorrow, and the status bar shows `{title} → Tomorrow` with Undo
-- [ ] Given a task in General, when I swipe left, then the row rubber-bands with a light haptic and nothing changes
+- [ ] Given a task in Today, when I swipe it **right** past the commit threshold, then it slides off the edge, the list closes the gap, its date becomes tomorrow, and the status bar shows `{title} → Tomorrow` with Undo
+- [ ] Given a task in General, when I swipe **right**, then the row rubber-bands with a light haptic and nothing changes
 - [ ] Given I swipe but release before the threshold, then the row springs back and nothing changes
 - [ ] Edge: swiping during an active scroll → scroll wins; no accidental move
 
 **US-004: One-flick pull-forward**
-As Lucas, I want to pull a task one step closer with a right swipe.
-- [ ] Given a task in Week, right swipe → it moves to Tomorrow
-- [ ] Given a task in Today, right swipe → rubber-band + haptic, no change
+As Lucas, I want to pull a task one step closer with a **left** swipe.
+- [ ] Given a task in Week, left swipe → it moves to Tomorrow
+- [ ] Given a task in Today, left swipe → rubber-band + haptic, no change
 
 **US-005: Long jump via menu**
 As Lucas, I want to send a task straight across the line, so that General → Today is not three swipes.
@@ -321,7 +321,7 @@ As Lucas, I want the last move or delete undoable until I act again.
 
 **US-007: Rapid inline capture**
 As Lucas, I want to add several tasks without the keyboard closing.
-- [ ] Given the add row is focused, when I type and hit return, then the task appends to the bottom of the active section and the field stays focused and empty
+- [ ] Given the add row is focused, when I type and hit return, then the task appends to the bottom of the active section and the keyboard dismisses
 - [ ] Return on an empty field → nothing created
 - [ ] The new task's date = the current tab's target date (General → nil)
 
@@ -379,7 +379,7 @@ Priorities: P0 = broken without it · P1 = incomplete without it · P2 = nice to
 Tabs are pure filters per DateEngine table (§3). No stored bucket, no rollover job. Acceptance: unit tests cover bucket assignment at boundary times (23:59/00:00), the Fri/Sat/Sun weekHorizon cases, and a 5-day-gap reopen. Related: US-001, US-002.
 
 **FR-002: Swipe = one step** — P0
-Custom horizontal drag on rows. Commit: translation > 40% of row width **or** velocity > 800pt/s in the swipe direction. Below threshold → spring back. At line ends → rubber-band (resistance ~0.3× translation) + light haptic. On commit: row animates off the screen edge (motion snapped to the pixel grid per design.md § Motion), gap closes, model updates synchronously. Gesture must fail fast on predominantly-vertical movement. Related: US-003, US-004.
+Custom horizontal drag on rows. **Right = defer, left = pull forward** (reversed 2026-08-04, see § Data Model > The line). The gesture must be hit-testable across the ENTIRE row, not just the drawn text. Commit: translation > 40% of row width **or** velocity > 800pt/s in the swipe direction. Below threshold → spring back. At line ends → rubber-band (resistance ~0.3× translation) + light haptic. On commit: row animates off the screen edge (motion snapped to the pixel grid per design.md § Motion), gap closes, model updates synchronously. Gesture must fail fast on predominantly-vertical movement. Related: US-003, US-004.
 
 **FR-003: Context menu** — P0
 `.contextMenu`: contextual move entries exactly per the table in §3, then `Mark as Important` / `Unmark Important`, `Attach photo` / `Replace photo` / `Remove photo`, then `Delete` (role: .destructive). Move entries labeled `< Tomorrow`, `<< Today`, `> Week`, `>> General` etc. Related: US-005, US-011.
@@ -391,7 +391,7 @@ Hold-without-move → menu; hold-with-move → reorder (navy row follows finger)
 Exactly the placement table in §3 — including `overduePlaced` semantics and the rollover pass trigger points (app active, significant time change). Acceptance: unit tests for each placement row, plus "dragged overdue task not re-placed next morning". Related: US-001, US-010.
 
 **FR-006: Inline add** — P0
-Permanent add row at list bottom (sunken field per design.md): return commits + keeps focus; empty return no-ops; camera glyph attaches a photo to a task created from current text (if text empty, glyph no-ops). Related: US-007.
+Permanent add row at list bottom (sunken field per design.md): return commits and **dismisses the keyboard** (reversed 2026-08-04 on device feedback); empty return no-ops; camera glyph attaches a photo to a task created from current text (if text empty, glyph no-ops). Related: US-007.
 
 **FR-007: Inline edit** — P0
 Tap text → edit in place. Commit on return or focus loss; empty → revert. Related: US-008.

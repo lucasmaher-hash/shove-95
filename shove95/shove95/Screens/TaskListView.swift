@@ -32,7 +32,7 @@ struct TaskListView: View {
                         Text("(empty)")
                             .font(W95Font.standard(pixel))
                             .foregroundStyle(Win95.shadow)
-                            .frame(maxWidth: .infinity, minHeight: Win95.rowMinHeight * 2)
+                            .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel) * 2)
                     }
 
                     ForEach(active, id: \.id) { task in

@@ -16,6 +16,28 @@ extension EnvironmentValues {
     @Entry var pixel: CGFloat = 2
 }
 
+// MARK: - Stepped Dynamic Type (design.md §7, FR-015)
+
+/// The pixel unit is the accessibility mechanism: the whole interface scales in
+/// WHOLE-pixel steps, exactly like changing display resolution on a CRT. Whole
+/// multiples keep the bitmap-derived font crisp — continuous scaling would land
+/// it on fractional sizes and turn it to mush.
+struct PixelScale: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var pixel: CGFloat {
+        switch typeSize {
+        case .xSmall, .small, .medium, .large, .xLarge: 2
+        case .xxLarge, .xxxLarge, .accessibility1, .accessibility2: 3
+        default: 4 // accessibility3 and above
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content.environment(\.pixel, pixel)
+    }
+}
+
 // MARK: - Palette (design.md §2 — six colors carry the whole interface)
 
 enum Win95 {
@@ -65,10 +87,15 @@ extension Win95 {
         static let fontSmall: CGFloat       = 8   // taskbar clock well
     }
 
-    /// Deliberate deviation from the 1995 spec (design.md §4): minimum touch
-    /// row height is a fixed 44pt at every pixel scale — Apple's tap minimum
-    /// overrides authenticity.
-    static let rowMinHeight: CGFloat = 44
+    /// Deliberate deviation from the 1995 spec (design.md §4): Apple's 44pt tap
+    /// minimum overrides authenticity. It is a FLOOR, not a fixed value — at 3×
+    /// and 4× the scaled checkbox is taller than 44pt, so the row must grow with
+    /// it or the control overflows its row (caught at 4× on 2026-08-04).
+    static let rowMinTouch: CGFloat = 44
+
+    static func rowHeight(_ pixel: CGFloat) -> CGFloat {
+        max(rowMinTouch, (Px.checkbox + Px.grid * 2) * pixel)
+    }
 }
 
 // MARK: - Hex helper
