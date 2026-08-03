@@ -14,17 +14,31 @@ public enum Placement {
     // MARK: - Insertion values
 
     /// New task via the add row → bottom of the incomplete section.
-    public static func sortOrderForNewTask(visible: [TaskItem]) -> Double {
-        (visible.last?.sortOrder ?? 0) + 1
+    ///
+    /// `allInBucket` is EVERY task currently mapping to the bucket — including
+    /// completed ones. Completed tasks keep their sortOrder (that's how
+    /// unticking restores the exact position), so the bottom anchor must clear
+    /// them too. Anchoring only on visible actives can hand a new task the
+    /// same sortOrder as a ticked task; when that task is unticked the tie
+    /// resolves arbitrarily and it lands at the bottom instead of its old spot
+    /// (bug report 2026-08-04).
+    public static func sortOrderForNewTask(allInBucket: [TaskItem]) -> Double {
+        (allInBucket.map(\.sortOrder).max() ?? 0) + 1
     }
 
     /// Task arriving from another tab (swipe or menu move).
     /// Normal → bottom. Important → under the destination's existing important
     /// block: after the last important, before the first non-important
     /// (locked decision Q16).
-    public static func sortOrderForArrival(isImportant: Bool, visible: [TaskItem]) -> Double {
+    ///
+    /// `visible` is the destination's visible incomplete tasks (the band
+    /// structure); `allInBucket` additionally includes completed tasks and is
+    /// used for any bottom anchor (see `sortOrderForNewTask`).
+    public static func sortOrderForArrival(
+        isImportant: Bool, visible: [TaskItem], allInBucket: [TaskItem]
+    ) -> Double {
         guard isImportant else {
-            return sortOrderForNewTask(visible: visible)
+            return sortOrderForNewTask(allInBucket: allInBucket)
         }
         let lastImportantIndex = visible.lastIndex(where: { $0.isImportant })
         guard let lastImportantIndex else {
@@ -33,8 +47,9 @@ public enum Placement {
         }
         let after = lastImportantIndex + 1
         guard after < visible.count else {
-            // Everything visible is important → bottom.
-            return visible[lastImportantIndex].sortOrder + 1
+            // Everything visible is important → bottom (past completed too).
+            return max(visible[lastImportantIndex].sortOrder + 1,
+                       sortOrderForNewTask(allInBucket: allInBucket))
         }
         return midpoint(visible[lastImportantIndex].sortOrder, visible[after].sortOrder)
     }

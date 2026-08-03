@@ -63,8 +63,20 @@ final class TaskStore {
     // MARK: Queries
 
     private func allTasksSorted() -> [TaskItem] {
-        let descriptor = FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.sortOrder)])
+        // createdAt is the deterministic tie-breaker: legacy data written before
+        // the 2026-08-04 collision fix can hold equal sortOrders, and midpoint
+        // math can in principle land on a completed task's order.
+        let descriptor = FetchDescriptor<TaskItem>(
+            sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)])
         return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// Every task currently mapping to the bucket — completed included.
+    /// Bottom-anchor placements must clear completed tasks' kept sortOrders,
+    /// or unticking loses its position (bug report 2026-08-04).
+    private func allInBucket(_ bucket: Bucket) -> [TaskItem] {
+        let now = now()
+        return allTasksSorted().filter { $0.bucket(now: now, calendar: calendar) == bucket }
     }
 
     /// A tab's visible tasks: active (by sortOrder) and completed-not-archived
@@ -107,7 +119,7 @@ final class TaskStore {
         let task = TaskItem()
         task.title = title
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
-        task.sortOrder = Placement.sortOrderForNewTask(visible: tasks(in: bucket).active)
+        task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
         context.insert(task)
         commit()
     }
@@ -135,13 +147,15 @@ final class TaskStore {
     /// arrival placement (important → under the destination's important block).
     func move(_ task: TaskItem, to bucket: Bucket) {
         let destinationActive = tasks(in: bucket).active.filter { $0 !== task }
+        let destinationAll = allInBucket(bucket).filter { $0 !== task }
         lastAction = .moved(
             taskID: task.id, title: task.title, to: bucket,
             previousDueDate: task.dueDate, previousSortOrder: task.sortOrder,
             previousOverduePlaced: task.overduePlaced)
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
         task.overduePlaced = false // dueDate changed → eligible for future rollover placement
-        task.sortOrder = Placement.sortOrderForArrival(isImportant: task.isImportant, visible: destinationActive)
+        task.sortOrder = Placement.sortOrderForArrival(
+            isImportant: task.isImportant, visible: destinationActive, allInBucket: destinationAll)
         commit()
     }
 
@@ -254,7 +268,7 @@ final class TaskStore {
                 task.dueDate = DateEngine.targetDate(for: bucket, now: now, calendar: calendar)
             }
             task.isImportant = important
-            task.sortOrder = Placement.sortOrderForNewTask(visible: tasks(in: bucket).active)
+            task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
             if important {
                 task.sortOrder = Placement.sortOrderForFlagImportant(visible: tasks(in: bucket).active)
             }
