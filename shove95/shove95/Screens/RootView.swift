@@ -2,9 +2,9 @@
 //  RootView.swift
 //  shove95
 //
-//  Phase-0 shell: four switchable tabs, no styling yet (the Win95 taskbar
-//  replaces the plain buttons in Phase 3). Tab switching is INSTANT — motion
-//  never accompanies appearance changes (design.md §8).
+//  Shell: tab switching + rollover triggers. Tab switching is INSTANT —
+//  motion never accompanies appearance changes (design.md §8). The plain
+//  button strip becomes the Win95 taskbar in Phase 3.
 //
 
 import SwiftUI
@@ -13,27 +13,26 @@ import Shove95Kit
 struct RootView: View {
     @State private var selected: Bucket = .today
     @Environment(\.pixel) private var pixel
+    @Environment(TaskStore.self) private var store
 
     var body: some View {
         VStack(spacing: 0) {
-            // Placeholder content area — replaced by the task list in Phase 1.
-            // Rendered in W95FA so the font registration (TASK-004) is verifiable on screen.
-            VStack(spacing: Win95.Px.grid * pixel) {
-                Text(selected.displayName)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-                Text("(empty)")
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.shadow)
+            TaskListView(bucket: selected)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            #if DEBUG
+            HStack {
+                Button("Seed debug data") { store.seedDebugData() }
+                    .font(.caption)
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Win95.highlight)
+            .padding(.horizontal)
+            #endif
 
             // Placeholder tab strip — becomes the Win95 taskbar in Phase 3.
             HStack(spacing: 0) {
                 ForEach(Bucket.line, id: \.self) { bucket in
                     Button {
-                        // Instant switch: suppress all implicit animation.
                         var t = Transaction()
                         t.disablesAnimations = true
                         withTransaction(t) { selected = bucket }
@@ -50,9 +49,9 @@ struct RootView: View {
             .background(Win95.surface)
         }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            // Fires at midnight, timezone changes, clock changes (PRD §2).
+            store.runDayRolloverPassIfNeeded()
+        }
     }
-}
-
-#Preview {
-    RootView()
 }

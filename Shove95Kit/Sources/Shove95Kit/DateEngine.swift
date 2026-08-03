@@ -1,0 +1,122 @@
+import Foundation
+
+/// Pure date logic (PRD §3). Every function takes `now` and `calendar`
+/// explicitly — no hidden `Date()` or `Calendar.current` anywhere, so all of
+/// it is deterministic under test. The app injects real values at the
+/// TaskStore boundary only.
+///
+/// Core invariant: tabs are TOTAL filters over `dueDate`. Every task maps to
+/// exactly one bucket at every moment — nothing can ever become invisible.
+/// `weekHorizon` is used only for date *assignment* (swipe-to-Week), never as
+/// an upper bound on the Week filter.
+public enum DateEngine {
+
+    // MARK: - Day boundaries
+
+    public static func startOfToday(now: Date, calendar: Calendar) -> Date {
+        calendar.startOfDay(for: now)
+    }
+
+    public static func startOfTomorrow(now: Date, calendar: Calendar) -> Date {
+        calendar.date(byAdding: .day, value: 1, to: startOfToday(now: now, calendar: calendar))!
+    }
+
+    public static func startOfDayAfterTomorrow(now: Date, calendar: Calendar) -> Date {
+        calendar.date(byAdding: .day, value: 2, to: startOfToday(now: now, calendar: calendar))!
+    }
+
+    // MARK: - Week horizon (the Sunday that "Week" assigns)
+
+    /// The week ends on Sunday by definition — locked in the plan, independent
+    /// of locale. Returns the Sunday of the current week if it is still
+    /// *after tomorrow* (i.e. reachable by the Week tab); otherwise the Sunday
+    /// after that. Encodes the Fri/Sat/Sun rollover:
+    ///   Mon–Fri → this Sunday · Sat/Sun → next Sunday.
+    public static func weekHorizon(now: Date, calendar: Calendar) -> Date {
+        let today = startOfToday(now: now, calendar: calendar)
+        let weekday = calendar.component(.weekday, from: today) // 1 = Sunday … 7 = Saturday
+        let daysUntilSunday = (8 - weekday) % 7                 // 0 when today is Sunday
+        let thisSunday = calendar.date(byAdding: .day, value: daysUntilSunday, to: today)!
+        let tomorrow = startOfTomorrow(now: now, calendar: calendar)
+        if thisSunday > tomorrow {
+            return thisSunday
+        }
+        return calendar.date(byAdding: .day, value: 7, to: thisSunday)!
+    }
+
+    // MARK: - Bucketing (total mapping)
+
+    /// Which tab a task with this `dueDate` belongs to. Total: never returns
+    /// "nothing". Past dates fall into `.today` — that IS the overdue
+    /// roll-forward; there is no rollover job (PRD §3).
+    public static func bucket(for dueDate: Date?, now: Date, calendar: Calendar) -> Bucket {
+        guard let dueDate else { return .general }
+        if dueDate < startOfTomorrow(now: now, calendar: calendar) { return .today }
+        if dueDate < startOfDayAfterTomorrow(now: now, calendar: calendar) { return .tomorrow }
+        return .week
+    }
+
+    /// The date a task receives when moved to `bucket` (PRD §3).
+    public static func targetDate(for bucket: Bucket, now: Date, calendar: Calendar) -> Date? {
+        switch bucket {
+        case .today: startOfToday(now: now, calendar: calendar)
+        case .tomorrow: startOfTomorrow(now: now, calendar: calendar)
+        case .week: weekHorizon(now: now, calendar: calendar)
+        case .general: nil
+        }
+    }
+
+    // MARK: - Task state
+
+    /// Overdue = dated in the past AND not done (PRD Q2). Completed tasks are
+    /// never overdue.
+    public static func isOverdue(dueDate: Date?, isCompleted: Bool, now: Date, calendar: Calendar) -> Bool {
+        guard let dueDate, !isCompleted else { return false }
+        return dueDate < startOfToday(now: now, calendar: calendar)
+    }
+
+    /// Archive rule (PRD §3): a completed *dated* task leaves its list at the
+    /// first midnight after completion; a completed *General* task leaves 24h
+    /// after completion.
+    public static func isArchived(
+        dueDate: Date?, isCompleted: Bool, completedAt: Date?, now: Date, calendar: Calendar
+    ) -> Bool {
+        guard isCompleted, let completedAt else { return false }
+        if dueDate != nil {
+            return completedAt < startOfToday(now: now, calendar: calendar)
+        }
+        return now.timeIntervalSince(completedAt) >= 24 * 60 * 60
+    }
+
+    /// Visibility in a tab: matches the bucket filter and is not archived.
+    public static func isVisible(
+        in tab: Bucket, dueDate: Date?, isCompleted: Bool, completedAt: Date?,
+        now: Date, calendar: Calendar
+    ) -> Bool {
+        bucket(for: dueDate, now: now, calendar: calendar) == tab
+            && !isArchived(dueDate: dueDate, isCompleted: isCompleted,
+                           completedAt: completedAt, now: now, calendar: calendar)
+    }
+}
+
+// MARK: - TaskItem conveniences (thin forwarding — logic stays above)
+
+extension TaskItem {
+    public func bucket(now: Date, calendar: Calendar) -> Bucket {
+        DateEngine.bucket(for: dueDate, now: now, calendar: calendar)
+    }
+
+    public func isOverdue(now: Date, calendar: Calendar) -> Bool {
+        DateEngine.isOverdue(dueDate: dueDate, isCompleted: isCompleted, now: now, calendar: calendar)
+    }
+
+    public func isArchived(now: Date, calendar: Calendar) -> Bool {
+        DateEngine.isArchived(dueDate: dueDate, isCompleted: isCompleted,
+                              completedAt: completedAt, now: now, calendar: calendar)
+    }
+
+    public func isVisible(in tab: Bucket, now: Date, calendar: Calendar) -> Bool {
+        DateEngine.isVisible(in: tab, dueDate: dueDate, isCompleted: isCompleted,
+                             completedAt: completedAt, now: now, calendar: calendar)
+    }
+}
