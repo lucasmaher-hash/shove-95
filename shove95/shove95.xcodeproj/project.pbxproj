@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA10000000000000000000A3 /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A2 /* Shove95Kit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		A698723A3020F6EC0009D035 /* shove95.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shove95.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA10000000000000000000A3 /* Shove95Kit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = shove95;
 			packageProductDependencies = (
+				AA10000000000000000000A2 /* Shove95Kit */,
 			);
 			productName = shove95;
 			productReference = A698723A3020F6EC0009D035 /* shove95.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = A69872313020F6EC0009D035;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA10000000000000000000A1 /* XCLocalSwiftPackageReference "../Shove95Kit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A698723B3020F6EC0009D035 /* Products */;
 			projectDirPath = "";
@@ -349,6 +358,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA10000000000000000000A1 /* XCLocalSwiftPackageReference "../Shove95Kit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Shove95Kit";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA10000000000000000000A2 /* Shove95Kit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Shove95Kit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A69872323020F6EC0009D035 /* Project object */;
 }

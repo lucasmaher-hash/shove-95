@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Shove95Kit
 
 @main
 struct shove95App: App {
