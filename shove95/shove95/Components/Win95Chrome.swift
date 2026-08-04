@@ -243,8 +243,11 @@ struct Taskbar: View {
         // The bar itself still spans edge to edge — it is the taskbar — but the
         // buttons are inset so they don't run into the bezel.
         .padding(.horizontal, Win95.Px.grid * pixel)
-        .padding(.vertical, pixel)
-        .frame(height: Win95.Px.taskbar * pixel)
+        // Asymmetric: the extra room goes ABOVE the buttons, so the panel is
+        // taller without the buttons changing size.
+        .padding(.top, Win95.Px.taskbarTopInset * pixel + pixel)
+        .padding(.bottom, pixel)
+        .frame(height: (Win95.Px.taskbar + Win95.Px.taskbarTopInset) * pixel)
         // ONE slab, not two: the surface extends through the home-indicator
         // area to the physical bottom, and the bevel is a top edge only — a
         // docked Win95 taskbar has no bottom bevel, and the full raised frame

@@ -103,6 +103,9 @@ extension Win95 {
         static let titleBarControlW: CGFloat = 16
         static let titleBarControlH: CGFloat = 14
         static let taskbar: CGFloat         = 28
+        /// Extra breathing room above the taskbar buttons — the panel grows by
+        /// this, the buttons don't (founder request 2026-08-04).
+        static let taskbarTopInset: CGFloat = 4
         static let statusBar: CGFloat       = 12
         static let scrollbar: CGFloat       = 16  // macOS-relevant
         static let thumbnail: CGFloat       = 32  // photo thumbnail (64pt @2×)

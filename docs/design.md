@@ -99,7 +99,7 @@ All derived from the 1995 spec. Point values shown at 2×.
 | Checkbox | 12×12px | 24×24pt | Tap target extended invisibly to 44pt |
 | Title bar | 18px tall | 36pt | Gear (or ✕ on Settings) at the trailing edge |
 | Title bar control | 16×14px | 32×28pt | Raised bevel, pixel glyph |
-| Taskbar | 28px tall | 56pt | Extends into the home-indicator safe area. The bar spans edge to edge; buttons are inset one grid unit so they don't run into the bezel |
+| Taskbar | 32px tall | 64pt | Extends into the home-indicator safe area. The bar spans edge to edge; buttons are inset one grid unit so they don't run into the bezel, and 4px of the height sits ABOVE them as breathing room — the panel grew, the buttons did not |
 | Status panel | 12px tall | 24pt | Floats above the taskbar; only present after an action |
 | Scrollbar | 16px wide | 32pt | Hidden on iOS; relevant for macOS |
 | List row | — | **44pt min** | Spec rows are 14px/28pt — too small for a thumb. Deliberate deviation. |
