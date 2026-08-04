@@ -68,14 +68,54 @@ struct BevelBorder: View {
     }
 }
 
+/// The same two nested frames, but the SAME pair of colours on all four sides:
+/// no light source, so no lit edge. Used for the big list well, where the lit
+/// bottom-right of a true bevel read as an uneven border rather than as depth
+/// (founder request 2026-08-04). Small controls keep the real bevel — at chip
+/// and button size the lighting is what makes them look pressable.
+struct EvenBorder: View {
+    let pixel: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let p = pixel
+
+            ZStack(alignment: .topLeading) {
+                frame(width: w, height: h, inset: 0, thickness: p).fill(Win95.shadow)
+                frame(width: w, height: h, inset: p, thickness: p).fill(Win95.darkShadow)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// One closed rectangular ring, drawn as four filled rects on the pixel
+    /// grid so every edge lands on a whole pixel at 2×/3×/4×.
+    private func frame(width w: CGFloat, height h: CGFloat,
+                       inset: CGFloat, thickness t: CGFloat) -> Path {
+        var path = Path()
+        path.addRect(CGRect(x: inset, y: inset, width: w - inset * 2, height: t))
+        path.addRect(CGRect(x: inset, y: h - inset - t, width: w - inset * 2, height: t))
+        path.addRect(CGRect(x: inset, y: inset, width: t, height: h - inset * 2))
+        path.addRect(CGRect(x: w - inset - t, y: inset, width: t, height: h - inset * 2))
+        return path
+    }
+}
+
 extension View {
     /// Raised bevel — buttons, taskbar, window body, thumbnail frames.
     func bevelRaised(_ pixel: CGFloat) -> some View {
         overlay(BevelBorder(style: .raised, pixel: pixel))
     }
 
-    /// Sunken bevel — text fields, the list well, status-bar panels, chips.
+    /// Sunken bevel — text fields, status-bar panels, chips.
     func bevelSunken(_ pixel: CGFloat) -> some View {
         overlay(BevelBorder(style: .sunken, pixel: pixel))
+    }
+
+    /// Even border — the list well only. See `EvenBorder`.
+    func bevelEven(_ pixel: CGFloat) -> some View {
+        overlay(EvenBorder(pixel: pixel))
     }
 }

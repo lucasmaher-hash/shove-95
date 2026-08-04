@@ -14,6 +14,17 @@ import SwiftUI
 extension EnvironmentValues {
     /// One 1995 pixel in points. 2 = default scale; 3/4 = stepped Dynamic Type.
     @Entry var pixel: CGFloat = 2
+
+    /// The active scheme, carried through the environment so SwiftUI can SEE it.
+    ///
+    /// The palette itself is served by `Win95`'s static accessors, which SwiftUI
+    /// cannot track: a view whose inputs are unchanged is never re-rendered, so
+    /// it keeps painting the old colours. `TitleBar` hit this exactly — its
+    /// inputs (title, isClose, closure) don't move when the scheme does, so the
+    /// Settings window's own title bar stayed on the previous palette while
+    /// everything around it repainted. Views that must repaint on a scheme
+    /// change read this value and paint from it.
+    @Entry var win95Scheme: Win95Scheme = .classic
 }
 
 // MARK: - Stepped Dynamic Type (design.md §7, FR-015)
@@ -41,29 +52,40 @@ struct PixelScale: ViewModifier {
 // MARK: - Palette (design.md §2 — six colors carry the whole interface)
 
 enum Win95 {
+    /// The active colour scheme. Set by AppSettings; RootView rebuilds its
+    /// subtree when it changes (see `.id(settings.scheme.id)`), which is what
+    /// makes these computed properties re-read.
+    nonisolated(unsafe) static var scheme: Win95Scheme = .classic
+
     // Chrome
-    static let surface     = Color(hex: 0xC0C0C0) // every chrome surface
-    static let highlight   = Color(hex: 0xFFFFFF) // bevel outer top-left (raised); list well bg
-    static let light       = Color(hex: 0xDFDFDF) // bevel inner top-left (raised)
-    static let shadow      = Color(hex: 0x808080) // bevel inner bottom-right (raised); secondary text
-    static let darkShadow  = Color(hex: 0x0A0A0A) // bevel outer bottom-right (raised)
-    static let text        = Color(hex: 0x222222) // all primary text
+    static var surface: Color     { Color(hex: scheme.surface) }
+    static var highlight: Color   { Color(hex: scheme.highlight) }
+    static var light: Color       { Color(hex: scheme.light) }
+    static var shadow: Color      { Color(hex: scheme.shadow) }
+    static var darkShadow: Color  { Color(hex: scheme.darkShadow) }
+    static var text: Color        { Color(hex: scheme.text) }
+    /// The list well behind the tasks.
+    static var well: Color        { Color(hex: scheme.well) }
 
     // Accents — one meaning each (design.md §2)
-    static let important        = Color(hex: 0xFF0000) // Important tasks. Nothing else is red.
-    static let titleActiveA     = Color(hex: 0x000080) // title bar gradient start (the app's only gradient)
-    static let titleActiveB     = Color(hex: 0x1084D0) // title bar gradient end
-    static let titleInactiveA   = Color(hex: 0x808080) // macOS only
-    static let titleInactiveB   = Color(hex: 0xB5B5B5) // macOS only
-    static let selectionBG      = Color(hex: 0x000080) // row being dragged/swiped
-    static let selectionText    = Color(hex: 0xFFFFFF)
-    static let desktop          = Color(hex: 0x008080) // teal — macOS only, unused on iOS
+    /// Important tasks. Red in EVERY scheme: colour carries exactly one
+    /// meaning, so this is deliberately not themeable.
+    static let important = Color(hex: 0xFF0000)
+    static var titleActiveA: Color   { Color(hex: scheme.titleA) }
+    static var titleActiveB: Color   { Color(hex: scheme.titleB) }
+    static var selectionBG: Color    { Color(hex: scheme.selectionBG) }
+    static var selectionText: Color  { Color(hex: scheme.selectionText) }
+    static var statusBG: Color     { Color(hex: scheme.statusBG) }
+    /// The theme's signature colour (the title bar's dark stop) — used for
+    /// small accents like the add-photo plus.
+    static var accent: Color       { Color(hex: scheme.titleA) }
+    static var statusAccent: Color { Color(hex: scheme.statusAccent) }
+    static let desktop = Color(hex: 0x008080) // teal — macOS only
 
-    static let titleBarGradient = LinearGradient(
-        colors: [titleActiveA, titleActiveB],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
+    static var titleBarGradient: LinearGradient {
+        LinearGradient(colors: [titleActiveA, titleActiveB],
+                       startPoint: .leading, endPoint: .trailing)
+    }
 }
 
 // MARK: - Metrics (design.md §4 — spec px → pt = value × pixel)
@@ -75,11 +97,15 @@ extension Win95 {
         static let grid: CGFloat            = 4   // spacing grid: 2/4/8/16/24
         static let buttonMinWidth: CGFloat  = 75
         static let buttonMinHeight: CGFloat = 23
+        static let buttonCompact: CGFloat   = 16  // Default/Delete in Settings
         static let checkbox: CGFloat        = 12
         static let titleBar: CGFloat        = 18
         static let titleBarControlW: CGFloat = 16
         static let titleBarControlH: CGFloat = 14
         static let taskbar: CGFloat         = 28
+        /// Extra breathing room above the taskbar buttons — the panel grows by
+        /// this, the buttons don't (founder request 2026-08-04).
+        static let taskbarTopInset: CGFloat = 4
         static let statusBar: CGFloat       = 12
         static let scrollbar: CGFloat       = 16  // macOS-relevant
         static let thumbnail: CGFloat       = 32  // photo thumbnail (64pt @2×)

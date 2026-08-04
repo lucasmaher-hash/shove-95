@@ -11,29 +11,40 @@ import SwiftUI
 // MARK: - Button
 
 /// Surface fill + raised bevel. Pressed = sunken bevel with the label offset
-/// one pixel down-right. The flip is INSTANT — appearance never animates
-/// (design.md §8).
+/// one pixel down-right — every control that opens or does something presses
+/// in first (founder direction 2026-08-04). Built on Button so the press state
+/// rides UIKit's touch pipeline: the old zero-distance DragGesture version
+/// violated design.md §13 and froze any ScrollView it sat in.
 struct Win95Button<Label: View>: View {
     @Environment(\.pixel) private var pixel
     var action: () -> Void
+    /// Vertically slimmer variant for dense settings rows.
+    var compact: Bool = false
     @ViewBuilder var label: Label
 
-    @State private var isPressed = false
-
     var body: some View {
-        label
-            .padding(.horizontal, Win95.Px.grid * 2 * pixel)
-            .frame(minHeight: Win95.Px.buttonMinHeight * pixel)
-            .offset(x: isPressed ? pixel : 0, y: isPressed ? pixel : 0)
+        Button(action: action) {
+            label
+                .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+                .frame(minHeight: (compact ? Win95.Px.buttonCompact
+                                           : Win95.Px.buttonMinHeight) * pixel)
+        }
+        .buttonStyle(Win95ButtonStyle(pixel: pixel))
+    }
+}
+
+/// The press-in: bevel inverts and the label nudges one pixel down-right.
+/// The flip itself is instant (design.md §8) — the press IS the animation.
+struct Win95ButtonStyle: ButtonStyle {
+    let pixel: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .offset(x: configuration.isPressed ? pixel : 0,
+                    y: configuration.isPressed ? pixel : 0)
             .background(Win95.surface)
-            .modifier(BevelSwitch(isPressed: isPressed, pixel: pixel))
+            .modifier(BevelSwitch(isPressed: configuration.isPressed, pixel: pixel))
             .contentShape(Rectangle())
-            .onTapGesture { action() }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in isPressed = false }
-            )
     }
 }
 
@@ -64,7 +75,7 @@ struct Win95Checkbox: View {
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(Win95.highlight)
+                .fill(Win95.well)
                 .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                 .bevelSunken(pixel)
 
@@ -106,21 +117,27 @@ private struct CheckmarkGlyph: Shape {
 
 // MARK: - Sunken well
 
-/// The white list box the tasks live in (design.md §5).
+/// The white list box the tasks live in (design.md §5). Its border is EVEN,
+/// not bevelled: at this size the lit bottom-right of a true bevel stopped
+/// reading as depth and just looked like an uneven frame (founder request
+/// 2026-08-04). Small controls keep the real bevel.
 struct SunkenWell<Content: View>: View {
     @Environment(\.pixel) private var pixel
     @ViewBuilder var content: Content
 
     var body: some View {
         content
-            .background(Win95.highlight)
-            .bevelSunken(pixel)
+            .background(Win95.well)
+            .bevelEven(pixel)
     }
 }
 
 // MARK: - Date chip
 
 /// A miniature sunken status-bar panel holding the overdue date (design.md §5).
+/// Overdue chip: a solid rectangle in the theme's status tint with the date in
+/// black — no bevel, no outline (founder restyle 2026-08-04, filled rather than
+/// framed; the sunken mini-well and then the outline both read as clutter).
 struct DateChip: View {
     @Environment(\.pixel) private var pixel
     let label: String
@@ -128,10 +145,9 @@ struct DateChip: View {
     var body: some View {
         Text(label)
             .font(W95Font.small(pixel))
-            .foregroundStyle(Win95.shadow)
+            .foregroundStyle(Win95.text)
             .padding(.horizontal, Win95.Px.grid * pixel)
             .padding(.vertical, pixel)
-            .background(Win95.surface)
-            .bevelSunken(pixel)
+            .background(Win95.statusAccent)
     }
 }

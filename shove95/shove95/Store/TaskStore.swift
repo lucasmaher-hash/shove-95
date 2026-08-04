@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 import Shove95Kit
 
 // MARK: - Undo record (PRD §4)
@@ -24,6 +25,7 @@ struct TaskSnapshot {
     let sortOrder: Double
     let overduePlaced: Bool
     let photoData: Data?
+    let extraPhotos: [Data]
 }
 
 enum LastAction {
@@ -31,10 +33,11 @@ enum LastAction {
                previousDueDate: Date?, previousSortOrder: Double, previousOverduePlaced: Bool)
     case deleted(snapshot: TaskSnapshot)
 
-    /// Status-bar text (voice rules: terse, no exclamation marks).
-    var statusText: String {
+    /// Status-panel text (voice rules: terse, no exclamation marks).
+    /// `name` resolves the destination label so renamed tabs read correctly.
+    func statusText(name: (Bucket) -> String) -> String {
         switch self {
-        case let .moved(_, title, destination, _, _, _): "\(title) → \(destination.displayName)"
+        case let .moved(_, title, destination, _, _, _): "\(title) → \(name(destination))"
         case let .deleted(snapshot): "\(snapshot.title) deleted"
         }
     }
@@ -53,8 +56,22 @@ final class TaskStore {
     /// the CloudKit phase adds a remote-change observer that bumps it too.
     private(set) var revision = 0
 
-    /// Single-level undo, persistent until replaced (PRD FR-009).
+    /// Single-level undo (PRD FR-009). The panel that surfaces it retires
+    /// itself on a timer — it reports a change, it is not standing chrome.
     private(set) var lastAction: LastAction?
+
+    /// Retires the status panel without undoing anything.
+    func dismissLastAction() {
+        lastAction = nil
+    }
+
+    /// The active workspace. nil = the default workspace (and every task
+    /// created before workspaces existed). RootView keeps this in sync with
+    /// AppSettings; every query below is scoped to it, so switching workspace
+    /// swaps the entire visible world in one assignment.
+    var workspaceID: String? {
+        didSet { revision += 1 }
+    }
 
     init(context: ModelContext) {
         self.context = context
@@ -68,7 +85,37 @@ final class TaskStore {
         // math can in principle land on a completed task's order.
         let descriptor = FetchDescriptor<TaskItem>(
             sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)])
-        return (try? context.fetch(descriptor)) ?? []
+        let all = (try? context.fetch(descriptor)) ?? []
+        // Workspace scoping happens HERE, the one choke point every query uses,
+        // so buckets, archive, placement and rollover are all scoped for free.
+        return all.filter { $0.workspaceID == workspaceID }
+    }
+
+    /// Rescue pass: any task stamped with a workspace that no longer exists is
+    /// invisible in every tab, forever. That is silent data loss, so on launch
+    /// the orphans fold back into the default workspace. (It first happened for
+    /// real — the workspace list wasn't being persisted, so every relaunch
+    /// minted new ids and stranded the tasks written against the old ones.)
+    func reclaimOrphanedTasks(knownIDs: Set<String>) {
+        let descriptor = FetchDescriptor<TaskItem>()
+        var rescued = false
+        for task in (try? context.fetch(descriptor)) ?? [] {
+            if let id = task.workspaceID, !knownIDs.contains(id) {
+                task.workspaceID = nil
+                rescued = true
+            }
+        }
+        if rescued { commit() }
+    }
+
+    /// Workspace deletion: its tasks fold back into the default workspace
+    /// rather than being destroyed — deleting a label must never delete work.
+    func reassignTasksToDefaultWorkspace(from id: String) {
+        let descriptor = FetchDescriptor<TaskItem>()
+        for task in (try? context.fetch(descriptor)) ?? [] where task.workspaceID == id {
+            task.workspaceID = nil
+        }
+        commit()
     }
 
     /// Every task currently mapping to the bucket — completed included.
@@ -112,6 +159,29 @@ final class TaskStore {
             .sorted { $0.day > $1.day }
     }
 
+    // MARK: Photos (Phase 4, pulled forward 2026-08-04)
+
+    /// Appends — photos accumulate left to right in the order added.
+    func addPhoto(_ task: TaskItem, data: Data?) {
+        guard let data else { return }
+        task.addPhoto(data)
+        commit()
+    }
+
+    /// Import rule from the model doc: long edge ≤ 2048px, JPEG q0.8.
+    nonisolated static func downscaledJPEG(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let longEdge = max(image.size.width, image.size.height)
+        let scale = min(1, 2048 / longEdge)
+        let target = CGSize(width: image.size.width * scale,
+                            height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: target)
+        let scaled = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target))
+        }
+        return scaled.jpegData(compressionQuality: 0.8)
+    }
+
     // MARK: Mutations
 
     /// Creates in the given bucket with bottom placement. Whitespace-only
@@ -124,6 +194,7 @@ final class TaskStore {
 
         let task = TaskItem()
         task.title = title
+        task.workspaceID = workspaceID // born into the active workspace
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
         task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
         context.insert(task)
@@ -136,7 +207,17 @@ final class TaskStore {
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
+        let changed = title != task.title
         task.title = title
+        // An overdue task whose text was actually rewritten is a NEW task in
+        // spirit — it re-dates to today and the overdue chip disappears
+        // (founder request 2026-08-04). Tapping in and out without changing
+        // anything keeps the chip.
+        if changed, let due = task.dueDate,
+           due < calendar.startOfDay(for: now()) {
+            task.dueDate = calendar.startOfDay(for: now())
+            task.overduePlaced = false
+        }
         commit()
     }
 
@@ -193,7 +274,8 @@ final class TaskStore {
             title: task.title, dueDate: task.dueDate, isImportant: task.isImportant,
             isCompleted: task.isCompleted, completedAt: task.completedAt,
             createdAt: task.createdAt, sortOrder: task.sortOrder,
-            overduePlaced: task.overduePlaced, photoData: task.photoData))
+            overduePlaced: task.overduePlaced, photoData: task.photoData,
+            extraPhotos: task.extraPhotos))
         context.delete(task)
         commit()
     }
@@ -201,35 +283,6 @@ final class TaskStore {
     /// Long-press-drag reorder (TASK-025): move `task` by whole row steps
     /// within its bucket's active list. Free placement — the user's order is
     /// theirs afterwards (locked Q17-B).
-    func reorder(_ task: TaskItem, byRowSteps steps: Int) {
-        guard steps != 0 else { return }
-        let bucket = task.bucket(now: now(), calendar: calendar)
-        let active = tasks(in: bucket).active
-        guard let index = active.firstIndex(where: { $0 === task }) else { return }
-        let target = max(0, min(active.count - 1, index + steps))
-        guard target != index else { return }
-        var rest = active
-        rest.remove(at: index)
-        let above = target > 0 ? rest[target - 1].sortOrder : nil
-        let below = target < rest.count ? rest[target].sortOrder : nil
-        reorder(task, betweenSortOrders: above, and: below)
-    }
-
-    /// Drag-reorder to a slot between two neighbors' sortOrders.
-    func reorder(_ task: TaskItem, betweenSortOrders above: Double?, and below: Double?) {
-        task.sortOrder = Placement.sortOrder(between: above, and: below)
-        let bucket = task.bucket(now: now(), calendar: calendar)
-        let visible = tasks(in: bucket).active
-        if Placement.needsRenormalization(visible: visible) {
-            for (t, order) in Placement.renormalized(visible: visible) {
-                t.sortOrder = order
-            }
-        }
-        commit()
-    }
-
-    /// Restores the last move (exact position, date, and rollover flag) or
-    /// resurrects the last delete. Single level; cleared after use.
     func undoLastAction() {
         switch lastAction {
         case let .moved(taskID, _, _, previousDueDate, previousSortOrder, previousOverduePlaced):
@@ -249,6 +302,7 @@ final class TaskStore {
             task.sortOrder = snapshot.sortOrder
             task.overduePlaced = snapshot.overduePlaced
             task.photoData = snapshot.photoData
+            task.extraPhotos = snapshot.extraPhotos
             context.insert(task)
         case nil:
             return

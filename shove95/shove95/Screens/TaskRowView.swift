@@ -2,75 +2,74 @@
 //  TaskRowView.swift
 //  shove95
 //
-//  The row carries the app's core interactions:
-//   · horizontal pan  → one step along the line; rubber-band at dead ends (FR-002)
-//   · long-press hold → context menu: contextual moves, Important, Delete (FR-003)
-//   · tap checkbox    → complete · tap text → inline edit (FR-007)
-//  Styling is still Phase-1 plain; the Win95 skin lands in Phase 3.
+//  One task row. Rebuilt from scratch 2026-08-04 against the interaction
+//  contract in design.md §16 — read that table first; this file implements it
+//  line by line and nothing else.
+//
+//  Division of labour:
+//    · RowInteraction.swift  — the UIKit touch state machine (no SwiftUI
+//      gestures exist on this row; §16 records why)
+//    · this file             — layout, visual state, and the handlers the
+//      state machine calls
+//    · TaskListView          — zIndex for the lifted row, neighbours parting,
+//      scrollDisabled while armed, keyboard lifting
 //
 
 import SwiftUI
+import PhotosUI
 import Shove95Kit
 
 struct TaskRowView: View {
     let task: TaskItem
+
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
+    @Environment(EditingCoordinator.self) private var editing
     @Environment(\.pixel) private var pixel
 
-    // Reorder session (FR-004). Same long-press that opens the menu: holding
-    // still shows it, moving cancels it and picks the row up instead.
-    @State private var isReordering = false
-    @State private var reorderOffset: CGFloat = 0
-    @State private var rowFrame: CGRect = .zero
+    // Visual state
+    @State private var isPressing = false
+    @State private var dragOffset: CGFloat = 0      // horizontal, swipe
+    @State private var rubberBandBuzzed = false
 
+    // Geometry
+    @State private var rowFrame: CGRect = .zero
+    @State private var rowWidth: CGFloat = 390
+
+    // Inline edit
     @State private var isEditing = false
     @State private var draft = ""
     @FocusState private var editFocused: Bool
 
-    // Swipe state (FR-002)
-    @State private var dragOffset: CGFloat = 0
-    @State private var rubberBandBuzzed = false
-    @State private var rowWidth: CGFloat = 390
+    // Photos
+    @State private var showPhotoPicker = false
+    @State private var pickedItem: PhotosPickerItem?
+    /// Index into task.allPhotos of the photo open in the viewer.
+    @State private var viewerIndex: Int?
+    /// Which thumbnail is mid press-in (the tiny open animation).
+    @State private var pressedThumb: Int?
+    /// One photo per edit session: the plus disappears after a pick and
+    /// returns the next time the task enters edit mode.
+    @State private var addedPhotoThisEdit = false
 
-    /// Per-gesture axis decision; reset on end.
-    private enum PanAxis { case undecided, horizontal, vertical }
-    @State private var panAxis: PanAxis = .undecided
+    // Swipe commit thresholds (§16: one flick, not a screen-crossing drag).
+    // The distance bar scales with RUNWAY: a swipe starting right of centre
+    // physically can't travel 86pt before the screen edge, which made
+    // off-text swipes on short rows bounce forever (traced 2026-08-04:
+    // dx 83 against a bar of 86). Half of what the finger COULD travel,
+    // capped at 22% of the row.
+    private static let commitFraction: CGFloat = 0.22
+    private static let runwayFraction: CGFloat = 0.5
+    private static let commitVelocity: CGFloat = 300
+    private static let rubberResistance: CGFloat = 0.3
 
-    private static let commitFraction: CGFloat = 0.4   // >40% of row width
-    private static let commitVelocity: CGFloat = 800   // or >800 pt/s
-    private static let rubberResistance: CGFloat = 0.3 // dead-end drag factor
-
-    // ─────────────────────────────────────────────────────────────────────
-    // TASK-019 SPIKE RESULT + TASK-025 DEFERRAL (2026-08-04)
-    //
-    // Container: ScrollView + LazyVStack, NOT List. List's cell machinery
-    // consumes horizontal pans before row-level SwiftUI gestures see them, so
-    // the swipe never fires inside it (proven: the identical gesture fires on
-    // the same view outside List). Full record in TaskListView.
-    //
-    // Reorder (TASK-025) is DEFERRED TO PHASE 3. Four approaches were built
-    // and isolation-tested here; none can coexist with the system context menu:
-    //   · SwiftUI LongPressGesture on the row  → suppresses .contextMenu
-    //     entirely (menu reappears the instant the gesture is removed)
-    //   · .draggable / .dropDestination        → same suppression
-    //   · UIGestureRecognizerRepresentable     → recognizer is never even
-    //     instantiated (makeUIGestureRecognizer never called), in List or
-    //     ScrollView
-    //   · sequenced LongPress→Drag             → fires no phases at all here
-    //
-    // The clean fix is to stop using the system menu — which Phase 3 requires
-    // regardless, since it has rounded corners, blur, and translucency, all
-    // three prohibited by design.md §9. Once the menu is a hand-drawn Win95
-    // popup driven by our own long-press, one gesture owns both branches and
-    // the locked rule (hold-still → menu, hold-and-move → reorder) falls out.
-    // `TaskStore.reorder(_:byRowSteps:)` is already implemented and waiting.
-    // ─────────────────────────────────────────────────────────────────────
+    // MARK: - Body
 
     var body: some View {
-        rowContent
-            .onAppear { dragOffset = 0 } // stale-state guard: row identity survives tab switches
+        content
             .offset(x: dragOffset)
+            .scaleEffect(isPressing ? 0.97 : 1, anchor: .center)
+            .animation(.spring(duration: 0.22), value: isPressing)
             .background {
                 GeometryReader { proxy in
                     Color.clear
@@ -81,209 +80,316 @@ struct TaskRowView: View {
                         .task { rowFrame = proxy.frame(in: .global) }
                 }
             }
-            .offset(y: reorderOffset)
-            .zIndex(isReordering ? 1 : 0)
-            .simultaneousGesture(swipeGesture)
-            .simultaneousGesture(pressInteraction)
+            .onAppear { dragOffset = 0 } // row identity survives tab switches
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
             .accessibilityActions { accessibilityMoveActions }
     }
 
-    // MARK: - Content
+    // MARK: - Layout
 
-    private var rowContent: some View {
-        HStack(spacing: Win95.Px.grid * pixel) {
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            mainLine
+            if !task.allPhotos.isEmpty {
+                photoStrip
+            }
+        }
+        // Touch sandwich (§16 trap 4): catcher above the colour fill, below
+        // the content. Checkbox and TextField win their own touches; no
+        // contentShape anywhere on this stack.
+        .background(RowGestureView(handlers: gestureHandlers))
+        .background(rowBackground)
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
+        .onChange(of: pickedItem) { _, item in
+            guard let item else { return }
+            Task { @MainActor in
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    store.addPhoto(task, data: TaskStore.downscaledJPEG(from: data))
+                    addedPhotoThisEdit = true // the plus retires for this session
+                }
+                pickedItem = nil
+            }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { viewerIndex != nil },
+            set: { if !$0 { viewerIndex = nil } }
+        )) {
+            if let index = viewerIndex, index < task.allPhotos.count,
+               let image = UIImage(data: task.allPhotos[index]) {
+                PhotoViewer(title: task.title, image: image) {
+                    // Closing stays instant (locked Q16).
+                    var t = Transaction(); t.disablesAnimations = true
+                    withTransaction(t) { viewerIndex = nil }
+                }
+                .presentationBackground(Color.black.opacity(0.55))
+            }
+        }
+    }
+
+    private var mainLine: some View {
+        // .top: the checkbox belongs on the FIRST line of a wrapped task.
+        HStack(alignment: .top, spacing: Win95.Px.grid * pixel) {
             Win95Checkbox(isChecked: task.isCompleted) {
-                store.toggleCompleted(task)
+                // Position changes always animate (design.md §8).
+                withAnimation(.spring(duration: 0.35)) {
+                    store.toggleCompleted(task)
+                }
             }
 
             if isEditing {
-                TextField("", text: $draft)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-                    .focused($editFocused)
-                    .onSubmit { commitEdit() }
-                    .onChange(of: editFocused) { _, focused in
-                        if !focused { commitEdit() }
-                    }
+                editor
             } else {
-                Text(task.title)
-                    .font(W95Font.standard(pixel))
-                    .strikethrough(task.isCompleted)
-                    // Colour carries exactly one meaning: red = Important.
-                    // Completed is grey + strikethrough; overdue is the chip.
-                    .foregroundStyle(isReordering ? Win95.selectionText
-                                     : (task.isCompleted ? Win95.shadow
-                                        : (task.isImportant ? Win95.important : Win95.text)))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard !task.isCompleted else { return }
-                        draft = task.title
-                        isEditing = true
-                        editFocused = true
-                    }
+                title
             }
 
-            Spacer(minLength: Win95.Px.grid * pixel)
-
-            // Trailing chip column — fixed width so chips align (locked Q23).
-            Group {
-                if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
-                                               now: store.now(), calendar: store.calendar) {
-                    DateChip(label: chip)
-                }
-            }
-            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
+            trailingColumn
         }
         .padding(.trailing, Win95.Px.grid * pixel)
         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
-        .background(isReordering ? Win95.selectionBG : Win95.highlight) // navy while dragged
-        .contentShape(Rectangle())   // the ENTIRE row is swipeable, not just the text
     }
 
-    // MARK: - Swipe
-    //
-    // DIRECTION REVERSED 2026-08-04 on device feedback. The original spec said
-    // left = defer, but that fights the taskbar: the tabs read
-    // Today | Tomorrow | Week | General left-to-right, so dragging a row LEFT
-    // should carry it toward the LEFT tab (Today = pull forward) and dragging
-    // RIGHT should carry it toward the right tabs (defer). Content follows the
-    // finger, which is what a spatial interface demands.
-    //   swipe left  → pull forward (toward Today)
-    //   swipe right → defer        (toward General)
+    private var title: some View {
+        Text(task.title)
+            .font(W95Font.standard(pixel))
+            .strikethrough(task.isCompleted)
+            // Colour carries one meaning: red = Important. Completed is grey.
+            .foregroundStyle(task.isCompleted ? Win95.shadow
+                             : (task.isImportant ? Win95.important : Win95.text))
+            .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
+            .padding(.vertical, firstLineInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .allowsHitTesting(false) // the ROW owns tap-to-edit
+    }
 
-    private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 12, coordinateSpace: .local)
-            .onChanged { value in
-                guard !task.isCompleted else { return } // completed rows don't move
-                let t = value.translation
-                switch panAxis {
-                case .undecided:
-                    // Decide the axis once per gesture (the spike's core rule).
-                    if abs(t.width) > abs(t.height) * 1.2 {
-                        panAxis = .horizontal
-                    } else {
-                        panAxis = .vertical // scroll owns this touch; stay out
-                    }
-                case .vertical:
-                    break
-                case .horizontal:
-                    let direction: StepDirection = t.width < 0 ? .pullOne : .deferOne
-                    if currentBucket.steppedOnce(direction) == nil {
-                        // Dead end: resistance + one light haptic (FR-002/021).
-                        dragOffset = snapped(t.width * Self.rubberResistance)
-                        if abs(t.width) > 20, !rubberBandBuzzed {
-                            rubberBandBuzzed = true
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
-                    } else {
-                        dragOffset = snapped(t.width)
+    private var editor: some View {
+        // Wraps by itself as the text grows — the only way a task gains a
+        // line. Return commits: intercepted in the binding (§16).
+        TextField("", text: returnCommitting, axis: .vertical)
+            .font(W95Font.standard(pixel))
+            .foregroundStyle(Win95.text)
+            .lineLimit(1...6)
+            .focused($editFocused)
+            .submitLabel(.done)
+            .onChange(of: editFocused) { _, focused in
+                if !focused { commitEdit() }
+            }
+            .padding(.vertical, firstLineInset)
+    }
+
+    private var trailingColumn: some View {
+        Group {
+            if isEditing && !addedPhotoThisEdit {
+                // Add-photo plus: a bare glyph in the theme colour, not a
+                // button. One photo per edit session — the plus retires after
+                // a pick and returns on the next edit.
+                PlusGlyph()
+                    .fill(Win95.accent)
+                    .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                    .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                    .contentShape(Rectangle())
+                    .onTapGesture { showPhotoPicker = true }
+                    .accessibilityLabel("Add photo")
+            } else if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                                  now: store.now(), calendar: store.calendar) {
+                DateChip(label: chip)
+                    .allowsHitTesting(false)
+            }
+        }
+        // Pinned to the first line's band, however tall the row grows.
+        .frame(width: Win95.Px.grid * 8 * pixel,
+               height: Win95.rowHeight(pixel), alignment: .trailing)
+    }
+
+    /// Thumbnails accumulate LEFT TO RIGHT in the order added. Tapping one
+    /// presses it in briefly — you see the press — then the viewer opens
+    /// (founder request 2026-08-04). Closing stays instant.
+    private var photoStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Win95.Px.grid * pixel) {
+                ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
+                    if let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: Win95.Px.thumbnail * 2 * pixel,
+                                   height: Win95.Px.thumbnail * pixel)
+                            .clipped()
+                            .bevelSunken(pixel)
+                            .scaleEffect(pressedThumb == index ? 0.92 : 1)
+                            .animation(.easeOut(duration: 0.1), value: pressedThumb)
+                            .contentShape(Rectangle())
+                            .onTapGesture { openViewer(index) }
+                            .accessibilityLabel("Photo \(index + 1), opens in a window")
                     }
                 }
             }
-            .onEnded { value in
-                let axis = panAxis
-                panAxis = .undecided
-                rubberBandBuzzed = false
-                guard axis == .horizontal, !task.isCompleted else { return }
+            .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
+            .padding(.trailing, Win95.Px.grid * pixel)
+            .padding(.bottom, Win95.Px.grid * pixel)
+        }
+    }
 
-                let translation = value.translation.width
-                let velocity = value.velocity.width
-                let direction: StepDirection = translation < 0 ? .pullOne : .deferOne
+    private func openViewer(_ index: Int) {
+        pressedThumb = index
+        Task { @MainActor in
+            // Long enough to SEE the press, short enough to feel instant.
+            try? await Task.sleep(for: .milliseconds(140))
+            pressedThumb = nil
+            var t = Transaction(); t.disablesAnimations = true
+            withTransaction(t) { viewerIndex = index }
+        }
+    }
 
-                let overThreshold = abs(translation) > rowWidth * Self.commitFraction
-                    || abs(velocity) > Self.commitVelocity
-                let sameSign = (translation < 0) == (velocity < 0) || abs(velocity) < 50
+    // MARK: - Visual state
 
-                guard currentBucket.steppedOnce(direction) != nil,
-                      overThreshold, sameSign else {
-                    withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
-                    return
-                }
+    private var rowBackground: Color {
+        // One rule (founder 2026-08-04): whenever the row is the thing being
+        // ACTED ON — pressed, menu open, mid-swipe, or in edit mode — it
+        // carries the same held-grey tint.
+        if isPressing || isMenuOpen || isEditing || dragOffset != 0 {
+            return Win95.light
+        }
+        return Win95.well
+    }
 
-                // Commit: slide off the screen edge, then the model updates and
-                // the list closes the gap (FR-002; motion = position only).
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.easeOut(duration: 0.15)) {
-                    dragOffset = translation < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
-                }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(150))
-                    withAnimation(.spring(duration: 0.25)) {
-                        store.step(task, direction: direction)
-                    }
-                    dragOffset = 0 // row identity survives the move; clear the committed offset
-                }
-            }
+    private var isMenuOpen: Bool { menu.isShowing(task) }
+
+    /// Half the slack between one text line and the 44pt row band. Padding
+    /// rather than centring: line one lands identically whether the row is one
+    /// line or four. Measured from the real font so it holds at 2×/3×/4×.
+    private var firstLineInset: CGFloat {
+        let lineHeight = UIFont(name: W95Font.postScriptName,
+                                size: Win95.Px.fontStandard * pixel)?.lineHeight
+            ?? Win95.Px.fontStandard * pixel * 1.2
+        return max(0, (Win95.rowHeight(pixel) - lineHeight) / 2)
     }
 
     /// Movement travels in whole 1995-pixels — smooth but quantised, like a
-    /// sprite (design.md §8). Appearance changes stay instant.
+    /// sprite (design.md §8).
     private func snapped(_ value: CGFloat) -> CGFloat {
         (value / pixel).rounded() * pixel
-    }
-
-    /// The menu drops from the row's bottom-left, like a Win95 menu dropping
-    /// from a menu-bar title.
-    private var menuAnchor: CGPoint {
-        CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel, y: rowFrame.maxY)
     }
 
     private var currentBucket: Bucket {
         task.bucket(now: store.now(), calendar: store.calendar)
     }
 
-    // MARK: - Long-press: menu vs reorder (locked Q10 rule)
-    //
-    // Hold still → the Win95 menu opens at the finger.
-    // Hold and move vertically → the menu is cancelled and the row is picked up.
-    // One gesture owns both branches, which is only possible because the
-    // system context menu is gone (it swallowed the long-press entirely).
+    // MARK: - Gesture handlers (one per contract row, §16)
 
-    private var pressInteraction: some Gesture {
-        LongPressGesture(minimumDuration: 0.4, maximumDistance: 24)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
+    private var gestureHandlers: RowGestureHandlers {
+        RowGestureHandlers(
+            onPressChanged: { isPressing = $0 },
+            onTap: handleTap,
+            onHold: handleHold,
+            onSwipeChanged: swipeChanged,
+            onSwipeEnded: swipeEnded,
+            onSwipeCancelled: swipeCancelled
+        )
+    }
 
-                guard let drag else {
-                    // Press recognised, finger still: open the menu.
-                    if !isReordering, menu.request == nil {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        menu.show(task: task, at: menuAnchor)
-                    }
-                    return
-                }
+    /// Tap → inline edit. Blocked on completed rows.
+    private func handleTap() {
+        guard !task.isCompleted, !isEditing else { return }
+        draft = task.title
+        isEditing = true
+        addedPhotoThisEdit = false // fresh session, the plus returns
+        editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
+        // Focus must land AFTER the TextField exists. Setting it in the same
+        // pass that creates the field is a race — sometimes the keyboard never
+        // came up because focus was applied to a view not yet in the tree.
+        Task { @MainActor in editFocused = true }
+    }
 
-                if abs(drag.translation.height) > 10, !task.isCompleted {
-                    // The finger travelled: this is a reorder, not a menu.
-                    if !isReordering {
-                        isReordering = true
-                        menu.dismiss()
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    }
-                    reorderOffset = snapped(drag.translation.height)
-                }
+    /// Hold → menu just BELOW the row, so the task it acts on stays visible
+    /// (founder request 2026-08-04 — anchored at the top it covered the row).
+    /// Global→local conversion happens in MenuOverlay.
+    private func handleHold() {
+        guard !isEditing else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        menu.show(task: task, at: CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel,
+                                          y: rowFrame.maxY + Win95.Px.grid * pixel))
+    }
+
+    /// Swipe left = pull forward (toward Today), right = defer (toward
+    /// General) — content follows the finger, matching the taskbar's order.
+    private func swipeChanged(_ dx: CGFloat) {
+        guard !task.isCompleted else { return }
+        let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
+        if currentBucket.steppedOnce(direction) == nil {
+            // Dead end: rubber-band + one light haptic.
+            dragOffset = snapped(dx * Self.rubberResistance)
+            if abs(dx) > 20, !rubberBandBuzzed {
+                rubberBandBuzzed = true
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
-            .onEnded { _ in
-                let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
-                let wasReordering = isReordering
-                isReordering = false
-                reorderOffset = 0
-                guard wasReordering, steps != 0 else { return }
-                UISelectionFeedbackGenerator().selectionChanged()
-                withAnimation(.spring(duration: 0.25)) {
-                    store.reorder(task, byRowSteps: steps)
-                }
+        } else {
+            dragOffset = snapped(dx)
+        }
+    }
+
+    private func swipeEnded(_ dx: CGFloat, velocity: CGFloat, startX: CGFloat) {
+        rubberBandBuzzed = false
+        guard !task.isCompleted else { return }
+
+        let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
+        let runway = dx > 0 ? max(1, rowWidth - startX) : max(1, startX)
+        let bar = min(rowWidth * Self.commitFraction, runway * Self.runwayFraction)
+        let overThreshold = abs(dx) > bar || abs(velocity) > Self.commitVelocity
+        let sameSign = (dx < 0) == (velocity < 0) || abs(velocity) < 50
+
+        guard currentBucket.steppedOnce(direction) != nil, overThreshold, sameSign else {
+            withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
+            return
+        }
+
+        // Commit: slide off the edge, then the model moves and the list
+        // closes the gap.
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.easeOut(duration: 0.15)) {
+            dragOffset = dx < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            withAnimation(.spring(duration: 0.25)) {
+                store.step(task, direction: direction)
             }
+            dragOffset = 0 // row identity survives the move
+        }
+    }
+
+    private func swipeCancelled() {
+        rubberBandBuzzed = false
+        guard dragOffset != 0 else { return }
+        withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
+    }
+
+    // MARK: - Inline edit
+
+    /// Return commits (§16): a vertical-axis TextField inserts a newline
+    /// instead of firing onSubmit, so the newline is intercepted in the
+    /// binding — before it lands — and the focus change is deferred a runloop
+    /// turn (inline it runs mid-update and SwiftUI drops it).
+    private var returnCommitting: Binding<String> {
+        Binding(
+            get: { draft },
+            set: { new in
+                guard new.contains("\n") else { draft = new; return }
+                draft = new.replacingOccurrences(of: "\n", with: "")
+                Task { @MainActor in editFocused = false } // commit follows
+            }
+        )
+    }
+
+    private func commitEdit() {
+        guard isEditing else { return }
+        isEditing = false
+        editing.end(task.id.uuidString)
+        store.editTitle(task, to: draft) // empty draft → store reverts
     }
 
     // MARK: - VoiceOver (FR-016)
-    // The swipe is custom, so every move must also exist as a named action or
-    // the app's core interaction is unreachable without sight.
+    // The swipe is custom, so every move must also exist as a named action.
 
     private var accessibilityDescription: String {
         var parts = [task.title]
@@ -317,12 +423,69 @@ struct TaskRowView: View {
         }
         Button("Delete") { store.delete(task) }
     }
+}
 
-    // MARK: - Inline edit
+// MARK: - Photo pieces
 
-    private func commitEdit() {
-        guard isEditing else { return }
-        isEditing = false
-        store.editTitle(task, to: draft) // empty draft → store reverts (no-op)
+/// Bare pixel plus on a 12×12 grid — an affordance, not a button (no bevel).
+private struct PlusGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        var path = Path()
+        path.addRect(CGRect(x: 5 * u, y: 1 * u, width: 2 * u, height: 10 * u))
+        path.addRect(CGRect(x: 1 * u, y: 5 * u, width: 10 * u, height: 2 * u))
+        return path
+    }
+}
+
+/// Photo viewer, redesigned 2026-08-04: a floating Win95 window at ~3/4 of
+/// the screen that HUGS the image — title bar with ✕ on top, image inside a
+/// bevelled frame. The app stays visible behind, dimmed. Only the ✕ or the
+/// dimmed background closes it; the image itself is inert. Opens after the
+/// thumbnail's press-in; closes instantly.
+private struct PhotoViewer: View {
+    @Environment(\.pixel) private var pixel
+    let title: String
+    let image: UIImage
+    var onClose: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // The dimmed background IS the close control (besides the ✕).
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onClose)
+
+                window(maxWidth: geo.size.width * 0.75,
+                       maxHeight: geo.size.height * 0.75)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .preferredColorScheme(.light)
+    }
+
+    private func window(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        // The window wraps the image: scale to fit 3/4 of the screen, then
+        // size the chrome to the image — the frame hugs, never letterboxes.
+        let scale = min(maxWidth / image.size.width,
+                        (maxHeight - Win95.Px.titleBar * pixel) / image.size.height)
+        let fitted = CGSize(width: image.size.width * scale,
+                            height: image.size.height * scale)
+
+        return VStack(spacing: 0) {
+            TitleBar(title: title, isClose: true, onSettings: onClose)
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: fitted.width, height: fitted.height)
+                .padding(pixel * 2)
+                .background(Win95.surface)
+        }
+        .frame(width: fitted.width + pixel * 4)
+        .bevelRaised(pixel)
+        // Swallow taps so only the ✕ and the background close the window.
+        .contentShape(Rectangle())
+        .onTapGesture {}
     }
 }
