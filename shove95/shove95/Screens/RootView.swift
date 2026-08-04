@@ -128,7 +128,10 @@ struct RootView: View {
         }
         // The store's queries are all scoped to the active workspace; keep it
         // pointed at the one the user picked, including across relaunches.
-        .onAppear { store.workspaceID = settings.currentWorkspace.taskStampID }
+        .onAppear {
+            store.reclaimOrphanedTasks(knownIDs: settings.knownWorkspaceStampIDs)
+            store.workspaceID = settings.currentWorkspace.taskStampID
+        }
         .onChange(of: settings.currentWorkspaceID) {
             store.workspaceID = settings.currentWorkspace.taskStampID
         }

@@ -154,8 +154,23 @@ struct TaskRowView: View {
         }
     }
 
+    /// Half the slack between one line of text and the 44pt row band. Padding
+    /// the text by this on both sides centres a SINGLE line against the
+    /// checkbox, and — because it's padding rather than centring — leaves the
+    /// FIRST line of a wrapped title in exactly the same place while the rest
+    /// flow downward (founder request 2026-08-04). Measured from the real font
+    /// so it stays correct at 2×/3×/4×.
+    private var firstLineInset: CGFloat {
+        let lineHeight = UIFont(name: W95Font.postScriptName,
+                                size: Win95.Px.fontStandard * pixel)?.lineHeight
+            ?? Win95.Px.fontStandard * pixel * 1.2
+        return max(0, (Win95.rowHeight(pixel) - lineHeight) / 2)
+    }
+
     private var mainLine: some View {
-        HStack(spacing: Win95.Px.grid * pixel) {
+        // .top, not centre: the checkbox belongs on the first line of a wrapped
+        // task, not floating halfway down the block.
+        HStack(alignment: .top, spacing: Win95.Px.grid * pixel) {
             Win95Checkbox(isChecked: task.isCompleted) {
                 // Position changes always animate (design.md §8): the row
                 // travels to or from the completed section rather than jumping.
@@ -176,6 +191,7 @@ struct TaskRowView: View {
                     .onChange(of: editFocused) { _, focused in
                         if !focused { commitEdit() }
                     }
+                    .padding(.vertical, firstLineInset)
             } else {
                 Text(task.title)
                     .font(W95Font.standard(pixel))
@@ -186,10 +202,10 @@ struct TaskRowView: View {
                                      : (task.isCompleted ? Win95.shadow
                                         : (task.isImportant ? Win95.important : Win95.text)))
                     .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
+                    .padding(.vertical, firstLineInset)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .allowsHitTesting(false) // the ROW owns tap-to-edit (see body)
             }
-
-            Spacer(minLength: Win95.Px.grid * pixel)
 
             // Trailing column: while editing, the add-photo plus — a bare
             // glyph in the theme colour, deliberately not a button (founder
@@ -209,7 +225,10 @@ struct TaskRowView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
+            // Fixed to the first row's band so the chip and the plus ride the
+            // first line too, however tall the row grows.
+            .frame(width: Win95.Px.grid * 8 * pixel,
+                   height: Win95.rowHeight(pixel), alignment: .trailing)
         }
         .padding(.trailing, Win95.Px.grid * pixel)
         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))

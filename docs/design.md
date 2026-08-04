@@ -222,6 +222,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 |---|---|
 | Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap |
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
+| Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
 | Photo viewer open | **Instant.** No transition. |

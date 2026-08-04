@@ -90,6 +90,23 @@ final class TaskStore {
         return all.filter { $0.workspaceID == workspaceID }
     }
 
+    /// Rescue pass: any task stamped with a workspace that no longer exists is
+    /// invisible in every tab, forever. That is silent data loss, so on launch
+    /// the orphans fold back into the default workspace. (It first happened for
+    /// real — the workspace list wasn't being persisted, so every relaunch
+    /// minted new ids and stranded the tasks written against the old ones.)
+    func reclaimOrphanedTasks(knownIDs: Set<String>) {
+        let descriptor = FetchDescriptor<TaskItem>()
+        var rescued = false
+        for task in (try? context.fetch(descriptor)) ?? [] {
+            if let id = task.workspaceID, !knownIDs.contains(id) {
+                task.workspaceID = nil
+                rescued = true
+            }
+        }
+        if rescued { commit() }
+    }
+
     /// Workspace deletion: its tasks fold back into the default workspace
     /// rather than being destroyed — deleting a label must never delete work.
     func reassignTasksToDefaultWorkspace(from id: String) {

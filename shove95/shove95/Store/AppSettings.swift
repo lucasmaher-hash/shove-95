@@ -48,11 +48,23 @@ final class AppSettings {
 
     /// All workspaces, default first. Always contains at least the default.
     private(set) var workspaces: [Workspace] {
-        didSet {
-            if let data = try? JSONEncoder().encode(workspaces) {
-                UserDefaults.standard.set(data, forKey: Key.workspaces)
-            }
+        didSet { persistWorkspaces() }
+    }
+
+    /// Called explicitly from `init` as well as from `didSet`: property
+    /// observers do NOT fire during initialization, so the first-run list was
+    /// built, used, and never written. Every relaunch then minted a fresh
+    /// "Work" with a fresh UUID, orphaning the tasks stamped with the old one.
+    private func persistWorkspaces() {
+        if let data = try? JSONEncoder().encode(workspaces) {
+            UserDefaults.standard.set(data, forKey: Key.workspaces)
         }
+    }
+
+    /// Every workspace id a task may legitimately carry. Anything else is a
+    /// leftover from a deleted or lost workspace.
+    var knownWorkspaceStampIDs: Set<String> {
+        Set(workspaces.compactMap(\.taskStampID))
     }
 
     var currentWorkspaceID: String {
@@ -92,6 +104,8 @@ final class AppSettings {
 
         let current = UserDefaults.standard.string(forKey: Key.currentWorkspace)
         currentWorkspaceID = loaded.contains { $0.id == current } ? current! : Workspace.defaultID
+
+        persistWorkspaces() // didSet doesn't fire in init — see above
     }
 
     // MARK: Workspaces
