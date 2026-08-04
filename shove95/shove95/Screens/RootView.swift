@@ -15,6 +15,7 @@ struct RootView: View {
     @State private var showSettings = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
+    @State private var menu = MenuCoordinator()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,6 +40,8 @@ struct RootView: View {
             Taskbar(selected: $selected)
         }
         .background(Win95.surface)
+        .environment(menu)
+        .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
