@@ -26,6 +26,7 @@ struct TaskListView: View {
     let bucket: Bucket
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
+    @Environment(ReorderCoordinator.self) private var reorder
 
     var body: some View {
         let (active, completed) = store.tasks(in: bucket)
@@ -39,14 +40,23 @@ struct TaskListView: View {
                         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel) * 2)
                 }
 
-                ForEach(active, id: \.id) { task in
-                    TaskRowView(task: task)
+                ForEach(Array(active.enumerated()), id: \.element.id) { index, task in
+                    TaskRowView(task: task, index: index)
+                        // Applied HERE, not inside the row: zIndex only orders
+                        // a stack's own children, so from inside the row it was
+                        // ignored and a downward drag slid under its neighbours.
+                        .zIndex(reorder.isDragging(task.id) ? 1 : 0)
+                        .offset(y: reorder.isDragging(task.id) ? 0
+                                : reorder.displacement(for: index,
+                                                       rowHeight: Win95.rowHeight(pixel)))
                 }
+                // Rows part around the lifted one as it travels.
+                .animation(.spring(duration: 0.22), value: reorder.steps)
 
                 if !completed.isEmpty {
                     Color.clear.frame(height: Win95.Px.grid * 2 * pixel)
                     ForEach(completed, id: \.id) { task in
-                        TaskRowView(task: task)
+                        TaskRowView(task: task, index: nil) // completed rows don't reorder
                     }
                 }
 
@@ -56,5 +66,12 @@ struct TaskListView: View {
             .padding(.vertical, Win95.Px.grid * pixel)
         }
         .scrollDismissesKeyboard(.interactively)
+        // A row that has just been long-pressed owns the vertical axis; without
+        // this the scroll view swallows the pan and the reorder never starts.
+        .scrollDisabled(reorder.isArmed)
+        // Bounce at both ends even when the list is shorter than the well —
+        // the give at the limit is what tells you the list ended (founder
+        // request 2026-08-04).
+        .scrollBounceBehavior(.always, axes: .vertical)
     }
 }

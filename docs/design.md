@@ -222,7 +222,8 @@ What did *not* change: appearance is still instant. The title text swaps with no
 |---|---|
 | Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap |
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
-| Drag to reorder | The real row follows the finger, rendered navy/white; other rows part to make space |
+| Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
+| Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
 | Photo viewer open | **Instant.** No transition. |
 | Photo viewer close | **Instant.** No transition. |
 | Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |
@@ -293,3 +294,37 @@ All four tabs are renamable (`AppSettings`, UserDefaults-backed). Renaming chang
 **label only** — `Bucket` semantics are date-derived and untouched, so a tab called
 "Heute" still means today. An empty field restores the built-in name. At 4× the custom
 name truncates to three characters, matching the built-in abbreviations.
+
+
+---
+
+## 13. The row's gesture budget *(added 2026-08-04)*
+
+**A task row may attach exactly ONE `DragGesture`, and its `minimumDistance` must
+be greater than zero.** This is not a style preference — it is the constraint that
+makes a scrollable list with per-row gestures possible at all.
+
+A `DragGesture(minimumDistance: 0)` claims the touch the instant the finger lands,
+and the enclosing `ScrollView` never sees the pan. The list simply stops scrolling.
+Two separate additions each did this independently: the reorder, built as
+`LongPressGesture.sequenced(before: DragGesture(minimumDistance: 0))`, and a press
+tint built on its own zero-distance drag. Bisected on device — with only the swipe
+gesture attached the list scrolls; adding either of those back stops it dead.
+
+The arrangement that works:
+
+| Need | Mechanism |
+|---|---|
+| Press tint | `LongPressGesture` + `@GestureState` — yields to the scroll view, and resets itself on cancel so nothing sticks on |
+| Menu | The same `LongPressGesture`'s `onEnded` |
+| Swipe *and* reorder | One `DragGesture(minimumDistance: 12)`; once the press has armed the row, the same pan drives the reorder instead of the swipe |
+
+One more trap sits behind this. The `ScrollView` wins **every** vertical pan, so
+even a correctly-configured row drag never sees one and the reorder never starts.
+The list therefore sets `.scrollDisabled` the moment a row is armed — which is why
+`ReorderCoordinator` exposes "armed" as state the list can read, separately from
+"currently dragging".
+
+And `.zIndex` only orders a stack's **own** children: applied inside the row's body
+it is ignored, so a row dragged downward slides underneath every row it passes. It
+belongs on the `ForEach` child in `TaskListView`.

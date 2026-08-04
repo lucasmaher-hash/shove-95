@@ -32,6 +32,15 @@ struct shove95App: App {
                 .environment(settings)
                 .environment(\.win95Scheme, settings.scheme)
                 .modifier(PixelScale()) // stepped 2×/3×/4× (FR-015)
+                #if DEBUG
+                // Seeding by launch argument keeps the debug controls off the
+                // screen: `simctl launch … -seedFillers YES`.
+                .task {
+                    if UserDefaults.standard.bool(forKey: "seedFillers") {
+                        store.seedScrollFillers()
+                    }
+                }
+                #endif
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, newPhase in

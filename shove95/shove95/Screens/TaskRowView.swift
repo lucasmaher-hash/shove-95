@@ -14,8 +14,11 @@ import Shove95Kit
 
 struct TaskRowView: View {
     let task: TaskItem
+    /// Position in the active list — nil for completed rows, which don't reorder.
+    let index: Int?
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
+    @Environment(ReorderCoordinator.self) private var reorder
     @Environment(\.pixel) private var pixel
 
     // Reorder session (FR-004). Same long-press that opens the menu: holding
@@ -23,8 +26,9 @@ struct TaskRowView: View {
     @State private var isReordering = false
     @State private var reorderOffset: CGFloat = 0
     @State private var rowFrame: CGRect = .zero
-    @State private var isPressing = false
+    @GestureState private var isPressing = false
     @State private var didLongPress = false
+
 
     @State private var isEditing = false
     @State private var draft = ""
@@ -87,10 +91,8 @@ struct TaskRowView: View {
             .animation(.spring(duration: 0.22), value: isPressing)
             .animation(.easeOut(duration: 0.12), value: isMenuOpen)
             .offset(y: reorderOffset)
-            .zIndex(isReordering ? 1 : 0)
-            .simultaneousGesture(swipeGesture)
-            .simultaneousGesture(pressInteraction)
-            .simultaneousGesture(pressFeedback)
+            .simultaneousGesture(panGesture)
+            .simultaneousGesture(pressGesture)
             .onTapGesture {
                 // A long press ends with a lift, which SwiftUI also reports as
                 // a tap — so a plain tap handler would open the keyboard every
@@ -168,15 +170,18 @@ struct TaskRowView: View {
 
     private var isMenuOpen: Bool { menu.isShowing(task) }
 
-    /// Touch-down / touch-up only — it never claims the touch, so the swipe and
-    /// the long press are unaffected.
-    private var pressFeedback: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in if !isPressing { isPressing = true } }
-            .onEnded { _ in isPressing = false }
-    }
-
-    // MARK: - Swipe
+    // MARK: - Pan: swipe, or reorder once armed
+    //
+    // SCROLLING (fixed 2026-08-04). This row may attach exactly ONE DragGesture.
+    // The reorder used to be `LongPressGesture.sequenced(before: DragGesture(
+    // minimumDistance: 0))`, and a press tint added a second
+    // `DragGesture(minimumDistance: 0)`. Either one stops the enclosing
+    // ScrollView dead — a zero-distance drag claims the touch the instant the
+    // finger lands, so the scroll view never sees the pan. Bisected on device:
+    // with only this gesture attached the list scrolls; adding the sequenced
+    // one back stops it. So the long press is now a press MODIFIER (which
+    // yields to the scroll view), and once it succeeds this same pan handles
+    // the reorder.
     //
     // DIRECTION REVERSED 2026-08-04 on device feedback. The original spec said
     // left = defer, but that fights the taskbar: the tabs read
@@ -187,9 +192,13 @@ struct TaskRowView: View {
     //   swipe left  → pull forward (toward Today)
     //   swipe right → defer        (toward General)
 
-    private var swipeGesture: some Gesture {
+    private var panGesture: some Gesture {
         DragGesture(minimumDistance: 12, coordinateSpace: .local)
             .onChanged { value in
+                if reorder.isArmed(task.id) {
+                    trackReorder(value.translation.height)
+                    return
+                }
                 guard !task.isCompleted else { return } // completed rows don't move
                 let t = value.translation
                 switch panAxis {
@@ -217,6 +226,7 @@ struct TaskRowView: View {
                 }
             }
             .onEnded { value in
+                if isReordering { finishReorder(); return }
                 let axis = panAxis
                 panAxis = .undecided
                 rubberBandBuzzed = false
@@ -270,50 +280,57 @@ struct TaskRowView: View {
 
     // MARK: - Long-press: menu vs reorder (locked Q10 rule)
     //
-    // Hold still → the Win95 menu opens at the finger.
-    // Hold and move vertically → the menu is cancelled and the row is picked up.
-    // One gesture owns both branches, which is only possible because the
-    // system context menu is gone (it swallowed the long-press entirely).
+    // Hold still → the Win95 menu opens at the row's bottom-left.
+    // Hold, then move → the menu is cancelled and the row is picked up instead.
+    // Both branches are still owned by one press, which is only possible
+    // because the system context menu is gone (it swallowed the long press
+    // entirely). The difference now is that the press is a MODIFIER and the
+    // drag is the row's one pan gesture — see the scroll note above.
 
-    private var pressInteraction: some Gesture {
+    /// Touch-down tints the row; success at 0.4s arms it and opens the menu.
+    /// `@GestureState` resets the tint by itself when the touch ends or is
+    /// cancelled — no manual cleanup, and nothing left stuck on.
+    private var pressGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.4, maximumDistance: 24)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
+            .updating($isPressing) { value, state, _ in state = value }
+            .onEnded { _ in longPressSucceeded() }
+    }
 
-                guard let drag else {
-                    // Press recognised, finger still: open the menu.
-                    if !isReordering, menu.request == nil {
-                        didLongPress = true
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        menu.show(task: task, at: menuAnchor)
-                    }
-                    return
-                }
+    private func longPressSucceeded() {
+        guard !isReordering else { return }
+        reorder.arm(taskID: task.id)
+        didLongPress = true
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        menu.show(task: task, at: menuAnchor)
+    }
 
-                if abs(drag.translation.height) > 10, !task.isCompleted {
-                    // The finger travelled: this is a reorder, not a menu.
-                    if !isReordering {
-                        isReordering = true
-                        didLongPress = true
-                        menu.dismiss()
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    }
-                    reorderOffset = snapped(drag.translation.height)
-                }
-            }
-            .onEnded { _ in
-                isPressing = false
-                let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
-                let wasReordering = isReordering
-                isReordering = false
-                reorderOffset = 0
-                guard wasReordering, steps != 0 else { return }
-                UISelectionFeedbackGenerator().selectionChanged()
-                withAnimation(.spring(duration: 0.25)) {
-                    store.reorder(task, byRowSteps: steps)
-                }
-            }
+    /// The armed pan: the row rides the finger and its neighbours part.
+    private func trackReorder(_ height: CGFloat) {
+        guard !task.isCompleted, let index else { return }
+        if !isReordering {
+            isReordering = true
+            menu.dismiss() // moving means this was never a menu
+            reorder.begin(taskID: task.id, at: index)
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        reorderOffset = snapped(height)
+        let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
+        if steps != reorder.steps {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.spring(duration: 0.22)) { reorder.update(steps: steps) }
+        }
+    }
+
+    private func finishReorder() {
+        let steps = reorder.steps
+        isReordering = false
+        reorderOffset = 0
+        reorder.end()
+        guard steps != 0 else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.spring(duration: 0.25)) {
+            store.reorder(task, byRowSteps: steps)
+        }
     }
 
     // MARK: - VoiceOver (FR-016)

@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
+    @State private var reorder = ReorderCoordinator()
 
     /// Which way the last tab change travelled — decided before `selected`
     /// moves, so both halves of the transition agree on a direction.
@@ -94,6 +95,12 @@ struct RootView: View {
         // instead of riding up with the keyboard.
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .environment(menu)
+        .environment(reorder)
+        // Closing the menu also disarms, restoring scrolling. A live drag keeps
+        // its armed state — it dismisses the menu the moment it starts moving.
+        .onChange(of: menu.request?.taskID) { _, id in
+            if id == nil { reorder.disarm() }
+        }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
