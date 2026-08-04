@@ -253,27 +253,36 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 4. Then read only the Reference sections listed above. Continue from the first unchecked task, marking each complete. When done: branch `phase-4/photos`, commit, push, PR."
 
-- [ ] **TASK-043** — Image import + downscale pipeline
+- [x] **TASK-043** — Image import + downscale pipeline
   Files: `Shove95/Store/ImageImport.swift`, `Shove95/Store/TaskStore.swift`
   Notes: `attachPhoto(_:imageData:)`: decode, downscale to ≤2048px long edge, re-encode JPEG q0.8 (UIGraphicsImageRenderer; strip orientation into pixels), store in `photoData`. `removePhoto`. Failure → leave task unchanged, no crash. Verify: attach a 48MP HDR photo → stored blob < ~1.5MB, orientation correct.
 
-- [ ] **TASK-044** — Photo picker + camera entry points
+- [x] **TASK-044** — Photo picker + camera entry points *(partially superseded)*
+  DEVIATION: no context-menu photo entries — the ✚ in edit mode is the single
+  add affordance (one photo per edit session), and removal lives in the viewer
+  where you can see the photo you are deleting. The add row has no camera glyph;
+  capture happens on an existing task.
   Files: `Shove95/Screens/TaskRowView.swift`, `Shove95/Screens/AddRowView.swift`
   Notes: Context menu gains `Attach photo` / `Replace photo` / `Remove photo` (contextual); presents `PhotosPicker` or camera via confirmation of source (simple menu: Camera / Library). Add-row camera glyph enables: creates task from current text + opens picker (no-op on empty text). Camera needs `NSCameraUsageDescription`. Verify: attach via both entry points; replace swaps; remove clears.
 
-- [ ] **TASK-045** — Row thumbnail
+- [x] **TASK-045** — Row thumbnail
   Files: `Shove95/Screens/TaskRowView.swift`
   Notes: 64pt (=`32px`) thumbnail below the text, left-aligned with the text (not the checkbox), sunken bevel frame, `.interpolation(.none)` off — use normal interpolation for the photo itself (it's a photo, not pixel art), bevel stays crisp. Row grows to ~120pt; others stay 44pt. Verify: mixed list of photo/no-photo rows scrolls smoothly at 120fps.
 
-- [ ] **TASK-046** — Photo viewer window
+- [x] **TASK-046** — Photo viewer window *(spec superseded 2026-08-04)*
+  DEVIATION: the founder replaced the near-full-screen, no-scrim viewer with a
+  ~3/4-screen window that HUGS the image over a DIMMED background, closable
+  only by ✕ or the background (the image itself is inert), and asked for a
+  ~140ms thumbnail press-in before it opens. Closing stays instant. design.md
+  §16 is authoritative over the note below.
   Files: `Shove95/Screens/PhotoViewerView.swift`, `Shove95/Screens/RootView.swift`
   Notes: Tap thumbnail → full-screen overlay (ZStack at root): a near-full-screen Win95Window (title = task title, ✕ control) sitting directly over the untouched main screen — **no dimming scrim, no blur** (both are on the design.md §9 prohibited list; the visible main screen behind the window edges is the authentic Win95 look). Appears with `.transition(.identity)` — instant. Tap ✕ or anywhere outside the window → instant close. Image in sunken frame, aspect-fit. Verify: open/close shows zero animation frames (screen-record); background tap closes.
 
-- [ ] **TASK-047** — Photos in undo + delete paths
+- [x] **TASK-047** — Photos in undo + delete paths
   Files: `Shove95/Store/TaskStore.swift`
   Notes: Delete snapshot includes photoData; undo restores it. Moving a task keeps its photo (trivially true — same record — but verify the row rebuilds the thumbnail after slide-off/arrival). Verify: delete a photo task → undo → photo back; swipe a photo task to Tomorrow → thumbnail intact there.
 
-- [ ] **TASK-048** — Photo edge-case QA
+- [x] **TASK-048** — Photo edge-case QA
   Files: `docs/qa-photos.md`
   Notes: Script + run: deny photo permission (picker handles it — no crash), deny camera (graceful), attach → force-quit → relaunch (persisted), attach on 20 tasks and scroll (memory sane in Instruments, thumbnails not decoding full-size — downscale at display with `.thumbnail` CGImageSource if needed). Verify: all pass; fixes applied.
 

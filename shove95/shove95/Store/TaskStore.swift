@@ -168,18 +168,15 @@ final class TaskStore {
         commit()
     }
 
-    /// Import rule from the model doc: long edge ≤ 2048px, JPEG q0.8.
-    nonisolated static func downscaledJPEG(from data: Data) -> Data? {
-        guard let image = UIImage(data: data) else { return nil }
-        let longEdge = max(image.size.width, image.size.height)
-        let scale = min(1, 2048 / longEdge)
-        let target = CGSize(width: image.size.width * scale,
-                            height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: target)
-        let scaled = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
-        }
-        return scaled.jpegData(compressionQuality: 0.8)
+    /// Removes one photo by its index in `allPhotos` (TASK-043). The legacy
+    /// first slot is refilled from the extras so ordering never gaps.
+    func removePhoto(_ task: TaskItem, at index: Int) {
+        var photos = task.allPhotos
+        guard photos.indices.contains(index) else { return }
+        photos.remove(at: index)
+        task.photoData = photos.first
+        task.extraPhotos = Array(photos.dropFirst())
+        commit()
     }
 
     // MARK: Mutations
