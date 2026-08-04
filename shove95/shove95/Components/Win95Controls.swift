@@ -20,12 +20,17 @@ struct Win95Button<Label: View>: View {
     var action: () -> Void
     /// Vertically slimmer variant for dense settings rows.
     var compact: Bool = false
+    /// Fixed width, so a column of buttons with different labels lines up.
+    /// Applied INSIDE the button: the bevel and fill have to grow with it,
+    /// and a `.frame` on the outside would leave them at the label's size.
+    var width: CGFloat? = nil
     @ViewBuilder var label: Label
 
     var body: some View {
         Button(action: action) {
             label
                 .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+                .frame(width: width)
                 .frame(minHeight: (compact ? Win95.Px.buttonCompact
                                            : Win95.Px.buttonMinHeight) * pixel)
         }
