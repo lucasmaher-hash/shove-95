@@ -12,9 +12,12 @@ import Shove95Kit
 
 // MARK: - Title bar
 
-/// 18px navy gradient bar. Title reads `{Tab} - shove.95`; one raised control
-/// button at the trailing edge opens Settings. The gear is drawn from scratch —
-/// Microsoft's own glyphs are not used (and SF Symbols are prohibited).
+/// 18px navy gradient bar. Two forms (founder redesign 2026-08-04):
+///   · main screen — `{Workspace} ▼` at the leading edge (tappable, switches
+///     workspace), the day name at the trailing edge before the gear
+///   · plain windows (Settings) — a single title, close ✕ at the trailing edge
+/// The gear/✕/▼ are drawn from scratch — Microsoft's own glyphs are not used
+/// (and SF Symbols are prohibited).
 struct TitleBar: View {
     @Environment(\.pixel) private var pixel
     // Painted from the scheme rather than the statics: the title bar's own
@@ -22,19 +25,57 @@ struct TitleBar: View {
     // SwiftUI has no reason to redraw it (see EnvironmentValues.win95Scheme).
     @Environment(\.win95Scheme) private var scheme
     let title: String
+    /// Workspace form: the leading `{workspace} ▼` label and its tap action.
+    var workspace: String? = nil
+    /// True while the workspace dropdown is open — the label shrinks slightly
+    /// for the duration, like a held control (founder direction 2026-08-04).
+    var workspaceMenuOpen: Bool = false
+    var onWorkspace: (() -> Void)? = nil
     /// `true` renders a close ✕ instead of the settings gear.
     var isClose: Bool = false
     var onSettings: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
-            Text(title)
-                .font(W95Font.standard(pixel))
-                .foregroundStyle(Color(hex: scheme.highlight))
+            if let workspace {
+                // The workspace is the window's identity, so it sits where a
+                // Win95 title sits; the ▼ marks it as a menu, not a label.
+                HStack(spacing: Win95.Px.grid * pixel) {
+                    Text(workspace)
+                        .font(W95Font.standard(pixel))
+                        .foregroundStyle(Color(hex: scheme.highlight))
+                        .lineLimit(1)
+                    DownArrowGlyph()
+                        .fill(Color(hex: scheme.highlight))
+                        .frame(width: 7 * pixel, height: 4 * pixel)
+                }
+                .scaleEffect(workspaceMenuOpen ? 0.92 : 1, anchor: .leading)
+                .animation(.spring(duration: 0.22), value: workspaceMenuOpen)
                 .padding(.leading, Win95.Px.grid * pixel)
-                .lineLimit(1)
+                .padding(.trailing, Win95.Px.grid * 2 * pixel)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { onWorkspace?() }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Workspace: \(workspace)")
+                .accessibilityHint("Switches workspace")
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+
+                Text(title)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Color(hex: scheme.highlight))
+                    .lineLimit(1)
+                    .padding(.trailing, Win95.Px.grid * 2 * pixel)
+            } else {
+                Text(title)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Color(hex: scheme.highlight))
+                    .padding(.leading, Win95.Px.grid * pixel)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+            }
 
             Button(action: onSettings) {
                 Group {
@@ -45,10 +86,8 @@ struct TitleBar: View {
                            height: Win95.Px.titleBarControlW * pixel * 0.6)
                     .frame(width: Win95.Px.titleBarControlW * pixel,
                            height: Win95.Px.titleBarControlH * pixel)
-                    .background(Color(hex: scheme.surface))
-                    .bevelRaised(pixel)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TitleBarControlStyle(pixel: pixel, surface: Color(hex: scheme.surface)))
             .padding(.trailing, pixel * 2)
             .accessibilityLabel(isClose ? "Close" : "Settings")
         }
@@ -85,6 +124,44 @@ private struct GearGlyph: Shape {
         path.addRect(block(10, 1, 1, 1))
         path.addRect(block(1, 10, 1, 1))
         path.addRect(block(10, 10, 1, 1))
+        return path
+    }
+}
+
+/// Title-bar control press-in: bevel inverts and the glyph nudges one pixel,
+/// exactly like a real Win95 caption button (founder direction 2026-08-04:
+/// every control that opens something presses in first).
+private struct TitleBarControlStyle: ButtonStyle {
+    let pixel: CGFloat
+    let surface: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .offset(x: configuration.isPressed ? pixel : 0,
+                    y: configuration.isPressed ? pixel : 0)
+            .background(surface)
+            .modifier(TitleControlBevel(isPressed: configuration.isPressed, pixel: pixel))
+    }
+}
+
+private struct TitleControlBevel: ViewModifier {
+    let isPressed: Bool
+    let pixel: CGFloat
+
+    func body(content: Content) -> some View {
+        if isPressed { content.bevelSunken(pixel) } else { content.bevelRaised(pixel) }
+    }
+}
+
+/// Pixel ▼ for the workspace menu: stepped rows on a 7×4 grid.
+struct DownArrowGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 7
+        var path = Path()
+        for row in 0..<4 {
+            path.addRect(CGRect(x: CGFloat(row) * u, y: CGFloat(row) * rect.height / 4,
+                                width: CGFloat(7 - row * 2) * u, height: rect.height / 4))
+        }
         return path
     }
 }
@@ -168,8 +245,18 @@ struct Taskbar: View {
         .padding(.horizontal, Win95.Px.grid * pixel)
         .padding(.vertical, pixel)
         .frame(height: Win95.Px.taskbar * pixel)
-        .background(Win95.surface)
-        .bevelRaised(pixel)
+        // ONE slab, not two: the surface extends through the home-indicator
+        // area to the physical bottom, and the bevel is a top edge only — a
+        // docked Win95 taskbar has no bottom bevel, and the full raised frame
+        // drew a line that read as a second bar (founder bug report
+        // 2026-08-04).
+        .background(Win95.surface.ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                Rectangle().fill(Win95.highlight).frame(height: pixel)
+                Rectangle().fill(Win95.light).frame(height: pixel)
+            }
+        }
     }
 }
 

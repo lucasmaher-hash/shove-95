@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 import Shove95Kit
 
 struct TaskRowView: View {
@@ -26,13 +27,17 @@ struct TaskRowView: View {
     @State private var isReordering = false
     @State private var reorderOffset: CGFloat = 0
     @State private var rowFrame: CGRect = .zero
-    @GestureState private var isPressing = false
-    @State private var didLongPress = false
+    @State private var isPressing = false
 
 
     @State private var isEditing = false
     @State private var draft = ""
     @FocusState private var editFocused: Bool
+
+    // Photo capture (FR from Phase 4, pulled forward 2026-08-04)
+    @State private var showPhotoPicker = false
+    @State private var pickedItem: PhotosPickerItem?
+    @State private var showPhotoViewer = false
 
     // Swipe state (FR-002)
     @State private var dragOffset: CGFloat = 0
@@ -74,6 +79,15 @@ struct TaskRowView: View {
     // ─────────────────────────────────────────────────────────────────────
 
     var body: some View {
+        // GESTURE BUDGET (hard-won, 2026-08-04, two rounds):
+        //  · SwiftUI LongPressGesture — in ANY form — stalls slow vertical pans
+        //    on a ScrollView descendant. Bisected: identical slow drag scrolls
+        //    on the empty well, dies on a row; remove the press, it revives.
+        //  · Wrapping the row in a Button with a simultaneous DragGesture kills
+        //    the Button outright — not even its nested checkbox fired.
+        // So: ONE DragGesture for swipe+reorder, and touch-down/tap/hold come
+        // from raw UIView touches (RowTouchHandler below) — the one layer
+        // UIScrollView cooperates with natively.
         rowContent
             .onAppear { dragOffset = 0 } // stale-state guard: row identity survives tab switches
             .offset(x: dragOffset)
@@ -92,17 +106,6 @@ struct TaskRowView: View {
             .animation(.easeOut(duration: 0.12), value: isMenuOpen)
             .offset(y: reorderOffset)
             .simultaneousGesture(panGesture)
-            .simultaneousGesture(pressGesture)
-            .onTapGesture {
-                // A long press ends with a lift, which SwiftUI also reports as
-                // a tap — so a plain tap handler would open the keyboard every
-                // time the menu appeared. Consume that one.
-                if didLongPress { didLongPress = false; return }
-                guard !task.isCompleted, !isEditing else { return }
-                draft = task.title
-                isEditing = true
-                editFocused = true
-            }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
             .accessibilityActions { accessibilityMoveActions }
@@ -111,6 +114,47 @@ struct TaskRowView: View {
     // MARK: - Content
 
     private var rowContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            mainLine
+            if let data = task.photoData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: Win95.Px.thumbnail * 2 * pixel,
+                           height: Win95.Px.thumbnail * pixel)
+                    .clipped()
+                    .bevelSunken(pixel)
+                    // Indented to the text column, under the title (locked Q17).
+                    .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
+                    .padding(.bottom, Win95.Px.grid * pixel)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // The viewer opens INSTANTLY — no transition (locked Q16).
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { showPhotoViewer = true }
+                    }
+                    .accessibilityLabel("Photo, opens full screen")
+            }
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
+        .onChange(of: pickedItem) { _, item in
+            guard let item else { return }
+            Task { @MainActor in
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    store.setPhoto(task, data: TaskStore.downscaledJPEG(from: data))
+                }
+                pickedItem = nil
+            }
+        }
+        .fullScreenCover(isPresented: $showPhotoViewer) {
+            PhotoViewer(task: task) {
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { showPhotoViewer = false }
+            }
+        }
+    }
+
+    private var mainLine: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
             Win95Checkbox(isChecked: task.isCompleted) {
                 // Position changes always animate (design.md §8): the row
@@ -121,9 +165,12 @@ struct TaskRowView: View {
             }
 
             if isEditing {
-                TextField("", text: $draft)
+                // Grows a line at a time as the text wraps (founder request
+                // 2026-08-04 — a single line just swallowed long titles).
+                TextField("", text: $draft, axis: .vertical)
                     .font(W95Font.standard(pixel))
                     .foregroundStyle(Win95.text)
+                    .lineLimit(1...6)
                     .focused($editFocused)
                     .onSubmit { commitEdit() }
                     .onChange(of: editFocused) { _, focused in
@@ -138,26 +185,46 @@ struct TaskRowView: View {
                     .foregroundStyle(isReordering ? Win95.selectionText
                                      : (task.isCompleted ? Win95.shadow
                                         : (task.isImportant ? Win95.important : Win95.text)))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
                     .allowsHitTesting(false) // the ROW owns tap-to-edit (see body)
             }
 
             Spacer(minLength: Win95.Px.grid * pixel)
 
-            // Trailing chip column — fixed width so chips align (locked Q23).
+            // Trailing column: while editing, the add-photo plus — a bare
+            // glyph in the theme colour, deliberately not a button (founder
+            // spec 2026-08-04). Otherwise the date chip (locked Q23).
             Group {
-                if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
-                                               now: store.now(), calendar: store.calendar) {
+                if isEditing {
+                    PlusGlyph()
+                        .fill(Win95.accent)
+                        .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                        .contentShape(Rectangle())
+                        .onTapGesture { showPhotoPicker = true }
+                        .accessibilityLabel("Add photo")
+                } else if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                                      now: store.now(), calendar: store.calendar) {
                     DateChip(label: chip)
+                        .allowsHitTesting(false)
                 }
             }
             .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
         }
         .padding(.trailing, Win95.Px.grid * pixel)
         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
+        // Touch plumbing sandwich: the catcher sits ABOVE the colour fill but
+        // BELOW the content, so the checkbox and the edit field keep their
+        // touches and everything else lands on the catcher. There must be NO
+        // contentShape on the HStack — that one modifier would swallow every
+        // touch before the catcher saw it.
+        .background(RowTouchHandler(
+            onDown: { pressChanged(true) },
+            onRelease: { pressChanged(false) },
+            onTap: handleTap,
+            onHold: longPressSucceeded
+        ))
         .background(rowBackground) // grey while pressed, navy while dragged
-        .contentShape(Rectangle())   // the ENTIRE row is swipeable, not just the text
     }
 
     private var rowBackground: Color {
@@ -268,10 +335,11 @@ struct TaskRowView: View {
         (value / pixel).rounded() * pixel
     }
 
-    /// The menu drops from the row's bottom-left, like a Win95 menu dropping
-    /// from a menu-bar title.
+    /// The menu opens AT the pressed row (top-left aligned), not below it —
+    /// anchoring at maxY put it a full row down, which read as belonging to the
+    /// task underneath (founder bug report 2026-08-04).
     private var menuAnchor: CGPoint {
-        CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel, y: rowFrame.maxY)
+        CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel, y: rowFrame.minY)
     }
 
     private var currentBucket: Bucket {
@@ -287,19 +355,22 @@ struct TaskRowView: View {
     // entirely). The difference now is that the press is a MODIFIER and the
     // drag is the row's one pan gesture — see the scroll note above.
 
-    /// Touch-down tints the row; success at 0.4s arms it and opens the menu.
-    /// `@GestureState` resets the tint by itself when the touch ends or is
-    /// cancelled — no manual cleanup, and nothing left stuck on.
-    private var pressGesture: some Gesture {
-        LongPressGesture(minimumDuration: 0.4, maximumDistance: 24)
-            .updating($isPressing) { value, state, _ in state = value }
-            .onEnded { _ in longPressSucceeded() }
+    private func pressChanged(_ pressed: Bool) {
+        isPressing = pressed
+    }
+
+    /// Only called for a genuine tap — the catcher never reports one after
+    /// movement or a recognised hold, so no lift-after-long-press guard needed.
+    private func handleTap() {
+        guard !task.isCompleted, !isEditing, !isReordering else { return }
+        draft = task.title
+        isEditing = true
+        editFocused = true
     }
 
     private func longPressSucceeded() {
         guard !isReordering else { return }
         reorder.arm(taskID: task.id)
-        didLongPress = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         menu.show(task: task, at: menuAnchor)
     }
@@ -376,5 +447,137 @@ struct TaskRowView: View {
         guard isEditing else { return }
         isEditing = false
         store.editTitle(task, to: draft) // empty draft → store reverts (no-op)
+    }
+}
+
+// MARK: - Touch plumbing
+//
+// THE PRESS CANNOT BE A SWIFTUI CONSTRUCT. Four attempts, all bisected on
+// device 2026-08-04:
+//   · LongPressGesture (any form)          → slow vertical pans die on rows
+//   · DragGesture(minimumDistance: 0)      → list stops scrolling entirely
+//   · UIKit recognizers via UIGestureRecognizerRepresentable → same stall;
+//     SwiftUI overrides the delegate, so simultaneity never reaches the pan
+//   · Button wrapper                       → starves EVERYTHING inside it,
+//     including the nested checkbox, whether or not a pan is attached
+// What works is the layer UIKit built for exactly this: a plain UIView's
+// touches methods. UIScrollView delays content touches, then CANCELS them the
+// moment it starts panning — so scroll always wins, a stationary hold sails
+// through, and we get touch-down (tint), tap, and hold from four overrides.
+
+private struct RowTouchHandler: UIViewRepresentable {
+    var onDown: () -> Void
+    var onRelease: () -> Void
+    var onTap: () -> Void
+    var onHold: () -> Void
+
+    func makeUIView(context: Context) -> TouchCatcher {
+        let view = TouchCatcher()
+        view.backgroundColor = .clear
+        bind(view)
+        return view
+    }
+
+    func updateUIView(_ view: TouchCatcher, context: Context) {
+        bind(view) // closures capture the current task — rebind on update
+    }
+
+    private func bind(_ view: TouchCatcher) {
+        view.onDown = onDown
+        view.onRelease = onRelease
+        view.onTap = onTap
+        view.onHold = onHold
+    }
+}
+
+final class TouchCatcher: UIView {
+    var onDown: (() -> Void)?
+    var onRelease: (() -> Void)?
+    var onTap: (() -> Void)?
+    var onHold: (() -> Void)?
+
+    private var startPoint: CGPoint = .zero
+    private var moved = false
+    private var held = false
+    private var holdWork: DispatchWorkItem?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        guard let touch = touches.first else { return }
+        startPoint = touch.location(in: self)
+        moved = false
+        held = false
+        onDown?()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.moved else { return }
+            self.held = true
+            self.onHold?()
+        }
+        holdWork?.cancel()
+        holdWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesMoved(touches, with: event)
+        guard let touch = touches.first else { return }
+        let p = touch.location(in: self)
+        if hypot(p.x - startPoint.x, p.y - startPoint.y) > 10 {
+            moved = true
+            holdWork?.cancel()
+        }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesEnded(touches, with: event)
+        holdWork?.cancel()
+        let wasTap = !moved && !held
+        onRelease?()
+        if wasTap { onTap?() }
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesCancelled(touches, with: event)
+        holdWork?.cancel()
+        onRelease?() // the scroll view took the touch — never a tap
+    }
+}
+
+// MARK: - Photo pieces
+
+/// Bare pixel plus on a 12×12 grid — an affordance, not a button (no bevel).
+private struct PlusGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        var path = Path()
+        path.addRect(CGRect(x: 5 * u, y: 1 * u, width: 2 * u, height: 10 * u))
+        path.addRect(CGRect(x: 1 * u, y: 5 * u, width: 10 * u, height: 2 * u))
+        return path
+    }
+}
+
+/// Full-screen photo: a maximized Win95 window (locked Q16 + the founder's
+/// "opens like a windows style window" rider). Opens and closes instantly;
+/// tapping anywhere closes it.
+private struct PhotoViewer: View {
+    @Environment(\.pixel) private var pixel
+    let task: TaskItem
+    var onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TitleBar(title: task.title, isClose: true, onSettings: onClose)
+            if let data = task.photoData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+            }
+        }
+        .background(Color.black)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onClose)
+        .preferredColorScheme(.light)
     }
 }

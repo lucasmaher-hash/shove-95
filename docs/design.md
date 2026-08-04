@@ -300,8 +300,8 @@ name truncates to three characters, matching the built-in abbreviations.
 
 ## 13. The row's gesture budget *(added 2026-08-04)*
 
-**A task row may attach exactly ONE `DragGesture`, and its `minimumDistance` must
-be greater than zero.** This is not a style preference — it is the constraint that
+**A task row may attach exactly ONE `DragGesture` with `minimumDistance > 0`, and
+its press must NOT be a SwiftUI construct at all.** This is not a style preference — it is the constraint that
 makes a scrollable list with per-row gestures possible at all.
 
 A `DragGesture(minimumDistance: 0)` claims the touch the instant the finger lands,
@@ -315,9 +315,27 @@ The arrangement that works:
 
 | Need | Mechanism |
 |---|---|
-| Press tint | `LongPressGesture` + `@GestureState` — yields to the scroll view, and resets itself on cancel so nothing sticks on |
-| Menu | The same `LongPressGesture`'s `onEnded` |
+| Press tint, tap, hold | `RowTouchHandler` — a `UIViewRepresentable` whose `UIView` overrides `touchesBegan/Moved/Ended/Cancelled` |
 | Swipe *and* reorder | One `DragGesture(minimumDistance: 12)`; once the press has armed the row, the same pan drives the reorder instead of the swipe |
+
+**Second round, 2026-08-04.** The `LongPressGesture` above was itself wrong: a
+*slow* vertical pan starting on a row still died, while the same drag on empty
+well space scrolled. Everything gesture-shaped failed, each bisected on device:
+
+| Attempt | Result |
+|---|---|
+| `LongPressGesture` (any duration/distance) | slow pans die on rows |
+| `DragGesture(minimumDistance: 0)` | list never scrolls at all |
+| UIKit recognizers via `UIGestureRecognizerRepresentable` | same stall — SwiftUI replaces the recognizer's delegate, so "recognize simultaneously" never reaches the scroll view's pan |
+| `Button` wrapper + simultaneous pan | starves the button entirely; not even the nested checkbox fired |
+
+What works is the layer UIKit built for it: **a plain `UIView`'s touch
+methods**. `UIScrollView` delays content touches and then *cancels* them the
+moment it begins panning, so the scroll always wins, a stationary finger sails
+through, and `touchesBegan/Ended/Cancelled` yield touch-down, tap and hold. The
+catcher goes in the row's `.background` — above the colour fill, below the
+content, so the checkbox and edit field keep their own touches — and the HStack
+must carry **no `contentShape`**, which would swallow everything first.
 
 One more trap sits behind this. The `ScrollView` wins **every** vertical pan, so
 even a correctly-configured row drag never sees one and the reorder never starts.
@@ -328,3 +346,46 @@ The list therefore sets `.scrollDisabled` the moment a row is armed — which is
 And `.zIndex` only orders a stack's **own** children: applied inside the row's body
 it is ignored, so a row dragged downward slides underneath every row it passes. It
 belongs on the `ForEach` child in `TaskListView`.
+
+
+---
+
+## 14. Press feedback is universal *(added 2026-08-04)*
+
+**Every control that opens, expands, or changes something animates on press.**
+Founder direction: the app should feel responsive even though the surface is
+static. This is not a per-control decision — it is the default, and a new
+control without it is a bug.
+
+| Control | Press behaviour |
+|---|---|
+| `Win95Button` (and Settings' Default / Delete / Add) | Bevel inverts, label nudges one pixel down-right — `Win95ButtonStyle` |
+| Title-bar gear / ✕ | Same inversion — `TitleBarControlStyle` |
+| Workspace label | Scales to 0.92 for as long as the dropdown is open, springs back on close |
+| Task row | Tints to `light` and scales to 0.97; the tint outlives the finger while its menu is open |
+| Taskbar tab | Renders pressed (sunken + hatch) while active |
+| Scheme swatch | Selected renders pressed |
+
+The press itself is instant where a real Win95 control would be (bevel flips
+don't tween); the *scale* is what carries the modern responsiveness. Build press
+feedback on `ButtonStyle`, never on a `DragGesture(minimumDistance: 0)` — that
+form is banned by §13 and freezes any scroll view it lands in.
+
+---
+
+## 15. Workspaces *(added 2026-08-04)*
+
+Multiple named containers — **Personal** and **Work** ship by default. The
+workspace is the window's identity, so it sits where a Win95 title sits: the
+title bar reads `{Workspace} ▼` at the leading edge and the day name at the
+trailing edge, and tapping the workspace drops a menu from it.
+
+- `TaskItem.workspaceID` is `String?`; **nil means the default workspace**, so
+  every task written before workspaces existed belongs to Personal with no
+  migration.
+- Scoping happens in **one** place — `TaskStore.allTasksSorted()`, the choke
+  point every query already funnels through — so buckets, archive, placement
+  and day-rollover are all scoped for free.
+- The default workspace is renamable but **not deletable**. Deleting any other
+  reassigns its tasks back to the default: deleting a label must never delete
+  work.

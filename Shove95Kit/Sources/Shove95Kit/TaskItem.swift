@@ -26,6 +26,10 @@ public final class TaskItem {
     public var overduePlaced: Bool = false
     /// One optional photo, downscaled on import (≤2048px long edge, JPEG q0.8).
     @Attribute(.externalStorage) public var photoData: Data? = nil
+    /// Which workspace this task lives in. nil = the default workspace, which
+    /// is also what every pre-workspace task migrates to (optional + defaulted
+    /// keeps the model CloudKit-compatible and the store migration lightweight).
+    public var workspaceID: String? = nil
 
     public init() {}
 }

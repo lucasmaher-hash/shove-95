@@ -10,10 +10,29 @@
 import SwiftUI
 import Shove95Kit
 
+/// A named container for tasks — work, private, design… The DEFAULT workspace
+/// has `id == nil` semantics on TaskItem but is represented here with a fixed
+/// sentinel id so it can sit in the same list; it is renamable, not deletable.
+struct Workspace: Identifiable, Codable, Equatable {
+    let id: String
+    var name: String
+
+    static let defaultID = "default"
+    static let fallback = Workspace(id: defaultID, name: "Personal")
+
+    /// What gets stamped on TaskItem.workspaceID: nil for the default
+    /// workspace, so pre-workspace tasks belong to it automatically.
+    var taskStampID: String? { id == Self.defaultID ? nil : id }
+}
+
 @Observable @MainActor
 final class AppSettings {
     private enum Key {
         static let scheme = "settings.scheme"
+        // v2: the founder settled the default set at Personal + Work
+        // (2026-08-04); the bump orphans pre-release test data.
+        static let workspaces = "settings.workspaces.v2"
+        static let currentWorkspace = "settings.workspace.current"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
     }
 
@@ -27,6 +46,23 @@ final class AppSettings {
     /// Custom tab labels. Empty string = use the built-in name.
     private var customNames: [Bucket: String]
 
+    /// All workspaces, default first. Always contains at least the default.
+    private(set) var workspaces: [Workspace] {
+        didSet {
+            if let data = try? JSONEncoder().encode(workspaces) {
+                UserDefaults.standard.set(data, forKey: Key.workspaces)
+            }
+        }
+    }
+
+    var currentWorkspaceID: String {
+        didSet { UserDefaults.standard.set(currentWorkspaceID, forKey: Key.currentWorkspace) }
+    }
+
+    var currentWorkspace: Workspace {
+        workspaces.first { $0.id == currentWorkspaceID } ?? .fallback
+    }
+
     init() {
         let stored = UserDefaults.standard.string(forKey: Key.scheme) ?? Win95Scheme.classic.id
         scheme = Win95Scheme.named(stored)
@@ -39,6 +75,45 @@ final class AppSettings {
             }
         }
         customNames = names
+
+        var loaded: [Workspace] = []
+        if let data = UserDefaults.standard.data(forKey: Key.workspaces),
+           let decoded = try? JSONDecoder().decode([Workspace].self, from: data) {
+            loaded = decoded
+        }
+        if loaded.isEmpty {
+            // First run ships two workspaces: Personal (the undeletable
+            // default) and Work.
+            loaded = [.fallback, Workspace(id: UUID().uuidString, name: "Work")]
+        } else if !loaded.contains(where: { $0.id == Workspace.defaultID }) {
+            loaded.insert(.fallback, at: 0) // the default always exists
+        }
+        workspaces = loaded
+
+        let current = UserDefaults.standard.string(forKey: Key.currentWorkspace)
+        currentWorkspaceID = loaded.contains { $0.id == current } ? current! : Workspace.defaultID
+    }
+
+    // MARK: Workspaces
+
+    func addWorkspace(named raw: String) {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        workspaces.append(Workspace(id: UUID().uuidString, name: name))
+    }
+
+    func renameWorkspace(_ id: String, to raw: String) {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let index = workspaces.firstIndex(where: { $0.id == id }) else { return }
+        workspaces[index].name = name
+    }
+
+    /// The caller is responsible for reassigning the workspace's tasks first
+    /// (TaskStore.reassignTasksToDefaultWorkspace). The default is undeletable.
+    func removeWorkspace(_ id: String) {
+        guard id != Workspace.defaultID else { return }
+        workspaces.removeAll { $0.id == id }
+        if currentWorkspaceID == id { currentWorkspaceID = Workspace.defaultID }
     }
 
     /// The label to show for a bucket — the user's name if set, else the default.

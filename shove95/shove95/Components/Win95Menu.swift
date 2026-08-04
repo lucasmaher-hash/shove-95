@@ -135,6 +135,13 @@ struct MenuOverlay: View {
         GeometryReader { geo in
             if let request = menu.request,
                let task = store.task(withID: request.taskID) {
+                // The row reports its anchor in GLOBAL coordinates, but this
+                // overlay draws in its own space, which starts below the status
+                // bar — drawing the global point directly put the menu a full
+                // row too low (founder bug report 2026-08-04). Convert first.
+                let origin = geo.frame(in: .global).origin
+                let local = CGPoint(x: request.point.x - origin.x,
+                                    y: request.point.y - origin.y)
                 ZStack(alignment: .topLeading) {
                     // Tap-anywhere-else to dismiss.
                     Color.clear
@@ -143,7 +150,7 @@ struct MenuOverlay: View {
 
                     Win95Menu(task: task)
                         .fixedSize()
-                        .modifier(ClampedPosition(point: request.point, bounds: geo.size))
+                        .modifier(ClampedPosition(point: local, bounds: geo.size))
                         .transition(.scale(scale: 0.86, anchor: .topLeading)
                             .combined(with: .opacity))
                 }

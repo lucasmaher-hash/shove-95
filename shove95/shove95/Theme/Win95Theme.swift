@@ -76,6 +76,9 @@ enum Win95 {
     static var selectionBG: Color    { Color(hex: scheme.selectionBG) }
     static var selectionText: Color  { Color(hex: scheme.selectionText) }
     static var statusBG: Color     { Color(hex: scheme.statusBG) }
+    /// The theme's signature colour (the title bar's dark stop) — used for
+    /// small accents like the add-photo plus.
+    static var accent: Color       { Color(hex: scheme.titleA) }
     static var statusAccent: Color { Color(hex: scheme.statusAccent) }
     static let desktop = Color(hex: 0x008080) // teal — macOS only
 
@@ -94,6 +97,7 @@ extension Win95 {
         static let grid: CGFloat            = 4   // spacing grid: 2/4/8/16/24
         static let buttonMinWidth: CGFloat  = 75
         static let buttonMinHeight: CGFloat = 23
+        static let buttonCompact: CGFloat   = 16  // Default/Delete in Settings
         static let checkbox: CGFloat        = 12
         static let titleBar: CGFloat        = 18
         static let titleBarControlW: CGFloat = 16

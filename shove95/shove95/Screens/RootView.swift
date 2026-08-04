@@ -15,6 +15,7 @@ import Shove95Kit
 struct RootView: View {
     @State private var selected: Bucket = .today
     @State private var showSettings = false
+    @State private var showWorkspaceMenu = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -42,7 +43,16 @@ struct RootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(title: "\(settings.name(for: selected)) - shove.95") {
+            TitleBar(
+                title: settings.name(for: selected),
+                workspace: settings.currentWorkspace.name,
+                workspaceMenuOpen: showWorkspaceMenu,
+                onWorkspace: {
+                    withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
+                        showWorkspaceMenu.toggle()
+                    }
+                }
+            ) {
                 showSettings = true
             }
             // The tab slide must not drag the title along with it: text swaps
@@ -96,6 +106,32 @@ struct RootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .environment(menu)
         .environment(reorder)
+        // Workspace dropdown — drops from the title bar's leading edge, the
+        // way a Win95 menu drops from a menu-bar title. Same spring as the
+        // row menu; same flat, fast exit.
+        .overlay(alignment: .topLeading) {
+            if showWorkspaceMenu {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { closeWorkspaceMenu() }
+
+                    WorkspaceMenu(onPick: { id in
+                        closeWorkspaceMenu()
+                        settings.currentWorkspaceID = id
+                    })
+                    .offset(x: Win95.Px.grid * pixel, y: Win95.Px.titleBar * pixel)
+                    .transition(.scale(scale: 0.86, anchor: .topLeading)
+                        .combined(with: .opacity))
+                }
+            }
+        }
+        // The store's queries are all scoped to the active workspace; keep it
+        // pointed at the one the user picked, including across relaunches.
+        .onAppear { store.workspaceID = settings.currentWorkspace.taskStampID }
+        .onChange(of: settings.currentWorkspaceID) {
+            store.workspaceID = settings.currentWorkspace.taskStampID
+        }
         // Closing the menu also disarms, restoring scrolling. A live drag keeps
         // its armed state — it dismisses the menu the moment it starts moving.
         .onChange(of: menu.request?.taskID) { _, id in
@@ -108,6 +144,9 @@ struct RootView: View {
             // Fires at midnight, timezone changes, clock changes (PRD §2).
             store.runDayRolloverPassIfNeeded()
         }
+        .onChange(of: showSettings) { _, open in
+            if open { closeWorkspaceMenu() }
+        }
         // Full-screen, not a sheet: sheets bring rounded corners and a drag
         // indicator, both prohibited (design.md §9).
         .fullScreenCover(isPresented: $showSettings) {
@@ -118,5 +157,44 @@ struct RootView: View {
                 // so the scheme has to reach it explicitly.
                 .environment(\.win95Scheme, settings.scheme)
         }
+    }
+
+    private func closeWorkspaceMenu() {
+        guard showWorkspaceMenu else { return }
+        withAnimation(.easeOut(duration: 0.11)) { showWorkspaceMenu = false }
+    }
+}
+
+// MARK: - Workspace dropdown
+
+/// The list of workspaces as a Win95 menu panel. The active one renders as a
+/// pressed row (selection colours), matching the taskbar's pressed-tab idiom.
+private struct WorkspaceMenu: View {
+    @Environment(\.pixel) private var pixel
+    @Environment(AppSettings.self) private var settings
+    var onPick: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(settings.workspaces) { workspace in
+                let isCurrent = workspace.id == settings.currentWorkspaceID
+                Text(workspace.name)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(isCurrent ? Win95.selectionText : Win95.text)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Win95.Px.grid * pixel)
+                    .frame(minHeight: Win95.rowHeight(pixel))
+                    .background(isCurrent ? Win95.selectionBG : Win95.surface)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onPick(workspace.id) }
+                    .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(pixel * 2)
+        .frame(minWidth: Win95.Px.buttonMinWidth * pixel * 1.6, alignment: .leading)
+        .fixedSize()
+        .background(Win95.surface)
+        .bevelRaised(pixel)
     }
 }

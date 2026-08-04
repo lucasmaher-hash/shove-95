@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 import Shove95Kit
 
 // MARK: - Undo record (PRD §4)
@@ -63,6 +64,14 @@ final class TaskStore {
         lastAction = nil
     }
 
+    /// The active workspace. nil = the default workspace (and every task
+    /// created before workspaces existed). RootView keeps this in sync with
+    /// AppSettings; every query below is scoped to it, so switching workspace
+    /// swaps the entire visible world in one assignment.
+    var workspaceID: String? {
+        didSet { revision += 1 }
+    }
+
     init(context: ModelContext) {
         self.context = context
     }
@@ -75,7 +84,20 @@ final class TaskStore {
         // math can in principle land on a completed task's order.
         let descriptor = FetchDescriptor<TaskItem>(
             sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)])
-        return (try? context.fetch(descriptor)) ?? []
+        let all = (try? context.fetch(descriptor)) ?? []
+        // Workspace scoping happens HERE, the one choke point every query uses,
+        // so buckets, archive, placement and rollover are all scoped for free.
+        return all.filter { $0.workspaceID == workspaceID }
+    }
+
+    /// Workspace deletion: its tasks fold back into the default workspace
+    /// rather than being destroyed — deleting a label must never delete work.
+    func reassignTasksToDefaultWorkspace(from id: String) {
+        let descriptor = FetchDescriptor<TaskItem>()
+        for task in (try? context.fetch(descriptor)) ?? [] where task.workspaceID == id {
+            task.workspaceID = nil
+        }
+        commit()
     }
 
     /// Every task currently mapping to the bucket — completed included.
@@ -119,6 +141,27 @@ final class TaskStore {
             .sorted { $0.day > $1.day }
     }
 
+    // MARK: Photos (Phase 4, pulled forward 2026-08-04)
+
+    func setPhoto(_ task: TaskItem, data: Data?) {
+        task.photoData = data
+        commit()
+    }
+
+    /// Import rule from the model doc: long edge ≤ 2048px, JPEG q0.8.
+    nonisolated static func downscaledJPEG(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let longEdge = max(image.size.width, image.size.height)
+        let scale = min(1, 2048 / longEdge)
+        let target = CGSize(width: image.size.width * scale,
+                            height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: target)
+        let scaled = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target))
+        }
+        return scaled.jpegData(compressionQuality: 0.8)
+    }
+
     // MARK: Mutations
 
     /// Creates in the given bucket with bottom placement. Whitespace-only
@@ -131,6 +174,7 @@ final class TaskStore {
 
         let task = TaskItem()
         task.title = title
+        task.workspaceID = workspaceID // born into the active workspace
         task.dueDate = DateEngine.targetDate(for: bucket, now: now(), calendar: calendar)
         task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
         context.insert(task)

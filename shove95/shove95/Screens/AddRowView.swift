@@ -19,7 +19,11 @@ struct AddRowView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        TextField("+ new task", text: $text)
+        // Vertical axis: a long entry wraps and the field grows a line at a
+        // time instead of scrolling the text out of sight (founder feedback
+        // 2026-08-04). Return still commits — the store collapses newlines.
+        TextField("+ new task", text: $text, axis: .vertical)
+            .lineLimit(1...4)
             .font(W95Font.standard(pixel))
             .foregroundStyle(Win95.text)
             .focused($focused)
