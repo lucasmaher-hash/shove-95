@@ -283,35 +283,6 @@ final class TaskStore {
     /// Long-press-drag reorder (TASK-025): move `task` by whole row steps
     /// within its bucket's active list. Free placement — the user's order is
     /// theirs afterwards (locked Q17-B).
-    func reorder(_ task: TaskItem, byRowSteps steps: Int) {
-        guard steps != 0 else { return }
-        let bucket = task.bucket(now: now(), calendar: calendar)
-        let active = tasks(in: bucket).active
-        guard let index = active.firstIndex(where: { $0 === task }) else { return }
-        let target = max(0, min(active.count - 1, index + steps))
-        guard target != index else { return }
-        var rest = active
-        rest.remove(at: index)
-        let above = target > 0 ? rest[target - 1].sortOrder : nil
-        let below = target < rest.count ? rest[target].sortOrder : nil
-        reorder(task, betweenSortOrders: above, and: below)
-    }
-
-    /// Drag-reorder to a slot between two neighbors' sortOrders.
-    func reorder(_ task: TaskItem, betweenSortOrders above: Double?, and below: Double?) {
-        task.sortOrder = Placement.sortOrder(between: above, and: below)
-        let bucket = task.bucket(now: now(), calendar: calendar)
-        let visible = tasks(in: bucket).active
-        if Placement.needsRenormalization(visible: visible) {
-            for (t, order) in Placement.renormalized(visible: visible) {
-                t.sortOrder = order
-            }
-        }
-        commit()
-    }
-
-    /// Restores the last move (exact position, date, and rollover flag) or
-    /// resurrects the last delete. Single level; cleared after use.
     func undoLastAction() {
         switch lastAction {
         case let .moved(taskID, _, _, previousDueDate, previousSortOrder, previousOverduePlaced):

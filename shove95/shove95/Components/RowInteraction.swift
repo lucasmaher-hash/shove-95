@@ -7,17 +7,17 @@
 //  design.md §16 records why (every SwiftUI construct broke scrolling on
 //  device) and the five standing traps this file must respect.
 //
-//  Phases:
+//  Phases (reorder removed 2026-08-04 — founder call: too many gestures
+//  interfering with each other):
 //
-//      idle ──touch──▶ pending ──0.4s still──▶ held ──drag──▶ reordering
+//      idle ──touch──▶ pending ──0.4s still──▶ held (menu; drag does nothing)
 //                        │  │
 //                        │  ├─▶ horizontal > slop ──▶ swiping
 //                        │  └─▶ vertical   > slop ──▶ surrendered (scroll's)
 //                        └─▶ lift ──▶ tap
 //
 //  The scroll view is the other player: with the row surrendered it scrolls
-//  and then CANCELS our touches; while a row is armed (held) the list sets
-//  `.scrollDisabled`, so the vertical axis belongs to the reorder.
+//  and then CANCELS our touches.
 //
 
 import SwiftUI
@@ -40,12 +40,6 @@ struct RowGestureHandlers {
     var onSwipeEnded: (CGFloat, CGFloat, CGFloat) -> Void
     /// The system or scroll view took the touch mid-swipe.
     var onSwipeCancelled: () -> Void
-    /// Live vertical drag while armed, window-space dy from touch-down.
-    var onReorderChanged: (CGFloat) -> Void
-    /// Fingers up (or cancelled) after a reorder — commit what we have.
-    var onReorderEnded: () -> Void
-    /// Whether a hold has armed this row (menu up) — drag becomes reorder.
-    var isArmed: () -> Bool
 }
 
 /// SwiftUI wrapper. Sits in the row's `.background`, above the colour fill and
@@ -73,10 +67,9 @@ final class RowGestureCatcher: UIView {
     private enum Phase {
         case idle        // no touch
         case pending     // finger down, nothing decided
-        case held        // hold fired; menu up; vertical drag = reorder
+        case held        // hold fired; menu up; further movement is ignored
         case swiping     // horizontal drag owns the touch
-        case reordering  // vertical drag while armed
-        case surrendered // vertical drag, not armed — the scroll view's touch
+        case surrendered // vertical drag — the scroll view's touch
     }
 
     private var phase: Phase = .idle
@@ -187,22 +180,11 @@ final class RowGestureCatcher: UIView {
                 handlers?.onPressChanged(false)
             }
 
-        case .held:
-            // Menu is up. Movement past slop turns the hold into a reorder
-            // (the row-side handler dismisses the menu on first change).
-            if handlers?.isArmed() == true, hypot(dx, dy) > Self.slop {
-                phase = .reordering
-                handlers?.onPressChanged(false)
-                handlers?.onReorderChanged(dy)
-            }
-
         case .swiping:
             handlers?.onSwipeChanged(dx)
 
-        case .reordering:
-            handlers?.onReorderChanged(dy)
-
-        case .idle, .surrendered:
+        case .held, .idle, .surrendered:
+            // A held row's menu is up; movement does nothing further.
             break
         }
     }
@@ -224,9 +206,6 @@ final class RowGestureCatcher: UIView {
         case .swiping:
             handlers?.onPressChanged(false)
             handlers?.onSwipeEnded(dx, endVelocity(touches, dx: dx), startPoint.x)
-        case .reordering:
-            handlers?.onPressChanged(false)
-            handlers?.onReorderEnded()
         case .idle, .surrendered:
             handlers?.onPressChanged(false)
         }
@@ -241,7 +220,6 @@ final class RowGestureCatcher: UIView {
 
         switch phase {
         case .swiping: handlers?.onSwipeCancelled()
-        case .reordering: handlers?.onReorderEnded() // commit what we have
         case .idle, .pending, .held, .surrendered: break
         }
         phase = .idle

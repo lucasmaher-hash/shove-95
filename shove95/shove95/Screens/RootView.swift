@@ -20,7 +20,6 @@ struct RootView: View {
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
-    @State private var reorder = ReorderCoordinator()
     @State private var editing = EditingCoordinator()
 
     /// Which way the last tab change travelled — decided before `selected`
@@ -106,7 +105,6 @@ struct RootView: View {
         // instead of riding up with the keyboard.
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .environment(menu)
-        .environment(reorder)
         .environment(editing)
         // Workspace dropdown — drops from the title bar's leading edge, the
         // way a Win95 menu drops from a menu-bar title. Same spring as the
@@ -136,11 +134,6 @@ struct RootView: View {
         }
         .onChange(of: settings.currentWorkspaceID) {
             store.workspaceID = settings.currentWorkspace.taskStampID
-        }
-        // Closing the menu also disarms, restoring scrolling. A live drag keeps
-        // its armed state — it dismisses the menu the moment it starts moving.
-        .onChange(of: menu.request?.taskID) { _, id in
-            if id == nil { reorder.disarm() }
         }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)

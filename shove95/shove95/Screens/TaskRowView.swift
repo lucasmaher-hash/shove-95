@@ -21,20 +21,15 @@ import Shove95Kit
 
 struct TaskRowView: View {
     let task: TaskItem
-    /// Position in the active list — nil for completed rows, which don't reorder.
-    let index: Int?
 
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
-    @Environment(ReorderCoordinator.self) private var reorder
     @Environment(EditingCoordinator.self) private var editing
     @Environment(\.pixel) private var pixel
 
     // Visual state
     @State private var isPressing = false
     @State private var dragOffset: CGFloat = 0      // horizontal, swipe
-    @State private var reorderOffset: CGFloat = 0   // vertical, lifted row
-    @State private var isReordering = false
     @State private var rubberBandBuzzed = false
 
     // Geometry
@@ -73,8 +68,7 @@ struct TaskRowView: View {
     var body: some View {
         content
             .offset(x: dragOffset)
-            .offset(y: reorderOffset)
-            .scaleEffect(isPressing && !isReordering ? 0.97 : 1, anchor: .center)
+            .scaleEffect(isPressing ? 0.97 : 1, anchor: .center)
             .animation(.spring(duration: 0.22), value: isPressing)
             .background {
                 GeometryReader { proxy in
@@ -160,9 +154,8 @@ struct TaskRowView: View {
             .font(W95Font.standard(pixel))
             .strikethrough(task.isCompleted)
             // Colour carries one meaning: red = Important. Completed is grey.
-            .foregroundStyle(isReordering ? Win95.selectionText
-                             : (task.isCompleted ? Win95.shadow
-                                : (task.isImportant ? Win95.important : Win95.text)))
+            .foregroundStyle(task.isCompleted ? Win95.shadow
+                             : (task.isImportant ? Win95.important : Win95.text))
             .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
             .padding(.vertical, firstLineInset)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -251,7 +244,6 @@ struct TaskRowView: View {
     // MARK: - Visual state
 
     private var rowBackground: Color {
-        if isReordering { return Win95.selectionBG }
         // The tint outlives the finger while this row's menu is open, so it is
         // obvious what the menu is acting on.
         if isPressing || isMenuOpen { return Win95.light }
@@ -289,16 +281,13 @@ struct TaskRowView: View {
             onHold: handleHold,
             onSwipeChanged: swipeChanged,
             onSwipeEnded: swipeEnded,
-            onSwipeCancelled: swipeCancelled,
-            onReorderChanged: reorderChanged,
-            onReorderEnded: reorderEnded,
-            isArmed: { reorder.isArmed(task.id) }
+            onSwipeCancelled: swipeCancelled
         )
     }
 
-    /// Tap → inline edit. Blocked on completed rows and during a reorder.
+    /// Tap → inline edit. Blocked on completed rows.
     private func handleTap() {
-        guard !task.isCompleted, !isEditing, !isReordering else { return }
+        guard !task.isCompleted, !isEditing else { return }
         draft = task.title
         isEditing = true
         addedPhotoThisEdit = false // fresh session, the plus returns
@@ -311,10 +300,9 @@ struct TaskRowView: View {
 
     /// Hold → menu just BELOW the row, so the task it acts on stays visible
     /// (founder request 2026-08-04 — anchored at the top it covered the row).
-    /// Global→local conversion happens in MenuOverlay; + armed for reorder.
+    /// Global→local conversion happens in MenuOverlay.
     private func handleHold() {
-        guard !isReordering, !isEditing else { return }
-        reorder.arm(taskID: task.id)
+        guard !isEditing else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         menu.show(task: task, at: CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel,
                                           y: rowFrame.maxY + Win95.Px.grid * pixel))
@@ -371,37 +359,6 @@ struct TaskRowView: View {
         rubberBandBuzzed = false
         guard dragOffset != 0 else { return }
         withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
-    }
-
-    /// The armed drag: the row rides the finger; TaskListView parts the
-    /// neighbours by reading `reorder.steps`.
-    private func reorderChanged(_ dy: CGFloat) {
-        guard !task.isCompleted, let index else { return }
-        if !isReordering {
-            isReordering = true
-            menu.dismiss() // movement means this was never a menu
-            reorder.begin(taskID: task.id, at: index)
-            UISelectionFeedbackGenerator().selectionChanged()
-        }
-        reorderOffset = snapped(dy)
-        let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
-        if steps != reorder.steps {
-            UISelectionFeedbackGenerator().selectionChanged()
-            withAnimation(.spring(duration: 0.22)) { reorder.update(steps: steps) }
-        }
-    }
-
-    private func reorderEnded() {
-        let steps = reorder.steps
-        let wasReordering = isReordering
-        isReordering = false
-        reorderOffset = 0
-        reorder.end()
-        guard wasReordering, steps != 0 else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
-        withAnimation(.spring(duration: 0.25)) {
-            store.reorder(task, byRowSteps: steps)
-        }
     }
 
     // MARK: - Inline edit

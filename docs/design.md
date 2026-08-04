@@ -225,7 +225,6 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap. Commits at **22% of the row width (≈86pt) or 350pt/s** — deliberately forgiving, because moving a task between days is the one thing this app exists to make cheap. The original 40%/800 meant a swipe had to cross most of the screen. |
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
-| Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
 | Photo viewer | A floating Win95 window at ~3/4 of the screen that HUGS the image — title bar with ✕, image inside the frame, app dimmed behind. Only the ✕ or the dimmed background closes it; tapping the image does nothing. |
 | Overdue chip | Flat frame in the theme's status tint, date in black — no bevel. Editing an overdue task's text re-dates it to today and the chip disappears (a rewritten task is a new task). |
 | Photos | Multiple per task, added ONE per edit session — the theme-coloured plus retires after a pick and returns on the next edit. Thumbnails accumulate left→right in the order added. |
@@ -430,8 +429,8 @@ with this table is wrong, not the table.
 | **Tap** (anywhere on the row except the checkbox) | Inline edit: TextField with the title, keyboard up, caret in. Blocked on completed rows and during a reorder. |
 | **Tap checkbox** | Toggle complete. Row travels to/from the completed block (0.35s spring). Untick restores the exact former position. |
 | **Press** (finger down ~0.12s, still) | Row tints `light` and scales to 0.97 — the iOS press-in feel. NO tint for scroll-intent touches: the 0.12s delay means a moving finger never flashes the row. |
-| **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) just BELOW the row — the task it acts on stays visible; light haptic; the tint HOLDS while the menu is open. The row is now armed. |
-| **Hold, then drag vertically** | Reorder: menu dismisses, row lifts (selection colours), follows the finger snapped to the pixel grid, neighbours part one row height (0.22s spring); selection haptic per step; release commits. List scrolling is disabled while armed. |
+| **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) just BELOW the row — the task it acts on stays visible; light haptic; the tint HOLDS while the menu is open. Movement after the hold does nothing. |
+| ~~Hold, then drag vertically~~ | **Reorder removed 2026-08-04** (founder call: too many gestures interfering with each other). Order within a bucket is placement-driven only. |
 | **Horizontal drag** | Swipe: content follows the finger (pixel-snapped). Right = defer, left = pull forward. Commits at **half the runway the finger actually had** (distance from the touch's start to the screen edge), capped at 22% of the row width — or 300pt/s. Runway-scaled because a swipe starting right of centre physically cannot travel 86pt before the edge; a fixed bar made off-text swipes on short rows bounce forever. Commit slides off the edge (0.15s), then the list closes the gap. Below threshold: spring back (0.3s). |
 | **Horizontal drag at a dead end** | Rubber-band at 0.3 resistance + one light haptic. Today has no left step; General has no right step; completed rows never move. |
 | **Vertical drag** | Scrolling, ALWAYS — slow or fast, starting on a row or on empty well. The row surrenders the touch; the scroll view cancels it. Bounce at both ends even when the list is short. |
@@ -459,6 +458,6 @@ one interaction:
 4. The content HStack must carry **no `contentShape`**, or it swallows every
    touch before the catcher sees one. The checkbox and TextField keep their own
    touches by sitting above the catcher.
-5. `.zIndex` for the lifted row is applied by the ForEach in TaskListView —
-   inside the row's own body it is ignored and a downward drag goes under its
-   neighbours.
+5. (Historical) `.zIndex` for a lifted row must be applied by the ForEach in
+   the list, not inside the row's body — kept for the record although
+   drag-reorder itself was removed 2026-08-04.
