@@ -224,6 +224,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
+| Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
 | Photo viewer open | **Instant.** No transition. |
 | Photo viewer close | **Instant.** No transition. |
@@ -330,7 +331,26 @@ well space scrolled. Everything gesture-shaped failed, each bisected on device:
 | UIKit recognizers via `UIGestureRecognizerRepresentable` | same stall — SwiftUI replaces the recognizer's delegate, so "recognize simultaneously" never reaches the scroll view's pan |
 | `Button` wrapper + simultaneous pan | starves the button entirely; not even the nested checkbox fired |
 
-What works is the layer UIKit built for it: **a plain `UIView`'s touch
+**Round three.** Even a lone `DragGesture(minimumDistance: 12)` had to go: it
+claims the touch the moment the finger passes 12pt, and although the axis logic
+then decides "vertical, not mine", the pan is already taken and the scroll view
+never gets it. Fast flicks worked only because `UIScrollView`'s own recognizer
+won the race first — which is exactly the reported symptom, *flick scrolls,
+slow drag is dead*. **The row now has no SwiftUI gesture at all**: swipe and
+reorder ride the same UIView touches as press/tap/hold, and UIKit arbitrates as
+it always has (a vertical pan starts the scroll view, which cancels our touches
+and aborts the swipe; a horizontal pan never triggers the vertical scroll view,
+so the swipe runs).
+
+Three traps inside that catcher, each of which silently broke one interaction:
+
+| Trap | Symptom | Fix |
+|---|---|---|
+| `UIScrollView.delaysContentTouches` holds touches ~150ms | A quick swipe is over before delivery; the row measures almost nothing | Walk up to the enclosing scroll view and set `delaysContentTouches = false` — on every `touchesBegan`, not just on attach, because the scroll view isn't in the ancestor chain yet at `didMoveToWindow` |
+| `touch.location(in: self)` on a view that MOVES with the drag | Measured distance is **half** the finger's travel, so the commit threshold is never reached | Measure in **window** space |
+| Synthesised touches can share timestamps | Per-segment velocity stays 0, so flick-to-commit never fires | Fall back to the gesture's average velocity |
+
+What works underneath is the layer UIKit built for it: **a plain `UIView`'s touch
 methods**. `UIScrollView` delays content touches and then *cancels* them the
 moment it begins panning, so the scroll always wins, a stationary finger sails
 through, and `touchesBegan/Ended/Cancelled` yield touch-down, tap and hold. The

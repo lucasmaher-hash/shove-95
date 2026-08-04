@@ -21,6 +21,7 @@ struct RootView: View {
     @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
     @State private var reorder = ReorderCoordinator()
+    @State private var editing = EditingCoordinator()
 
     /// Which way the last tab change travelled — decided before `selected`
     /// moves, so both halves of the transition agree on a direction.
@@ -106,6 +107,7 @@ struct RootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .environment(menu)
         .environment(reorder)
+        .environment(editing)
         // Workspace dropdown — drops from the title bar's leading edge, the
         // way a Win95 menu drops from a menu-bar title. Same spring as the
         // row menu; same flat, fast exit.

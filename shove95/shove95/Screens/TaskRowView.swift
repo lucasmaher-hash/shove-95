@@ -20,6 +20,7 @@ struct TaskRowView: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(ReorderCoordinator.self) private var reorder
+    @Environment(EditingCoordinator.self) private var editing
     @Environment(\.pixel) private var pixel
 
     // Reorder session (FR-004). Same long-press that opens the menu: holding
@@ -28,6 +29,7 @@ struct TaskRowView: View {
     @State private var reorderOffset: CGFloat = 0
     @State private var rowFrame: CGRect = .zero
     @State private var isPressing = false
+
 
 
     @State private var isEditing = false
@@ -43,10 +45,6 @@ struct TaskRowView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var rubberBandBuzzed = false
     @State private var rowWidth: CGFloat = 390
-
-    /// Per-gesture axis decision; reset on end.
-    private enum PanAxis { case undecided, horizontal, vertical }
-    @State private var panAxis: PanAxis = .undecided
 
     private static let commitFraction: CGFloat = 0.4   // >40% of row width
     private static let commitVelocity: CGFloat = 800   // or >800 pt/s
@@ -105,7 +103,6 @@ struct TaskRowView: View {
             .animation(.spring(duration: 0.22), value: isPressing)
             .animation(.easeOut(duration: 0.12), value: isMenuOpen)
             .offset(y: reorderOffset)
-            .simultaneousGesture(panGesture)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
             .accessibilityActions { accessibilityMoveActions }
@@ -241,7 +238,13 @@ struct TaskRowView: View {
             onDown: { pressChanged(true) },
             onRelease: { pressChanged(false) },
             onTap: handleTap,
-            onHold: longPressSucceeded
+            onHold: longPressSucceeded,
+            isArmed: { reorder.isArmed(task.id) },
+            onSwipe: swipeChanged,
+            onSwipeEnd: swipeEnded,
+            onSwipeCancel: swipeCancelled,
+            onReorder: trackReorder,
+            onReorderEnd: finishReorder
         ))
         .background(rowBackground) // grey while pressed, navy while dragged
     }
@@ -256,18 +259,21 @@ struct TaskRowView: View {
 
     private var isMenuOpen: Bool { menu.isShowing(task) }
 
-    // MARK: - Pan: swipe, or reorder once armed
+    // MARK: - Drag: swipe, or reorder once armed
     //
-    // SCROLLING (fixed 2026-08-04). This row may attach exactly ONE DragGesture.
-    // The reorder used to be `LongPressGesture.sequenced(before: DragGesture(
-    // minimumDistance: 0))`, and a press tint added a second
-    // `DragGesture(minimumDistance: 0)`. Either one stops the enclosing
-    // ScrollView dead — a zero-distance drag claims the touch the instant the
-    // finger lands, so the scroll view never sees the pan. Bisected on device:
-    // with only this gesture attached the list scrolls; adding the sequenced
-    // one back stops it. So the long press is now a press MODIFIER (which
-    // yields to the scroll view), and once it succeeds this same pan handles
-    // the reorder.
+    // NO SwiftUI DragGesture. Round three (2026-08-04): even a lone
+    // `DragGesture(minimumDistance: 12)` kills SLOW vertical pans on rows —
+    // it claims the touch as soon as the finger passes 12pt, and although the
+    // axis logic then decides "vertical, not mine", the gesture has already
+    // taken the pan and the scroll view never gets it. Fast flicks worked only
+    // because UIScrollView's own recognizer won the race first, which is
+    // exactly the reported symptom: flick scrolls, slow drag is dead.
+    //
+    // So the drag rides the same UIView touches as press/tap/hold. UIKit then
+    // arbitrates the way it always has: a vertical pan makes the scroll view
+    // start scrolling and CANCEL our touches, so the swipe aborts by itself; a
+    // horizontal pan never triggers the vertical scroll view, so we keep the
+    // touches and the swipe runs.
     //
     // DIRECTION REVERSED 2026-08-04 on device feedback. The original spec said
     // left = defer, but that fights the taskbar: the tabs read
@@ -278,74 +284,55 @@ struct TaskRowView: View {
     //   swipe left  → pull forward (toward Today)
     //   swipe right → defer        (toward General)
 
-    private var panGesture: some Gesture {
-        DragGesture(minimumDistance: 12, coordinateSpace: .local)
-            .onChanged { value in
-                if reorder.isArmed(task.id) {
-                    trackReorder(value.translation.height)
-                    return
-                }
-                guard !task.isCompleted else { return } // completed rows don't move
-                let t = value.translation
-                switch panAxis {
-                case .undecided:
-                    // Decide the axis once per gesture (the spike's core rule).
-                    if abs(t.width) > abs(t.height) * 1.2 {
-                        panAxis = .horizontal
-                    } else {
-                        panAxis = .vertical // scroll owns this touch; stay out
-                    }
-                case .vertical:
-                    break
-                case .horizontal:
-                    let direction: StepDirection = t.width < 0 ? .pullOne : .deferOne
-                    if currentBucket.steppedOnce(direction) == nil {
-                        // Dead end: resistance + one light haptic (FR-002/021).
-                        dragOffset = snapped(t.width * Self.rubberResistance)
-                        if abs(t.width) > 20, !rubberBandBuzzed {
-                            rubberBandBuzzed = true
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
-                    } else {
-                        dragOffset = snapped(t.width)
-                    }
-                }
-            }
-            .onEnded { value in
-                if isReordering { finishReorder(); return }
-                let axis = panAxis
-                panAxis = .undecided
-                rubberBandBuzzed = false
-                guard axis == .horizontal, !task.isCompleted else { return }
-
-                let translation = value.translation.width
-                let velocity = value.velocity.width
-                let direction: StepDirection = translation < 0 ? .pullOne : .deferOne
-
-                let overThreshold = abs(translation) > rowWidth * Self.commitFraction
-                    || abs(velocity) > Self.commitVelocity
-                let sameSign = (translation < 0) == (velocity < 0) || abs(velocity) < 50
-
-                guard currentBucket.steppedOnce(direction) != nil,
-                      overThreshold, sameSign else {
-                    withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
-                    return
-                }
-
-                // Commit: slide off the screen edge, then the model updates and
-                // the list closes the gap (FR-002; motion = position only).
+    private func swipeChanged(_ dx: CGFloat) {
+        guard !task.isCompleted else { return } // completed rows don't move
+        let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
+        if currentBucket.steppedOnce(direction) == nil {
+            // Dead end: resistance + one light haptic (FR-002/021).
+            dragOffset = snapped(dx * Self.rubberResistance)
+            if abs(dx) > 20, !rubberBandBuzzed {
+                rubberBandBuzzed = true
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.easeOut(duration: 0.15)) {
-                    dragOffset = translation < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
-                }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(150))
-                    withAnimation(.spring(duration: 0.25)) {
-                        store.step(task, direction: direction)
-                    }
-                    dragOffset = 0 // row identity survives the move; clear the committed offset
-                }
             }
+        } else {
+            dragOffset = snapped(dx)
+        }
+    }
+
+    private func swipeEnded(_ dx: CGFloat, velocity: CGFloat) {
+        rubberBandBuzzed = false
+        guard !task.isCompleted else { return }
+
+        let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
+        let overThreshold = abs(dx) > rowWidth * Self.commitFraction
+            || abs(velocity) > Self.commitVelocity
+        let sameSign = (dx < 0) == (velocity < 0) || abs(velocity) < 50
+
+        guard currentBucket.steppedOnce(direction) != nil, overThreshold, sameSign else {
+            withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
+            return
+        }
+
+        // Commit: slide off the screen edge, then the model updates and the
+        // list closes the gap (FR-002; motion = position only).
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.easeOut(duration: 0.15)) {
+            dragOffset = dx < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            withAnimation(.spring(duration: 0.25)) {
+                store.step(task, direction: direction)
+            }
+            dragOffset = 0 // row identity survives the move; clear the committed offset
+        }
+    }
+
+    /// The scroll view took the touch (or the system did) — put the row back.
+    private func swipeCancelled() {
+        rubberBandBuzzed = false
+        guard dragOffset != 0 else { return }
+        withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
     }
 
     /// Movement travels in whole 1995-pixels — smooth but quantised, like a
@@ -385,6 +372,7 @@ struct TaskRowView: View {
         draft = task.title
         isEditing = true
         editFocused = true
+        editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
     }
 
     private func longPressSucceeded() {
@@ -465,6 +453,7 @@ struct TaskRowView: View {
     private func commitEdit() {
         guard isEditing else { return }
         isEditing = false
+        editing.end(task.id.uuidString)
         store.editTitle(task, to: draft) // empty draft → store reverts (no-op)
     }
 }
@@ -489,6 +478,12 @@ private struct RowTouchHandler: UIViewRepresentable {
     var onRelease: () -> Void
     var onTap: () -> Void
     var onHold: () -> Void
+    var isArmed: () -> Bool
+    var onSwipe: (CGFloat) -> Void
+    var onSwipeEnd: (CGFloat, CGFloat) -> Void
+    var onSwipeCancel: () -> Void
+    var onReorder: (CGFloat) -> Void
+    var onReorderEnd: () -> Void
 
     func makeUIView(context: Context) -> TouchCatcher {
         let view = TouchCatcher()
@@ -506,6 +501,12 @@ private struct RowTouchHandler: UIViewRepresentable {
         view.onRelease = onRelease
         view.onTap = onTap
         view.onHold = onHold
+        view.isArmed = isArmed
+        view.onSwipe = onSwipe
+        view.onSwipeEnd = onSwipeEnd
+        view.onSwipeCancel = onSwipeCancel
+        view.onReorder = onReorder
+        view.onReorderEnd = onReorderEnd
     }
 }
 
@@ -514,19 +515,84 @@ final class TouchCatcher: UIView {
     var onRelease: (() -> Void)?
     var onTap: (() -> Void)?
     var onHold: (() -> Void)?
+    var isArmed: (() -> Bool)?
+    var onSwipe: ((CGFloat) -> Void)?
+    var onSwipeEnd: ((CGFloat, CGFloat) -> Void)?
+    var onSwipeCancel: (() -> Void)?
+    var onReorder: ((CGFloat) -> Void)?
+    var onReorderEnd: (() -> Void)?
+
+    /// What this touch turned out to be. Decided once, on first real movement.
+    private enum Kind { case undecided, swipe, reorder, scrolling }
+    private var kind: Kind = .undecided
 
     private var startPoint: CGPoint = .zero
+    private var startTime: TimeInterval = 0
+    private var lastPoint: CGPoint = .zero
+    private var lastTime: TimeInterval = 0
+    private var velocityX: CGFloat = 0
     private var moved = false
     private var held = false
     private var holdWork: DispatchWorkItem?
 
+    /// Touches are measured in WINDOW space, never `location(in: self)`. The
+    /// row translates with the swipe, so a self-relative reading double-counts:
+    /// the finger moves 250pt, the view chases it, and the touch's position
+    /// *within* the view advances only ~125 — half the real distance, so the
+    /// commit threshold was never reached. Same trap on the vertical axis
+    /// during a reorder.
+    private func point(_ touch: UITouch) -> CGPoint {
+        touch.location(in: window ?? self)
+    }
+
+    /// Movement needed before a touch stops being a tap/hold candidate.
+    private static let slop: CGFloat = 10
+    /// A pan must be this much more horizontal than vertical to be a swipe;
+    /// anything else is left to the scroll view.
+    private static let axisBias: CGFloat = 1.2
+
+    /// UIScrollView holds content touches back ~150ms to see whether the
+    /// gesture is a scroll. A quick swipe is OVER by then, so the catcher saw
+    /// almost none of it and the swipe silently never fired. Turning the delay
+    /// off delivers touches immediately; cancellation still does the
+    /// arbitration — the scroll view yanks the touch the moment its pan
+    /// recognises, which is what makes a vertical drag scroll instead of swipe.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        configureEnclosingScrollView()
+    }
+
+    /// Re-run on every touch as well as on attach: at `didMoveToWindow` the
+    /// SwiftUI scroll view is not always in the ancestor chain yet, and if the
+    /// delay is still on, the first ~150ms of a swipe is swallowed — the row
+    /// then measures a drag far shorter than the finger actually travelled and
+    /// never reaches the commit threshold.
+    private func configureEnclosingScrollView() {
+        var ancestor: UIView? = superview
+        while let view = ancestor {
+            if let scrollView = view as? UIScrollView {
+                scrollView.delaysContentTouches = false
+                scrollView.canCancelContentTouches = true
+                return
+            }
+            ancestor = view.superview
+        }
+    }
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         guard let touch = touches.first else { return }
-        startPoint = touch.location(in: self)
+        configureEnclosingScrollView()
+        startPoint = point(touch)
+        startTime = touch.timestamp
+        lastPoint = startPoint
+        lastTime = touch.timestamp
+        velocityX = 0
+        kind = .undecided
         moved = false
         held = false
         onDown?()
+
         let work = DispatchWorkItem { [weak self] in
             guard let self, !self.moved else { return }
             self.held = true
@@ -540,10 +606,42 @@ final class TouchCatcher: UIView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
         guard let touch = touches.first else { return }
-        let p = touch.location(in: self)
-        if hypot(p.x - startPoint.x, p.y - startPoint.y) > 10 {
+        let p = point(touch)
+        let dx = p.x - startPoint.x
+        let dy = p.y - startPoint.y
+
+        let dt = touch.timestamp - lastTime
+        if dt > 0 { velocityX = (p.x - lastPoint.x) / CGFloat(dt) }
+        lastPoint = p
+        lastTime = touch.timestamp
+
+        if hypot(dx, dy) > Self.slop {
             moved = true
             holdWork?.cancel()
+        }
+
+        // A hold that already fired owns the vertical axis: this is a reorder.
+        if isArmed?() == true, kind != .swipe {
+            kind = .reorder
+            onReorder?(dy)
+            return
+        }
+
+        switch kind {
+        case .undecided:
+            guard hypot(dx, dy) > Self.slop else { return }
+            if abs(dx) > abs(dy) * Self.axisBias {
+                kind = .swipe
+                onSwipe?(dx)
+            } else {
+                // Vertical: hand it to the scroll view and never look again.
+                // It will cancel our touches as soon as it starts scrolling.
+                kind = .scrolling
+            }
+        case .swipe:
+            onSwipe?(dx)
+        case .reorder, .scrolling:
+            break
         }
     }
 
@@ -551,14 +649,37 @@ final class TouchCatcher: UIView {
         super.touchesEnded(touches, with: event)
         holdWork?.cancel()
         let wasTap = !moved && !held
+        let dx = (touches.first.map { point($0).x } ?? lastPoint.x) - startPoint.x
         onRelease?()
+
+        // Synthesised touches can carry identical timestamps, leaving the
+        // per-segment velocity at zero; fall back to the whole gesture's
+        // average so a fast flick is still recognised as one.
+        var velocity = velocityX
+        if velocity == 0 {
+            let elapsed = (touches.first?.timestamp ?? lastTime) - startTime
+            if elapsed > 0 { velocity = dx / CGFloat(elapsed) }
+        }
+
+        switch kind {
+        case .swipe: onSwipeEnd?(dx, velocity)
+        case .reorder: onReorderEnd?()
+        case .undecided, .scrolling: break
+        }
         if wasTap { onTap?() }
+        kind = .undecided
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
         holdWork?.cancel()
         onRelease?() // the scroll view took the touch — never a tap
+        switch kind {
+        case .swipe: onSwipeCancel?()
+        case .reorder: onReorderEnd?()
+        case .undecided, .scrolling: break
+        }
+        kind = .undecided
     }
 }
 

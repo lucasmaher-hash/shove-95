@@ -14,8 +14,10 @@ struct AddRowView: View {
     let bucket: Bucket
     @Environment(TaskStore.self) private var store
     @Environment(\.pixel) private var pixel
+    @Environment(EditingCoordinator.self) private var editing
 
     @State private var text = ""
+    @State private var frame: CGRect = .zero
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -27,6 +29,20 @@ struct AddRowView: View {
             .font(W95Font.standard(pixel))
             .foregroundStyle(Win95.text)
             .focused($focused)
+            .onChange(of: focused) { _, isFocused in
+                if isFocused {
+                    editing.begin(EditingCoordinator.addRowID, bottom: frame.maxY)
+                } else {
+                    editing.end(EditingCoordinator.addRowID)
+                }
+            }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onChange(of: proxy.frame(in: .global)) { _, new in frame = new }
+                        .task { frame = proxy.frame(in: .global) }
+                }
+            }
             .submitLabel(.return)
             .onSubmit {
                 store.addTask(title: text, in: bucket) // empty → no-op (store guards)
