@@ -226,7 +226,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Photo viewer | A floating Win95 window at ~3/4 of the screen that HUGS the image — title bar with ✕, image inside the frame, app dimmed behind. Only the ✕ or the dimmed background closes it; tapping the image does nothing. |
-| Overdue chip | Flat frame in the theme's status tint, date in black — no bevel. Editing an overdue task's text re-dates it to today and the chip disappears (a rewritten task is a new task). |
+| Overdue chip | Solid rectangle filled with the theme's status tint, date in black — no bevel, no outline. Editing an overdue task's text re-dates it to today and the chip disappears (a rewritten task is a new task). |
 | Photos | Multiple per task, added ONE per edit session — the theme-coloured plus retires after a pick and returns on the next edit. Thumbnails accumulate left→right in the order added. |
 | Return in any text field | **Commits and dismisses the keyboard.** It never inserts a line break — rows gain lines only by wrapping as the text grows. A vertical-axis `TextField` inserts a newline instead of firing `onSubmit`, so the newline is intercepted in the BINDING and the focus change is deferred a runloop turn; stripping it in `onChange`, or resigning focus inline, both lose to the field's own editing state and the newline survives. |
 | Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
@@ -431,7 +431,7 @@ with this table is wrong, not the table.
 | **Press** (finger down ~0.12s, still) | Row tints `light` and scales to 0.97 — the iOS press-in feel. NO tint for scroll-intent touches: the 0.12s delay means a moving finger never flashes the row. |
 | **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) just BELOW the row — the task it acts on stays visible; light haptic; the tint HOLDS while the menu is open. Movement after the hold does nothing. |
 | ~~Hold, then drag vertically~~ | **Reorder removed 2026-08-04** (founder call: too many gestures interfering with each other). Order within a bucket is placement-driven only. |
-| **Horizontal drag** | Swipe: content follows the finger (pixel-snapped). Right = defer, left = pull forward. Commits at **half the runway the finger actually had** (distance from the touch's start to the screen edge), capped at 22% of the row width — or 300pt/s. Runway-scaled because a swipe starting right of centre physically cannot travel 86pt before the edge; a fixed bar made off-text swipes on short rows bounce forever. Commit slides off the edge (0.15s), then the list closes the gap. Below threshold: spring back (0.3s). |
+| **Horizontal drag** | Swipe: content follows the finger (pixel-snapped), and the axis LOCKS — once a pan is a swipe the touch is ours for the rest of the gesture, so vertical drift can't hand it back to the scroll view. Purely horizontal motion: the row never moves vertically. Right = defer, left = pull forward. Commits at **half the runway the finger actually had** (distance from the touch's start to the screen edge), capped at 22% of the row width — or 300pt/s. Runway-scaled because a swipe starting right of centre physically cannot travel 86pt before the edge; a fixed bar made off-text swipes on short rows bounce forever. Commit slides off the edge (0.15s), then the list closes the gap. Below threshold: spring back (0.3s). |
 | **Horizontal drag at a dead end** | Rubber-band at 0.3 resistance + one light haptic. Today has no left step; General has no right step; completed rows never move. |
 | **Vertical drag** | Scrolling, ALWAYS — slow or fast, starting on a row or on empty well. The row surrenders the touch; the scroll view cancels it. Bounce at both ends even when the list is short. |
 | **Return while editing** | Commits and dismisses the keyboard. Never inserts a line — rows gain lines only by wrapping. |
@@ -448,6 +448,10 @@ UIKit arbitrates against the scroll view natively.
 Standing traps, all bisected on device; violating any of them silently breaks
 one interaction:
 
+0. `canCancelContentTouches` must be turned OFF for the duration of a
+   recognised swipe and restored on every exit path — no finger draws a
+   straight line, and without the lock the scroll view cancels a diagonal
+   swipe halfway through.
 1. `delaysContentTouches` must be OFF (set from `touchesBegan`, the scroll view
    isn't in the ancestor chain at attach time) or quick swipes lose their first
    150ms and never reach the commit threshold.

@@ -84,6 +84,8 @@ final class RowGestureCatcher: UIView {
 
     private var tintWork: DispatchWorkItem?
     private var holdWork: DispatchWorkItem?
+    /// Held so the swipe can LOCK the axis (see `lockAxis`).
+    private weak var enclosingScrollView: UIScrollView?
 
     /// Movement before a touch stops being a tap/hold candidate.
     private static let slop: CGFloat = 10
@@ -112,12 +114,22 @@ final class RowGestureCatcher: UIView {
         var ancestor: UIView? = superview
         while let view = ancestor {
             if let scrollView = view as? UIScrollView {
+                enclosingScrollView = scrollView
                 scrollView.delaysContentTouches = false
                 scrollView.canCancelContentTouches = true
                 return
             }
             ancestor = view.superview
         }
+    }
+
+    /// Once a pan is a horizontal swipe, the touch is OURS for the rest of the
+    /// gesture. Without this the scroll view cancels us the moment the finger
+    /// drifts vertically — and no finger travels a perfectly straight line, so
+    /// swipes died halfway through (founder report 2026-08-04). Restored on
+    /// every exit path; a nil scroll view is fine (nothing to lock).
+    private func lockAxis(_ locked: Bool) {
+        enclosingScrollView?.canCancelContentTouches = !locked
     }
 
     // MARK: Touches
@@ -171,6 +183,7 @@ final class RowGestureCatcher: UIView {
             holdWork?.cancel()
             if abs(dx) > abs(dy) * Self.axisBias {
                 phase = .swiping
+                lockAxis(true) // vertical drift no longer steals the swipe
                 handlers?.onPressChanged(false) // a swiping row isn't "pressed"
                 handlers?.onSwipeChanged(dx)
             } else {
@@ -193,6 +206,7 @@ final class RowGestureCatcher: UIView {
         super.touchesEnded(touches, with: event)
         tintWork?.cancel()
         holdWork?.cancel()
+        lockAxis(false)
         let dx = (touches.first.map { point($0).x } ?? lastPoint.x) - startPoint.x
 
         switch phase {
@@ -216,6 +230,7 @@ final class RowGestureCatcher: UIView {
         super.touchesCancelled(touches, with: event)
         tintWork?.cancel()
         holdWork?.cancel()
+        lockAxis(false)
         handlers?.onPressChanged(false)
 
         switch phase {
