@@ -427,7 +427,7 @@ with this table is wrong, not the table.
 | **Tap** (anywhere on the row except the checkbox) | Inline edit: TextField with the title, keyboard up, caret in. Blocked on completed rows and during a reorder. |
 | **Tap checkbox** | Toggle complete. Row travels to/from the completed block (0.35s spring). Untick restores the exact former position. |
 | **Press** (finger down ~0.12s, still) | Row tints `light` and scales to 0.97 — the iOS press-in feel. NO tint for scroll-intent touches: the 0.12s delay means a moving finger never flashes the row. |
-| **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) anchored at the row's top-left; light haptic; the tint HOLDS while the menu is open. The row is now armed. |
+| **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) just BELOW the row — the task it acts on stays visible; light haptic; the tint HOLDS while the menu is open. The row is now armed. |
 | **Hold, then drag vertically** | Reorder: menu dismisses, row lifts (selection colours), follows the finger snapped to the pixel grid, neighbours part one row height (0.22s spring); selection haptic per step; release commits. List scrolling is disabled while armed. |
 | **Horizontal drag** | Swipe: content follows the finger (pixel-snapped). Right = defer, left = pull forward. Commits at 22% of the row width or 350pt/s — slide off the edge (0.15s), then the list closes the gap. Below threshold: spring back (0.3s). |
 | **Horizontal drag at a dead end** | Rubber-band at 0.3 resistance + one light haptic. Today has no left step; General has no right step; completed rows never move. |

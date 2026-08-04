@@ -263,14 +263,15 @@ struct TaskRowView: View {
         Task { @MainActor in editFocused = true }
     }
 
-    /// Hold → menu at the row's top-left (global→local conversion happens in
-    /// MenuOverlay) + armed for reorder.
+    /// Hold → menu just BELOW the row, so the task it acts on stays visible
+    /// (founder request 2026-08-04 — anchored at the top it covered the row).
+    /// Global→local conversion happens in MenuOverlay; + armed for reorder.
     private func handleHold() {
         guard !isReordering, !isEditing else { return }
         reorder.arm(taskID: task.id)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         menu.show(task: task, at: CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel,
-                                          y: rowFrame.minY))
+                                          y: rowFrame.maxY + Win95.Px.grid * pixel))
     }
 
     /// Swipe left = pull forward (toward Today), right = defer (toward
