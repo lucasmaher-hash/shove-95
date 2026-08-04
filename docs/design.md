@@ -413,3 +413,49 @@ trailing edge, and tapping the workspace drops a menu from it.
 - The default workspace is renamable but **not deletable**. Deleting any other
   reassigns its tasks back to the default: deleting a label must never delete
   work.
+
+
+---
+
+## 16. Row interaction contract *(rebuilt from scratch 2026-08-04)*
+
+The single source of truth for how a task row behaves. Code that disagrees
+with this table is wrong, not the table.
+
+| Input | Behaviour |
+|---|---|
+| **Tap** (anywhere on the row except the checkbox) | Inline edit: TextField with the title, keyboard up, caret in. Blocked on completed rows and during a reorder. |
+| **Tap checkbox** | Toggle complete. Row travels to/from the completed block (0.35s spring). Untick restores the exact former position. |
+| **Press** (finger down ~0.12s, still) | Row tints `light` and scales to 0.97 — the iOS press-in feel. NO tint for scroll-intent touches: the 0.12s delay means a moving finger never flashes the row. |
+| **Hold 0.4s** (within 10pt) | Win95 menu springs in (0.26s, bounce 0.38) anchored at the row's top-left; light haptic; the tint HOLDS while the menu is open. The row is now armed. |
+| **Hold, then drag vertically** | Reorder: menu dismisses, row lifts (selection colours), follows the finger snapped to the pixel grid, neighbours part one row height (0.22s spring); selection haptic per step; release commits. List scrolling is disabled while armed. |
+| **Horizontal drag** | Swipe: content follows the finger (pixel-snapped). Right = defer, left = pull forward. Commits at 22% of the row width or 350pt/s — slide off the edge (0.15s), then the list closes the gap. Below threshold: spring back (0.3s). |
+| **Horizontal drag at a dead end** | Rubber-band at 0.3 resistance + one light haptic. Today has no left step; General has no right step; completed rows never move. |
+| **Vertical drag** | Scrolling, ALWAYS — slow or fast, starting on a row or on empty well. The row surrenders the touch; the scroll view cancels it. Bounce at both ends even when the list is short. |
+| **Return while editing** | Commits and dismisses the keyboard. Never inserts a line — rows gain lines only by wrapping. |
+| **Edit under the keyboard** | The list lifts the field to sit just above the keyboard; a field already clear does not move. |
+
+### Why the touch layer is UIKit, not SwiftUI
+
+Every SwiftUI construct was tried and failed on device (§13): gestures starve
+the scroll view or get starved by it. The row therefore attaches **no SwiftUI
+gesture at all**. One `UIView` in the row's background owns a five-phase state
+machine — `pending → tap / held / swiping / reordering / surrendered` — and
+UIKit arbitrates against the scroll view natively.
+
+Standing traps, all bisected on device; violating any of them silently breaks
+one interaction:
+
+1. `delaysContentTouches` must be OFF (set from `touchesBegan`, the scroll view
+   isn't in the ancestor chain at attach time) or quick swipes lose their first
+   150ms and never reach the commit threshold.
+2. Touches must be measured in **window** space — the row moves with the drag,
+   so self-relative coordinates read half the real distance.
+3. Synthesised touches can share timestamps → zero per-segment velocity → fall
+   back to whole-gesture average.
+4. The content HStack must carry **no `contentShape`**, or it swallows every
+   touch before the catcher sees one. The checkbox and TextField keep their own
+   touches by sitting above the catcher.
+5. `.zIndex` for the lifted row is applied by the ForEach in TaskListView —
+   inside the row's own body it is ignored and a downward drag goes under its
+   neighbours.
