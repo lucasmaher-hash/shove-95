@@ -43,17 +43,26 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         GroupBox95(title: "Appearance") {
-            VStack(spacing: 0) {
-                ForEach(Win95Scheme.all) { scheme in
-                    SchemeRow(
-                        scheme: scheme,
-                        isSelected: scheme.id == settings.scheme.id
-                    ) {
-                        var t = Transaction()
-                        t.disablesAnimations = true // appearance never animates
-                        withTransaction(t) { settings.scheme = scheme }
+            VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+                // One row of window miniatures — the Win95 Appearance tab
+                // showed you the scheme rather than naming it. Five stacked
+                // rows for five colours was a wall of chrome for one choice.
+                HStack(spacing: Win95.Px.grid * pixel) {
+                    ForEach(Win95Scheme.all) { scheme in
+                        SchemeSwatch(
+                            scheme: scheme,
+                            isSelected: scheme.id == settings.scheme.id
+                        ) {
+                            var t = Transaction()
+                            t.disablesAnimations = true // appearance never animates
+                            withTransaction(t) { settings.scheme = scheme }
+                        }
                     }
                 }
+
+                Text(settings.scheme.name)
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.shadow)
             }
         }
     }
@@ -85,37 +94,44 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Scheme row
+// MARK: - Scheme swatch
 
-private struct SchemeRow: View {
+/// A scheme as a miniature window: title bar over body over well. Selected reads
+/// as a pressed toolbar button — sunken bevel, nudged down and right one pixel.
+private struct SchemeSwatch: View {
     @Environment(\.pixel) private var pixel
     let scheme: Win95Scheme
     let isSelected: Bool
     var action: () -> Void
 
     var body: some View {
-        HStack(spacing: Win95.Px.grid * pixel) {
-            Win95Checkbox(isChecked: isSelected, action: action)
-
-            Text(scheme.name)
-                .font(W95Font.standard(pixel))
-                .foregroundStyle(Win95.text)
-
-            Spacer(minLength: 0)
-
-            // Live swatch: title-bar gradient, surface, and the well.
-            HStack(spacing: 0) {
-                LinearGradient(colors: [Color(hex: scheme.titleA), Color(hex: scheme.titleB)],
-                               startPoint: .leading, endPoint: .trailing)
-                    .frame(width: Win95.Px.grid * 6 * pixel)
-                Color(hex: scheme.surface).frame(width: Win95.Px.grid * 3 * pixel)
-                Color(hex: scheme.well).frame(width: Win95.Px.grid * 3 * pixel)
-            }
-            .frame(height: Win95.Px.checkbox * pixel)
-            .bevelSunken(pixel)
+        VStack(spacing: 0) {
+            LinearGradient(colors: [Color(hex: scheme.titleA), Color(hex: scheme.titleB)],
+                           startPoint: .leading, endPoint: .trailing)
+                .frame(height: Win95.Px.grid * 3 * pixel)
+            Color(hex: scheme.surface)
+            Color(hex: scheme.well)
+                .frame(height: Win95.Px.grid * 2 * pixel)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: Win95.rowHeight(pixel))
+        .padding(pixel * 2)
+        .background(Win95.surface)
+        .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
+        .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
+        .accessibilityLabel(scheme.name)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+private struct SwatchBevel: ViewModifier {
+    let isSelected: Bool
+    let pixel: CGFloat
+
+    func body(content: Content) -> some View {
+        if isSelected { content.bevelSunken(pixel) } else { content.bevelRaised(pixel) }
     }
 }
 

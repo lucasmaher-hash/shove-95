@@ -9,7 +9,12 @@
 //  drag-reorder through the whole of Phase 2.
 //
 //  A Win95 menu is a raised silver panel of text rows that appears at the
-//  pointer, with no scrim and no animation. Tapping anywhere else dismisses it.
+//  pointer, with no scrim. Tapping anywhere else dismisses it.
+//
+//  It DOES spring in (founder direction 2026-08-04): the app is a static vintage
+//  surface that responds like a modern one, so the panel arrives with the same
+//  small bounce iOS gives a long-press menu. It leaves fast and flat — a bouncy
+//  dismissal reads as hesitation.
 //
 
 import SwiftUI
@@ -33,11 +38,21 @@ struct RowMenuRequest: Equatable {
 final class MenuCoordinator {
     var request: RowMenuRequest?
 
+    /// Springs in with a little overshoot; the anchor is the row's bottom-left,
+    /// so it grows out of the row the way a Win95 menu drops from its title.
     func show(task: TaskItem, at point: CGPoint) {
-        request = RowMenuRequest(taskID: task.id, point: point)
+        withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
+            request = RowMenuRequest(taskID: task.id, point: point)
+        }
     }
 
-    func dismiss() { request = nil }
+    func dismiss() {
+        withAnimation(.easeOut(duration: 0.11)) { request = nil }
+    }
+
+    func isShowing(_ task: TaskItem) -> Bool {
+        request?.taskID == task.id
+    }
 }
 
 // MARK: - Menu panel
@@ -109,8 +124,9 @@ struct Win95Menu: View {
 
 // MARK: - Root overlay
 
-/// Places the menu near the touch point, clamped inside the screen. No scrim,
-/// no animation — appearance is instant (design.md §8).
+/// Places the menu near the touch point, clamped inside the screen. No scrim.
+/// The spring lives in `MenuCoordinator`; the transition here just gives it
+/// something to spring from.
 struct MenuOverlay: View {
     @Environment(MenuCoordinator.self) private var menu
     @Environment(TaskStore.self) private var store
@@ -128,6 +144,8 @@ struct MenuOverlay: View {
                     Win95Menu(task: task)
                         .fixedSize()
                         .modifier(ClampedPosition(point: request.point, bounds: geo.size))
+                        .transition(.scale(scale: 0.86, anchor: .topLeading)
+                            .combined(with: .opacity))
                 }
             }
         }

@@ -85,6 +85,7 @@ struct TaskRowView: View {
             }
             .scaleEffect(isPressing && !isReordering ? 0.97 : 1, anchor: .center)
             .animation(.spring(duration: 0.22), value: isPressing)
+            .animation(.easeOut(duration: 0.12), value: isMenuOpen)
             .offset(y: reorderOffset)
             .zIndex(isReordering ? 1 : 0)
             .simultaneousGesture(swipeGesture)
@@ -159,9 +160,13 @@ struct TaskRowView: View {
 
     private var rowBackground: Color {
         if isReordering { return Win95.selectionBG }
-        if isPressing { return Win95.light }   // the press-in tint
+        // The tint outlives the finger: while this row's menu is open the row
+        // stays held, so it is obvious what the menu is acting on.
+        if isPressing || isMenuOpen { return Win95.light }
         return Win95.well
     }
+
+    private var isMenuOpen: Bool { menu.isShowing(task) }
 
     /// Touch-down / touch-up only — it never claims the touch, so the swipe and
     /// the long press are unaffected.

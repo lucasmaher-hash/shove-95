@@ -18,34 +18,73 @@ struct RootView: View {
     @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
 
+    /// Which way the last tab change travelled — decided before `selected`
+    /// moves, so both halves of the transition agree on a direction.
+    @State private var goingRight = true
+
+    /// Wraps the taskbar's binding so a tap resolves direction and animates.
+    private var tabSelection: Binding<Bucket> {
+        Binding(
+            get: { selected },
+            set: { newValue in
+                guard newValue != selected,
+                      let from = Bucket.line.firstIndex(of: selected),
+                      let to = Bucket.line.firstIndex(of: newValue) else { return }
+                goingRight = to > from
+                // Fast and flat: this is a pane sliding across, not a bounce.
+                withAnimation(.easeOut(duration: 0.22)) { selected = newValue }
+            }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             TitleBar(title: "\(settings.name(for: selected)) - shove.95") {
                 showSettings = true
             }
+            // The tab slide must not drag the title along with it: text swaps
+            // are appearance, and appearance is instant (design.md §8).
+            // Without this the two titles crossfade through each other.
+            .transaction { $0.animation = nil }
 
-            // The status panel floats over the list rather than taking layout
-            // space, so it can appear and vanish without shifting the rows.
-            TaskListView(bucket: selected)
+            // Tabs slide in from the side they live on: tapping a tab to the
+            // right brings its list in from the right. Only the list travels —
+            // the title bar and taskbar are window furniture and stay put, so
+            // the frame reads as fixed and the content as moving through it.
+            SunkenWell {
+                ZStack {
+                    TaskListView(bucket: selected)
+                        .id(selected)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: goingRight ? .trailing : .leading),
+                            removal: .move(edge: goingRight ? .leading : .trailing)
+                        ))
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(alignment: .bottom) {
-                    if let action = store.lastAction {
-                        Win95StatusPanel(text: action.statusText(name: settings.name)) {
-                            withAnimation(.spring(duration: 0.25)) { store.undoLastAction() }
-                        }
-                        // Retires itself; any further mutation restarts the clock.
-                        .task(id: store.revision) {
-                            try? await Task.sleep(for: .seconds(6))
-                            if !Task.isCancelled { store.dismissLastAction() }
-                        }
+                .clipped() // contents travel; the well never does
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The status panel floats over the list rather than taking layout
+            // space, so it can appear and vanish without shifting the rows —
+            // and it sits outside the slide, so it doesn't ride along.
+            .overlay(alignment: .bottom) {
+                if let action = store.lastAction {
+                    Win95StatusPanel(text: action.statusText(name: settings.name)) {
+                        withAnimation(.spring(duration: 0.25)) { store.undoLastAction() }
+                    }
+                    // Retires itself; any further mutation restarts the clock.
+                    .task(id: store.revision) {
+                        try? await Task.sleep(for: .seconds(6))
+                        if !Task.isCancelled { store.dismissLastAction() }
                     }
                 }
+            }
 
             #if DEBUG
             debugBar
             #endif
 
-            Taskbar(selected: $selected)
+            Taskbar(selected: tabSelection)
         }
         // Win95 palettes are read through static accessors, so the chrome is
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the

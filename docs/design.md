@@ -209,7 +209,14 @@ Layouts must be verified at 4×, where fewer rows are visible and taskbar labels
 > **Motion describes position, never appearance.**
 > Anything that moves, moves continuously. Anything that appears or disappears does so instantly.
 
-This single rule governs every animation in the app. Windows 95 had no fades, scales, or dissolves — but it dragged continuously.
+This governs every animation in the app. Windows 95 had no fades, scales, or dissolves — but it dragged continuously.
+
+**Amendment, 2026-08-04.** The founder's read of the whole product: *"a very static vintage UI, but very responsive with smooth animations."* The frame is 1995; the response is 2026. So the rule above holds for everything **inside** the frame — chrome, labels, bevels, the photo viewer — while two things now carry modern motion, because their job is to answer a gesture rather than to redraw a surface:
+
+- **The long-press menu springs in** (0.26s, bounce 0.38) scaled from its row anchor, the way iOS answers a long press. It leaves flat and fast (0.11s ease-out) — a bouncy dismissal reads as hesitation.
+- **Tab changes slide** the list contents in from the side the tab lives on. Everything else holds still.
+
+What did *not* change: appearance is still instant. The title text swaps with no crossfade, the taskbar highlight flips immediately, and the colour scheme repaints with animations explicitly disabled.
 
 | Event | Behaviour |
 |---|---|
@@ -218,8 +225,10 @@ This single rule governs every animation in the app. Windows 95 had no fades, sc
 | Drag to reorder | The real row follows the finger, rendered navy/white; other rows part to make space |
 | Photo viewer open | **Instant.** No transition. |
 | Photo viewer close | **Instant.** No transition. |
-| Context menu | Standard iOS `contextMenu` presentation |
-| Tab change | **Instant.** No cross-fade, no slide. |
+| Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |
+| Long-press menu close | Flat 0.11s ease-out, scaling back toward the anchor |
+| Row held | Tints to `light` and scales to 0.97; **the tint outlives the finger** and holds while that row's menu is open |
+| Tab change | Contents **slide in from the side the tab lives on** (0.22s ease-out). The sunken well, title bar and taskbar never move — the frame is fixed and the content travels through it. Title text and taskbar highlight swap instantly. |
 | Button press | **Instant** bevel inversion |
 
 **All motion is snapped to the pixel grid.** Moving elements travel in whole `pixel` increments (2pt at default scale) rather than at sub-pixel smoothness — smooth but quantised, like a sprite. This preserves the retro texture during movement instead of the illusion breaking the moment anything moves.
@@ -248,7 +257,11 @@ Things that would break the system, listed so they don't get reintroduced by hab
 Windows 95 shipped named Appearance schemes and swapping them was one of the era's
 small pleasures, so the theme picker is period-correct rather than a modern bolt-on.
 Five schemes ship: **Windows Standard**, **Desert**, **Eggplant**, **Rose**, **Slate**
-(`Win95Scheme.swift`). Each supplies the full token set — surface, highlight, light,
+(`Win95Scheme.swift`). They are picked from a **single row of window miniatures** —
+title bar over body over well — with the selected one drawn pressed (sunken bevel,
+nudged one pixel down and right) and named beneath the row. Five stacked rows with
+checkboxes was a wall of chrome for one choice; the Win95 Appearance tab showed you
+the scheme rather than naming it. Each supplies the full token set — surface, highlight, light,
 shadow, darkShadow, text, the two title-bar gradient stops, selection pair, the list
 well, and the status-panel pair.
 
