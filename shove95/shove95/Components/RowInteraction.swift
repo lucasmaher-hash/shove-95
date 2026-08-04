@@ -28,8 +28,10 @@ import UIKit
 struct RowGestureHandlers {
     /// Touch-down (after the 0.12s intent delay) and touch-up/cancel.
     var onPressChanged: (Bool) -> Void
-    /// A clean tap: no hold fired, no movement past slop.
-    var onTap: () -> Void
+    /// A clean tap: no hold fired, no movement past slop. Carries the window-
+    /// space point, because the row routes taps by region (photo vs text) —
+    /// the photos can't take their own taps without also eating swipes.
+    var onTap: (CGPoint) -> Void
     /// 0.4s stationary. The row responds by arming + showing the menu.
     var onHold: () -> Void
     /// Live horizontal drag, window-space dx from touch-down.
@@ -212,7 +214,7 @@ final class RowGestureCatcher: UIView {
         switch phase {
         case .pending:
             handlers?.onPressChanged(false)
-            handlers?.onTap()
+            handlers?.onTap(touches.first.map { point($0) } ?? lastPoint)
         case .held:
             // Lift after the menu opened: the menu stays, the row-side tint
             // persists via isMenuOpen — just clear the physical press.

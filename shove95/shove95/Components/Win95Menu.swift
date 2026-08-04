@@ -27,10 +27,14 @@ import Shove95Kit
 /// scroll view.
 struct RowMenuRequest: Equatable {
     let taskID: UUID
-    let point: CGPoint
+    /// The row's frame in GLOBAL coordinates. The overlay needs the whole rect,
+    /// not a single anchor: near the bottom of the screen the menu has to flip
+    /// ABOVE the row, or Delete lands off-screen and is unreachable (founder
+    /// bug report 2026-08-04).
+    let rowFrame: CGRect
 
     static func == (a: RowMenuRequest, b: RowMenuRequest) -> Bool {
-        a.taskID == b.taskID && a.point == b.point
+        a.taskID == b.taskID && a.rowFrame == b.rowFrame
     }
 }
 
@@ -40,9 +44,9 @@ final class MenuCoordinator {
 
     /// Springs in with a little overshoot; the anchor is the row's bottom-left,
     /// so it grows out of the row the way a Win95 menu drops from its title.
-    func show(task: TaskItem, at point: CGPoint) {
+    func show(task: TaskItem, rowFrame: CGRect) {
         withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
-            request = RowMenuRequest(taskID: task.id, point: point)
+            request = RowMenuRequest(taskID: task.id, rowFrame: rowFrame)
         }
     }
 
@@ -130,19 +134,22 @@ struct Win95Menu: View {
 struct MenuOverlay: View {
     @Environment(MenuCoordinator.self) private var menu
     @Environment(TaskStore.self) private var store
+    @Environment(\.pixel) private var pixel
 
     var body: some View {
         GeometryReader { geo in
             if let request = menu.request,
                let task = store.task(withID: request.taskID) {
-                // The row reports its anchor in GLOBAL coordinates, but this
-                // overlay draws in its own space, which starts below the status
-                // bar — drawing the global point directly put the menu a full
-                // row too low (founder bug report 2026-08-04). Convert first.
+                // The row reports GLOBAL coordinates, but this overlay draws in
+                // its own space, which starts below the status bar — using the
+                // global rect directly put the menu a full row too low.
                 let origin = geo.frame(in: .global).origin
-                let local = CGPoint(x: request.point.x - origin.x,
-                                    y: request.point.y - origin.y)
-                ZStack(alignment: .topLeading) {
+                let row = request.rowFrame.offsetBy(dx: -origin.x, dy: -origin.y)
+                let gap = Win95.Px.grid * pixel
+                let below = row.maxY + gap
+                let dropsBelow = below + estimatedHeight(for: task) <= geo.size.height
+
+                ZStack(alignment: dropsBelow ? .topLeading : .bottomLeading) {
                     // Tap-anywhere-else to dismiss.
                     Color.clear
                         .contentShape(Rectangle())
@@ -150,48 +157,34 @@ struct MenuOverlay: View {
 
                     Win95Menu(task: task)
                         .fixedSize()
-                        .modifier(ClampedPosition(point: local, bounds: geo.size))
-                        .transition(.scale(scale: 0.86, anchor: .topLeading)
+                        .offset(
+                            x: max(0, min(row.minX, geo.size.width - menuWidth)),
+                            // Flipped: bottom-anchored, so the panel's own
+                            // height positions it — no measurement needed.
+                            y: dropsBelow ? below
+                                          : (row.minY - gap) - geo.size.height
+                        )
+                        .transition(.scale(scale: 0.86,
+                                           anchor: dropsBelow ? .topLeading : .bottomLeading)
                             .combined(with: .opacity))
                 }
             }
         }
     }
-}
 
-/// Anchors the panel's top-left at the touch, then pulls it back inside the
-/// screen edges if it would overflow.
-private struct ClampedPosition: ViewModifier {
-    let point: CGPoint
-    let bounds: CGSize
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(key: MenuSizeKey.self, value: proxy.size)
-                }
-            }
-            .modifier(OffsetToFit(point: point, bounds: bounds))
+    /// Menus are built from a known table, so their height is CALCULATED, not
+    /// measured. A PreferenceKey round-trip reports zero on the first layout
+    /// pass, and the decision is made on that pass — which is why the panel
+    /// kept dropping below and running off the bottom of the screen (founder
+    /// bug report 2026-08-04).
+    private func estimatedHeight(for task: TaskItem) -> CGFloat {
+        let bucket = task.bucket(now: store.now(), calendar: store.calendar)
+        let items = task.isCompleted ? 1 : bucket.menuDestinations.count + 2
+        let separators = task.isCompleted ? 0 : 2
+        return CGFloat(items) * Win95.rowHeight(pixel)
+            + CGFloat(separators) * 4 * pixel
+            + 4 * pixel // panel padding
     }
-}
 
-private struct MenuSizeKey: PreferenceKey {
-    static let defaultValue = CGSize.zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
-}
-
-private struct OffsetToFit: ViewModifier {
-    let point: CGPoint
-    let bounds: CGSize
-    @State private var size: CGSize = .zero
-
-    func body(content: Content) -> some View {
-        content
-            .onPreferenceChange(MenuSizeKey.self) { size = $0 }
-            .offset(
-                x: min(max(0, point.x), max(0, bounds.width - size.width)),
-                y: min(max(0, point.y), max(0, bounds.height - size.height))
-            )
-    }
+    private var menuWidth: CGFloat { Win95.Px.buttonMinWidth * pixel * 1.6 }
 }

@@ -183,11 +183,12 @@ final class TaskStore {
 
     /// Creates in the given bucket with bottom placement. Whitespace-only
     /// titles are a no-op; pasted newlines collapse to spaces (PRD edge table).
-    func addTask(title raw: String, in bucket: Bucket) {
+    @discardableResult
+    func addTask(title raw: String, in bucket: Bucket) -> TaskItem? {
         let title = raw
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
+        guard !title.isEmpty else { return nil }
 
         let task = TaskItem()
         task.title = title
@@ -196,6 +197,7 @@ final class TaskStore {
         task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(bucket))
         context.insert(task)
         commit()
+        return task
     }
 
     /// Empty result reverts (delete is the menu's job — PRD FR-007).

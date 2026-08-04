@@ -47,12 +47,19 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(Win95.Px.grid * 2 * pixel)
+                    // Clears the home indicator, since the well itself now
+                    // runs to the physical bottom edge.
+                    .padding(.bottom, Win95.Px.grid * 8 * pixel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
         }
         .background(Win95.surface)
+        // The well runs to the bottom of the SCREEN. Stopping at the safe area
+        // drew its bottom border partway up, which read as a stray horizontal
+        // rule under the content (founder bug report 2026-08-04).
+        .ignoresSafeArea(.container, edges: .bottom)
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .preferredColorScheme(.light)
     }

@@ -156,3 +156,17 @@ struct DateChip: View {
             .background(Win95.statusAccent)
     }
 }
+
+// MARK: - Plus glyph
+
+/// Bare pixel plus on a 12×12 grid — an affordance, not a button (no bevel).
+struct PlusGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        var path = Path()
+        path.addRect(CGRect(x: 5 * u, y: 1 * u, width: 2 * u, height: 10 * u))
+        path.addRect(CGRect(x: 1 * u, y: 5 * u, width: 10 * u, height: 2 * u))
+        return path
+    }
+}
+
