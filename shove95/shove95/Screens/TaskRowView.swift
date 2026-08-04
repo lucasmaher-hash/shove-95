@@ -15,6 +15,14 @@ import Shove95Kit
 struct TaskRowView: View {
     let task: TaskItem
     @Environment(TaskStore.self) private var store
+    @Environment(MenuCoordinator.self) private var menu
+    @Environment(\.pixel) private var pixel
+
+    // Reorder session (FR-004). Same long-press that opens the menu: holding
+    // still shows it, moving cancels it and picks the row up instead.
+    @State private var isReordering = false
+    @State private var reorderOffset: CGFloat = 0
+    @State private var rowFrame: CGRect = .zero
 
     @State private var isEditing = false
     @State private var draft = ""
@@ -65,11 +73,18 @@ struct TaskRowView: View {
             .offset(x: dragOffset)
             .background {
                 GeometryReader { proxy in
-                    Color.clear.onAppear { rowWidth = proxy.size.width }
+                    Color.clear
+                        .onAppear { rowWidth = proxy.size.width }
+                        .onChange(of: proxy.frame(in: .global)) { _, frame in
+                            rowFrame = frame
+                        }
+                        .task { rowFrame = proxy.frame(in: .global) }
                 }
             }
+            .offset(y: reorderOffset)
+            .zIndex(isReordering ? 1 : 0)
             .simultaneousGesture(swipeGesture)
-            .contextMenu { menuItems }
+            .simultaneousGesture(pressInteraction)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
             .accessibilityActions { accessibilityMoveActions }
@@ -78,18 +93,15 @@ struct TaskRowView: View {
     // MARK: - Content
 
     private var rowContent: some View {
-        HStack(spacing: 12) {
-            Button {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            Win95Checkbox(isChecked: task.isCompleted) {
                 store.toggleCompleted(task)
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(task.isCompleted ? Color.gray : Color.primary)
             }
-            .buttonStyle(.plain)
-            .frame(minWidth: 32, minHeight: Win95.rowMinHeight)
 
             if isEditing {
                 TextField("", text: $draft)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
                     .focused($editFocused)
                     .onSubmit { commitEdit() }
                     .onChange(of: editFocused) { _, focused in
@@ -97,8 +109,13 @@ struct TaskRowView: View {
                     }
             } else {
                 Text(task.title)
+                    .font(W95Font.standard(pixel))
                     .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? Color.gray : (task.isImportant ? Win95.important : Color.primary))
+                    // Colour carries exactly one meaning: red = Important.
+                    // Completed is grey + strikethrough; overdue is the chip.
+                    .foregroundStyle(isReordering ? Win95.selectionText
+                                     : (task.isCompleted ? Win95.shadow
+                                        : (task.isImportant ? Win95.important : Win95.text)))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .contentShape(Rectangle())
@@ -110,21 +127,33 @@ struct TaskRowView: View {
                     }
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Win95.Px.grid * pixel)
 
             // Trailing chip column — fixed width so chips align (locked Q23).
-            if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
-                                           now: store.now(), calendar: store.calendar) {
-                Text(chip)
-                    .foregroundStyle(Color.gray)
-                    .monospacedDigit()
-                    .frame(width: 44, alignment: .trailing)
+            Group {
+                if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                               now: store.now(), calendar: store.calendar) {
+                    DateChip(label: chip)
+                }
             }
+            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
         }
-        .frame(minHeight: Win95.rowMinHeight)
+        .padding(.trailing, Win95.Px.grid * pixel)
+        .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
+        .background(isReordering ? Win95.selectionBG : Win95.highlight) // navy while dragged
+        .contentShape(Rectangle())   // the ENTIRE row is swipeable, not just the text
     }
 
-    // MARK: - Swipe (FR-002: left = defer, right = pull forward)
+    // MARK: - Swipe
+    //
+    // DIRECTION REVERSED 2026-08-04 on device feedback. The original spec said
+    // left = defer, but that fights the taskbar: the tabs read
+    // Today | Tomorrow | Week | General left-to-right, so dragging a row LEFT
+    // should carry it toward the LEFT tab (Today = pull forward) and dragging
+    // RIGHT should carry it toward the right tabs (defer). Content follows the
+    // finger, which is what a spatial interface demands.
+    //   swipe left  → pull forward (toward Today)
+    //   swipe right → defer        (toward General)
 
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 12, coordinateSpace: .local)
@@ -142,16 +171,16 @@ struct TaskRowView: View {
                 case .vertical:
                     break
                 case .horizontal:
-                    let direction: StepDirection = t.width < 0 ? .deferOne : .pullOne
+                    let direction: StepDirection = t.width < 0 ? .pullOne : .deferOne
                     if currentBucket.steppedOnce(direction) == nil {
                         // Dead end: resistance + one light haptic (FR-002/021).
-                        dragOffset = t.width * Self.rubberResistance
+                        dragOffset = snapped(t.width * Self.rubberResistance)
                         if abs(t.width) > 20, !rubberBandBuzzed {
                             rubberBandBuzzed = true
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } else {
-                        dragOffset = t.width
+                        dragOffset = snapped(t.width)
                     }
                 }
             }
@@ -163,7 +192,7 @@ struct TaskRowView: View {
 
                 let translation = value.translation.width
                 let velocity = value.velocity.width
-                let direction: StepDirection = translation < 0 ? .deferOne : .pullOne
+                let direction: StepDirection = translation < 0 ? .pullOne : .deferOne
 
                 let overThreshold = abs(translation) > rowWidth * Self.commitFraction
                     || abs(velocity) > Self.commitVelocity
@@ -191,44 +220,65 @@ struct TaskRowView: View {
             }
     }
 
+    /// Movement travels in whole 1995-pixels — smooth but quantised, like a
+    /// sprite (design.md §8). Appearance changes stay instant.
+    private func snapped(_ value: CGFloat) -> CGFloat {
+        (value / pixel).rounded() * pixel
+    }
+
+    /// The menu drops from the row's bottom-left, like a Win95 menu dropping
+    /// from a menu-bar title.
+    private var menuAnchor: CGPoint {
+        CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel, y: rowFrame.maxY)
+    }
+
     private var currentBucket: Bucket {
         task.bucket(now: store.now(), calendar: store.calendar)
     }
 
-    // MARK: - Context menu (FR-003, locked table)
+    // MARK: - Long-press: menu vs reorder (locked Q10 rule)
+    //
+    // Hold still → the Win95 menu opens at the finger.
+    // Hold and move vertically → the menu is cancelled and the row is picked up.
+    // One gesture owns both branches, which is only possible because the
+    // system context menu is gone (it swallowed the long-press entirely).
 
-    @ViewBuilder
-    private var menuItems: some View {
-        if task.isCompleted {
-            // Completed rows: untick to act on them; menu offers only Delete.
-            Button(role: .destructive) {
-                store.delete(task)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        } else {
-            ForEach(currentBucket.menuDestinations, id: \.label) { destination in
-                Button {
-                    withAnimation(.spring(duration: 0.25)) {
-                        store.move(task, to: destination.bucket)
+    private var pressInteraction: some Gesture {
+        LongPressGesture(minimumDuration: 0.4, maximumDistance: 24)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+
+                guard let drag else {
+                    // Press recognised, finger still: open the menu.
+                    if !isReordering, menu.request == nil {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        menu.show(task: task, at: menuAnchor)
                     }
-                } label: {
-                    Text(destination.label)
+                    return
+                }
+
+                if abs(drag.translation.height) > 10, !task.isCompleted {
+                    // The finger travelled: this is a reorder, not a menu.
+                    if !isReordering {
+                        isReordering = true
+                        menu.dismiss()
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
+                    reorderOffset = snapped(drag.translation.height)
                 }
             }
-            Button {
+            .onEnded { _ in
+                let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
+                let wasReordering = isReordering
+                isReordering = false
+                reorderOffset = 0
+                guard wasReordering, steps != 0 else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.spring(duration: 0.25)) {
-                    store.toggleImportant(task)
+                    store.reorder(task, byRowSteps: steps)
                 }
-            } label: {
-                Text(task.isImportant ? "Unmark Important" : "Mark as Important")
             }
-            Button(role: .destructive) {
-                store.delete(task)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
     }
 
     // MARK: - VoiceOver (FR-016)

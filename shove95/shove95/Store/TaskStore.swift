@@ -79,6 +79,12 @@ final class TaskStore {
         return allTasksSorted().filter { $0.bucket(now: now, calendar: calendar) == bucket }
     }
 
+    /// Look up a live task by id — used by the menu overlay, which holds an
+    /// id rather than a model reference so it can't go stale.
+    func task(withID id: UUID) -> TaskItem? {
+        allTasksSorted().first { $0.id == id }
+    }
+
     /// A tab's visible tasks: active (by sortOrder) and completed-not-archived
     /// (by completion time). Completed keep their sortOrder untouched, so
     /// unticking returns a task to its exact former spot (locked Q11).

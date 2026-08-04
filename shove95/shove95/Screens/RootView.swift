@@ -2,9 +2,9 @@
 //  RootView.swift
 //  shove95
 //
-//  Shell: tab switching + rollover triggers. Tab switching is INSTANT —
-//  motion never accompanies appearance changes (design.md §8). The plain
-//  button strip becomes the Win95 taskbar in Phase 3.
+//  The phone as a maximized Win95 window (design.md §5):
+//    title bar · sunken list well · status bar · taskbar
+//  Tab switching is INSTANT — motion describes position only (design.md §8).
 //
 
 import SwiftUI
@@ -12,74 +12,80 @@ import Shove95Kit
 
 struct RootView: View {
     @State private var selected: Bucket = .today
+    @State private var showSettings = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
+    @State private var menu = MenuCoordinator()
 
     var body: some View {
         VStack(spacing: 0) {
+            TitleBar(title: "\(selected.displayName) - shove.95") {
+                showSettings = true
+            }
+
             TaskListView(bucket: selected)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             #if DEBUG
-            HStack {
-                Button("Seed debug data") { store.seedDebugData() }
-                Button("Seed fillers") { store.seedScrollFillers() }
-                Button("Defer 1st") {  // TEMP: headless undo verification
-                    if let first = store.tasks(in: .today).active.first {
-                        store.step(first, direction: .deferOne)
-                    }
-                }
-                Spacer()
-                Text(GestureDebug.shared.last).foregroundStyle(.purple)
-            }
-            .font(.caption)
-            .padding(.horizontal)
+            debugBar
             #endif
 
-            // Status bar (FR-009, TASK-024): persistent record of the last
-            // move/delete with Undo — plain for now, Win95 sunken panel in
-            // Phase 3. Always present (window furniture), empty when idle.
-            HStack(spacing: 8) {
-                Text(store.lastAction?.statusText ?? "")
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer()
-                if store.lastAction != nil {
-                    Button("Undo") {
-                        withAnimation(.spring(duration: 0.25)) {
-                            store.undoLastAction()
-                        }
-                    }
+            Win95StatusBar(
+                text: store.lastAction?.statusText ?? "",
+                onUndo: store.lastAction == nil ? nil : {
+                    withAnimation(.spring(duration: 0.25)) { store.undoLastAction() }
                 }
-            }
-            .font(.footnote)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 24)
-            .background(Color(white: 0.93))
+            )
 
-            // Placeholder tab strip — becomes the Win95 taskbar in Phase 3.
-            HStack(spacing: 0) {
-                ForEach(Bucket.line, id: \.self) { bucket in
-                    Button {
-                        var t = Transaction()
-                        t.disablesAnimations = true
-                        withTransaction(t) { selected = bucket }
-                    } label: {
-                        Text(bucket.displayName)
-                            .font(W95Font.small(pixel))
-                            .foregroundStyle(selected == bucket ? Win95.highlight : Win95.text)
-                            .frame(maxWidth: .infinity, minHeight: Win95.rowMinHeight)
-                    }
-                    .buttonStyle(.plain)
-                    .background(selected == bucket ? Win95.darkShadow : Win95.surface)
-                }
-            }
-            .background(Win95.surface)
+            Taskbar(selected: $selected)
         }
+        .background(Win95.surface)
+        .environment(menu)
+        .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).
             store.runDayRolloverPassIfNeeded()
         }
+        .sheet(isPresented: $showSettings) {
+            // Placeholder until Phase 5 builds the real Settings window.
+            VStack(spacing: 16) {
+                Text("Settings")
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
+                Text("Archive · iCloud · About arrive in Phase 5.")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.shadow)
+                Win95Button(action: { showSettings = false }) {
+                    Text("Close")
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.text)
+                }
+                .fixedSize()
+            }
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Win95.surface)
+        }
     }
+
+    #if DEBUG
+    private var debugBar: some View {
+        HStack(spacing: 12) {
+            Button("Seed") { store.seedDebugData() }
+            Button("Fillers") { store.seedScrollFillers() }
+            Button("Defer 1st") {
+                if let first = store.tasks(in: .today).active.first {
+                    store.step(first, direction: .deferOne)
+                }
+            }
+            Spacer()
+        }
+        .font(.caption2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(Win95.surface)
+    }
+    #endif
 }

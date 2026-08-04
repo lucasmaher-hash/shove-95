@@ -28,6 +28,7 @@ struct shove95App: App {
         WindowGroup {
             RootView()
                 .environment(store)
+                .modifier(PixelScale()) // stepped 2×/3×/4× (FR-015)
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, newPhase in
