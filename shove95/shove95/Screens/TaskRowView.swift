@@ -183,12 +183,18 @@ struct TaskRowView: View {
             if isEditing {
                 // Grows a line at a time as the text wraps (founder request
                 // 2026-08-04 — a single line just swallowed long titles).
-                TextField("", text: $draft, axis: .vertical)
+                // A vertical-axis TextField wraps by itself as the text grows,
+                // which is the ONLY way a task should gain a line. Return is a
+                // commit, not a line break — but a vertical field inserts a
+                // newline instead of firing `onSubmit`, so the newline is what
+                // we watch for, strip, and treat as "done" (founder request
+                // 2026-08-04).
+                TextField("", text: returnCommitting($draft), axis: .vertical)
                     .font(W95Font.standard(pixel))
                     .foregroundStyle(Win95.text)
                     .lineLimit(1...6)
                     .focused($editFocused)
-                    .onSubmit { commitEdit() }
+                    .submitLabel(.done)
                     .onChange(of: editFocused) { _, focused in
                         if !focused { commitEdit() }
                     }
@@ -453,6 +459,26 @@ struct TaskRowView: View {
     }
 
     // MARK: - Inline edit
+
+    /// Swallows the Return key. A vertical-axis TextField inserts a newline
+    /// instead of firing `onSubmit`, and stripping it in `onChange` loses the
+    /// race with the field's own editing state — the newline was already in
+    /// the text view, so it stayed. Intercepting in the BINDING catches it
+    /// before it lands: the field only ever wraps by itself as the text grows,
+    /// and Return means done (founder request 2026-08-04).
+    private func returnCommitting(_ source: Binding<String>) -> Binding<String> {
+        Binding(
+            get: { source.wrappedValue },
+            set: { new in
+                guard new.contains("\n") else { source.wrappedValue = new; return }
+                source.wrappedValue = new.replacingOccurrences(of: "\n", with: "")
+                // Deferred: mutating focus from inside a binding setter runs
+                // mid-update and SwiftUI drops it — the keyboard stayed open
+                // and the newline survived. Next runloop turn it sticks.
+                Task { @MainActor in editFocused = false } // commit follows
+            }
+        )
+    }
 
     private func commitEdit() {
         guard isEditing else { return }

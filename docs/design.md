@@ -224,6 +224,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
+| Return in any text field | **Commits and dismisses the keyboard.** It never inserts a line break — rows gain lines only by wrapping as the text grows. A vertical-axis `TextField` inserts a newline instead of firing `onSubmit`, so the newline is intercepted in the BINDING and the focus change is deferred a runloop turn; stripping it in `onChange`, or resigning focus inline, both lose to the field's own editing state and the newline survives. |
 | Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
 | Photo viewer open | **Instant.** No transition. |
