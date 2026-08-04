@@ -278,6 +278,15 @@ subtree is rebuilt via `.id(scheme.id)` when the scheme changes. That `.id` sits
 **inside** the presentation modifiers in `RootView` — rebuilding above them tears down
 `showSettings` and slams the Settings window shut on every pick.
 
+**Static accessors are invisible to SwiftUI.** A view whose own inputs haven't
+changed is never re-rendered, so it keeps painting the previous palette. `TitleBar`
+hit this exactly: its inputs (title, isClose, closure) don't move when the scheme
+does, so inside the Settings cover — which sits outside the `.id` rebuild — the
+window's own title bar stayed on the old colours while everything around it
+repainted. The fix is the `\.win95Scheme` environment value: views that must repaint
+on a scheme change read it and paint **from it** rather than from the statics. Any
+new chrome that survives a scheme change unchanged needs the same treatment.
+
 ### Tab renaming
 
 All four tabs are renamable (`AppSettings`, UserDefaults-backed). Renaming changes the

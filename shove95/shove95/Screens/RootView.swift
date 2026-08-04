@@ -3,8 +3,10 @@
 //  shove95
 //
 //  The phone as a maximized Win95 window (design.md §5):
-//    title bar · sunken list well · status bar · taskbar
-//  Tab switching is INSTANT — motion describes position only (design.md §8).
+//    title bar · sunken list well · taskbar
+//  The frame is fixed; only content moves through it. Tab changes slide the
+//  list contents in from the side the tab lives on, while the title bar, well
+//  and taskbar hold still (design.md §8, amended 2026-08-04).
 //
 
 import SwiftUI
@@ -80,10 +82,6 @@ struct RootView: View {
                 }
             }
 
-            #if DEBUG
-            debugBar
-            #endif
-
             Taskbar(selected: tabSelection)
         }
         // Win95 palettes are read through static accessors, so the chrome is
@@ -109,25 +107,9 @@ struct RootView: View {
             SettingsView { showSettings = false }
                 .environment(settings)
                 .environment(\.pixel, pixel)
+                // Presented content doesn't sit under RootView's `.id` rebuild,
+                // so the scheme has to reach it explicitly.
+                .environment(\.win95Scheme, settings.scheme)
         }
     }
-
-    #if DEBUG
-    private var debugBar: some View {
-        HStack(spacing: 12) {
-            Button("Seed") { store.seedDebugData() }
-            Button("Fillers") { store.seedScrollFillers() }
-            Button("Defer 1st") {
-                if let first = store.tasks(in: .today).active.first {
-                    store.step(first, direction: .deferOne)
-                }
-            }
-            Spacer()
-        }
-        .font(.caption2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
-        .background(Win95.surface)
-    }
-    #endif
 }

@@ -30,6 +30,7 @@ struct shove95App: App {
             RootView()
                 .environment(store)
                 .environment(settings)
+                .environment(\.win95Scheme, settings.scheme)
                 .modifier(PixelScale()) // stepped 2×/3×/4× (FR-015)
         }
         .modelContainer(container)

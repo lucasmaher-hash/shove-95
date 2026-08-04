@@ -17,6 +17,10 @@ import Shove95Kit
 /// Microsoft's own glyphs are not used (and SF Symbols are prohibited).
 struct TitleBar: View {
     @Environment(\.pixel) private var pixel
+    // Painted from the scheme rather than the statics: the title bar's own
+    // inputs never change when the palette does, so without this dependency
+    // SwiftUI has no reason to redraw it (see EnvironmentValues.win95Scheme).
+    @Environment(\.win95Scheme) private var scheme
     let title: String
     /// `true` renders a close ✕ instead of the settings gear.
     var isClose: Bool = false
@@ -26,7 +30,7 @@ struct TitleBar: View {
         HStack(spacing: 0) {
             Text(title)
                 .font(W95Font.standard(pixel))
-                .foregroundStyle(Win95.highlight)
+                .foregroundStyle(Color(hex: scheme.highlight))
                 .padding(.leading, Win95.Px.grid * pixel)
                 .lineLimit(1)
 
@@ -34,14 +38,14 @@ struct TitleBar: View {
 
             Button(action: onSettings) {
                 Group {
-                    if isClose { CloseGlyph().fill(Win95.text) }
-                    else { GearGlyph().fill(Win95.text) }
+                    if isClose { CloseGlyph().fill(Color(hex: scheme.text)) }
+                    else { GearGlyph().fill(Color(hex: scheme.text)) }
                 }
                     .frame(width: Win95.Px.titleBarControlW * pixel * 0.6,
                            height: Win95.Px.titleBarControlW * pixel * 0.6)
                     .frame(width: Win95.Px.titleBarControlW * pixel,
                            height: Win95.Px.titleBarControlH * pixel)
-                    .background(Win95.surface)
+                    .background(Color(hex: scheme.surface))
                     .bevelRaised(pixel)
             }
             .buttonStyle(.plain)
@@ -49,7 +53,10 @@ struct TitleBar: View {
             .accessibilityLabel(isClose ? "Close" : "Settings")
         }
         .frame(height: Win95.Px.titleBar * pixel)
-        .background(Win95.titleBarGradient)
+        .background(
+            LinearGradient(colors: [Color(hex: scheme.titleA), Color(hex: scheme.titleB)],
+                           startPoint: .leading, endPoint: .trailing)
+        )
     }
 }
 
@@ -156,7 +163,9 @@ struct Taskbar: View {
                 }
             }
         }
-        .padding(.horizontal, pixel)
+        // The bar itself still spans edge to edge — it is the taskbar — but the
+        // buttons are inset so they don't run into the bezel.
+        .padding(.horizontal, Win95.Px.grid * pixel)
         .padding(.vertical, pixel)
         .frame(height: Win95.Px.taskbar * pixel)
         .background(Win95.surface)

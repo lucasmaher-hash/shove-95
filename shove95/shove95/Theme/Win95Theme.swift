@@ -14,6 +14,17 @@ import SwiftUI
 extension EnvironmentValues {
     /// One 1995 pixel in points. 2 = default scale; 3/4 = stepped Dynamic Type.
     @Entry var pixel: CGFloat = 2
+
+    /// The active scheme, carried through the environment so SwiftUI can SEE it.
+    ///
+    /// The palette itself is served by `Win95`'s static accessors, which SwiftUI
+    /// cannot track: a view whose inputs are unchanged is never re-rendered, so
+    /// it keeps painting the old colours. `TitleBar` hit this exactly — its
+    /// inputs (title, isClose, closure) don't move when the scheme does, so the
+    /// Settings window's own title bar stayed on the previous palette while
+    /// everything around it repainted. Views that must repaint on a scheme
+    /// change read this value and paint from it.
+    @Entry var win95Scheme: Win95Scheme = .classic
 }
 
 // MARK: - Stepped Dynamic Type (design.md §7, FR-015)
