@@ -12,3 +12,9 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Debug screenshots and screen recordings from simulator verification —
+# these belong in the scratchpad, never in the repo.
+*.png
+*.mov
+!shove95/**/Assets.xcassets/**/*.png
