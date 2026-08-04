@@ -70,7 +70,9 @@ inner bottom-right shadow      #808080
 outer bottom-right darkShadow  #0A0A0A
 ```
 
-**Sunken** — text fields, the list well, status bar panels, date chips, pressed buttons:
+**Even** *(list well only, 2026-08-04)* — the big white task well uses the same two nested frames with the SAME colours on all four sides: outer `#808080`, inner `#0A0A0A`, no lit edge. At that size the lit bottom-right of a true bevel stopped reading as depth and just looked like an uneven border. Small controls keep the real bevel — at chip and button size the lighting is what makes them look pressable.
+
+**Sunken** — text fields, status bar panels, date chips, pressed buttons:
 
 ```
 outer top-left     shadow      #808080

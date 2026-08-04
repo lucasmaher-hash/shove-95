@@ -117,7 +117,10 @@ private struct CheckmarkGlyph: Shape {
 
 // MARK: - Sunken well
 
-/// The white list box the tasks live in (design.md §5).
+/// The white list box the tasks live in (design.md §5). Its border is EVEN,
+/// not bevelled: at this size the lit bottom-right of a true bevel stopped
+/// reading as depth and just looked like an uneven frame (founder request
+/// 2026-08-04). Small controls keep the real bevel.
 struct SunkenWell<Content: View>: View {
     @Environment(\.pixel) private var pixel
     @ViewBuilder var content: Content
@@ -125,7 +128,7 @@ struct SunkenWell<Content: View>: View {
     var body: some View {
         content
             .background(Win95.well)
-            .bevelSunken(pixel)
+            .bevelEven(pixel)
     }
 }
 
