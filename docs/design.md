@@ -226,10 +226,13 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |
+| Photo viewer | A floating Win95 window at ~3/4 of the screen that HUGS the image — title bar with ✕, image inside the frame, app dimmed behind. Only the ✕ or the dimmed background closes it; tapping the image does nothing. |
+| Overdue chip | Flat frame in the theme's status tint, date in black — no bevel. Editing an overdue task's text re-dates it to today and the chip disappears (a rewritten task is a new task). |
+| Photos | Multiple per task, added ONE per edit session — the theme-coloured plus retires after a pick and returns on the next edit. Thumbnails accumulate left→right in the order added. |
 | Return in any text field | **Commits and dismisses the keyboard.** It never inserts a line break — rows gain lines only by wrapping as the text grows. A vertical-axis `TextField` inserts a newline instead of firing `onSubmit`, so the newline is intercepted in the BINDING and the focus change is deferred a runloop turn; stripping it in `onChange`, or resigning focus inline, both lose to the field's own editing state and the newline survives. |
 | Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
-| Photo viewer open | **Instant.** No transition. |
+| Photo viewer open | Thumbnail presses in (0.92 scale, ~140ms) so the press is SEEN, then the window appears with no transition (revised 2026-08-04) |
 | Photo viewer close | **Instant.** No transition. |
 | Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |
 | Long-press menu close | Flat 0.11s ease-out, scaling back toward the anchor |
@@ -387,7 +390,7 @@ control without it is a bug.
 | Title-bar gear / ✕ | Same inversion — `TitleBarControlStyle` |
 | Workspace label | Scales to 0.92 for as long as the dropdown is open, springs back on close |
 | Task row | Tints to `light` and scales to 0.97; the tint outlives the finger while its menu is open |
-| Taskbar tab | Renders pressed (sunken + hatch) while active |
+| Taskbar tab | Renders pressed while active: sunken bevel + a LIGHTER grey (`light`), flat — the authentic hatch read as noise at phone size |
 | Scheme swatch | Selected renders pressed |
 
 The press itself is instant where a real Win95 control would be (bevel flips

@@ -135,6 +135,9 @@ struct SunkenWell<Content: View>: View {
 // MARK: - Date chip
 
 /// A miniature sunken status-bar panel holding the overdue date (design.md §5).
+/// Overdue chip: a FLAT frame in the theme's status tint with the date in
+/// black — no bevel, no shading (founder restyle 2026-08-04; the sunken
+/// mini-well read as clutter).
 struct DateChip: View {
     @Environment(\.pixel) private var pixel
     let label: String
@@ -142,10 +145,9 @@ struct DateChip: View {
     var body: some View {
         Text(label)
             .font(W95Font.small(pixel))
-            .foregroundStyle(Win95.shadow)
+            .foregroundStyle(Win95.text)
             .padding(.horizontal, Win95.Px.grid * pixel)
             .padding(.vertical, pixel)
-            .background(Win95.surface)
-            .bevelSunken(pixel)
+            .overlay(Rectangle().strokeBorder(Win95.statusAccent, lineWidth: pixel))
     }
 }

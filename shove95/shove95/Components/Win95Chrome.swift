@@ -283,14 +283,9 @@ private struct TaskbarButton: View {
             .minimumScaleFactor(0.7)
             .offset(x: isActive ? pixel : 0, y: isActive ? pixel : 0)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                if isActive {
-                    // Pressed taskbar buttons carry Win95's dotted hatch.
-                    HatchPattern(pixel: pixel)
-                } else {
-                    Win95.surface
-                }
-            }
+            // Pressed tab: a lighter grey, flat — the authentic dotted hatch
+            // read as noise at phone size (founder restyle 2026-08-04).
+            .background(isActive ? Win95.light : Win95.surface)
             .modifier(TaskbarBevel(isActive: isActive, pixel: pixel))
             .contentShape(Rectangle())
             .onTapGesture(perform: action)
@@ -308,30 +303,6 @@ private struct TaskbarBevel: ViewModifier {
             content.bevelSunken(pixel)
         } else {
             content.bevelRaised(pixel)
-        }
-    }
-}
-
-/// The 50% checkerboard Win95 used inside depressed taskbar buttons.
-private struct HatchPattern: View {
-    let pixel: CGFloat
-
-    var body: some View {
-        Canvas { context, size in
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Win95.surface))
-            var path = Path()
-            var y: CGFloat = 0
-            var row = 0
-            while y < size.height {
-                var x: CGFloat = (row % 2 == 0) ? 0 : pixel
-                while x < size.width {
-                    path.addRect(CGRect(x: x, y: y, width: pixel, height: pixel))
-                    x += pixel * 2
-                }
-                y += pixel
-                row += 1
-            }
-            context.fill(path, with: .color(Win95.highlight))
         }
     }
 }

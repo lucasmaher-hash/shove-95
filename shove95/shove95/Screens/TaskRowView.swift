@@ -49,7 +49,13 @@ struct TaskRowView: View {
     // Photos
     @State private var showPhotoPicker = false
     @State private var pickedItem: PhotosPickerItem?
-    @State private var showPhotoViewer = false
+    /// Index into task.allPhotos of the photo open in the viewer.
+    @State private var viewerIndex: Int?
+    /// Which thumbnail is mid press-in (the tiny open animation).
+    @State private var pressedThumb: Int?
+    /// One photo per edit session: the plus disappears after a pick and
+    /// returns the next time the task enters edit mode.
+    @State private var addedPhotoThisEdit = false
 
     // Swipe commit thresholds (§16: one flick, not a screen-crossing drag).
     // The distance bar scales with RUNWAY: a swipe starting right of centre
@@ -91,8 +97,8 @@ struct TaskRowView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             mainLine
-            if let data = task.photoData, let image = UIImage(data: data) {
-                thumbnail(image)
+            if !task.allPhotos.isEmpty {
+                photoStrip
             }
         }
         // Touch sandwich (§16 trap 4): catcher above the colour fill, below
@@ -105,15 +111,24 @@ struct TaskRowView: View {
             guard let item else { return }
             Task { @MainActor in
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    store.setPhoto(task, data: TaskStore.downscaledJPEG(from: data))
+                    store.addPhoto(task, data: TaskStore.downscaledJPEG(from: data))
+                    addedPhotoThisEdit = true // the plus retires for this session
                 }
                 pickedItem = nil
             }
         }
-        .fullScreenCover(isPresented: $showPhotoViewer) {
-            PhotoViewer(task: task) {
-                var t = Transaction(); t.disablesAnimations = true
-                withTransaction(t) { showPhotoViewer = false }
+        .fullScreenCover(isPresented: Binding(
+            get: { viewerIndex != nil },
+            set: { if !$0 { viewerIndex = nil } }
+        )) {
+            if let index = viewerIndex, index < task.allPhotos.count,
+               let image = UIImage(data: task.allPhotos[index]) {
+                PhotoViewer(title: task.title, image: image) {
+                    // Closing stays instant (locked Q16).
+                    var t = Transaction(); t.disablesAnimations = true
+                    withTransaction(t) { viewerIndex = nil }
+                }
+                .presentationBackground(Color.black.opacity(0.55))
             }
         }
     }
@@ -171,8 +186,10 @@ struct TaskRowView: View {
 
     private var trailingColumn: some View {
         Group {
-            if isEditing {
-                // Add-photo plus: a bare glyph in the theme colour, not a button.
+            if isEditing && !addedPhotoThisEdit {
+                // Add-photo plus: a bare glyph in the theme colour, not a
+                // button. One photo per edit session — the plus retires after
+                // a pick and returns on the next edit.
                 PlusGlyph()
                     .fill(Win95.accent)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
@@ -191,22 +208,44 @@ struct TaskRowView: View {
                height: Win95.rowHeight(pixel), alignment: .trailing)
     }
 
-    private func thumbnail(_ image: UIImage) -> some View {
-        Image(uiImage: image)
-            .resizable()
-            .scaledToFill()
-            .frame(width: Win95.Px.thumbnail * 2 * pixel, height: Win95.Px.thumbnail * pixel)
-            .clipped()
-            .bevelSunken(pixel)
-            .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
-            .padding(.bottom, Win95.Px.grid * pixel)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                // Viewer opens INSTANTLY — no transition (locked Q16).
-                var t = Transaction(); t.disablesAnimations = true
-                withTransaction(t) { showPhotoViewer = true }
+    /// Thumbnails accumulate LEFT TO RIGHT in the order added. Tapping one
+    /// presses it in briefly — you see the press — then the viewer opens
+    /// (founder request 2026-08-04). Closing stays instant.
+    private var photoStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Win95.Px.grid * pixel) {
+                ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
+                    if let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: Win95.Px.thumbnail * 2 * pixel,
+                                   height: Win95.Px.thumbnail * pixel)
+                            .clipped()
+                            .bevelSunken(pixel)
+                            .scaleEffect(pressedThumb == index ? 0.92 : 1)
+                            .animation(.easeOut(duration: 0.1), value: pressedThumb)
+                            .contentShape(Rectangle())
+                            .onTapGesture { openViewer(index) }
+                            .accessibilityLabel("Photo \(index + 1), opens in a window")
+                    }
+                }
             }
-            .accessibilityLabel("Photo, opens full screen")
+            .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
+            .padding(.trailing, Win95.Px.grid * pixel)
+            .padding(.bottom, Win95.Px.grid * pixel)
+        }
+    }
+
+    private func openViewer(_ index: Int) {
+        pressedThumb = index
+        Task { @MainActor in
+            // Long enough to SEE the press, short enough to feel instant.
+            try? await Task.sleep(for: .milliseconds(140))
+            pressedThumb = nil
+            var t = Transaction(); t.disablesAnimations = true
+            withTransaction(t) { viewerIndex = index }
+        }
     }
 
     // MARK: - Visual state
@@ -262,6 +301,7 @@ struct TaskRowView: View {
         guard !task.isCompleted, !isEditing, !isReordering else { return }
         draft = task.title
         isEditing = true
+        addedPhotoThisEdit = false // fresh session, the plus returns
         editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
         // Focus must land AFTER the TextField exists. Setting it in the same
         // pass that creates the field is a race — sometimes the keyboard never
@@ -438,27 +478,54 @@ private struct PlusGlyph: Shape {
     }
 }
 
-/// Full-screen photo: a maximized Win95 window. Opens and closes instantly;
-/// tapping anywhere closes it (locked Q16).
+/// Photo viewer, redesigned 2026-08-04: a floating Win95 window at ~3/4 of
+/// the screen that HUGS the image — title bar with ✕ on top, image inside a
+/// bevelled frame. The app stays visible behind, dimmed. Only the ✕ or the
+/// dimmed background closes it; the image itself is inert. Opens after the
+/// thumbnail's press-in; closes instantly.
 private struct PhotoViewer: View {
     @Environment(\.pixel) private var pixel
-    let task: TaskItem
+    let title: String
+    let image: UIImage
     var onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            TitleBar(title: task.title, isClose: true, onSettings: onClose)
-            if let data = task.photoData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
+        GeometryReader { geo in
+            ZStack {
+                // The dimmed background IS the close control (besides the ✕).
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onClose)
+
+                window(maxWidth: geo.size.width * 0.75,
+                       maxHeight: geo.size.height * 0.75)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
             }
         }
-        .background(Color.black)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onClose)
         .preferredColorScheme(.light)
+    }
+
+    private func window(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        // The window wraps the image: scale to fit 3/4 of the screen, then
+        // size the chrome to the image — the frame hugs, never letterboxes.
+        let scale = min(maxWidth / image.size.width,
+                        (maxHeight - Win95.Px.titleBar * pixel) / image.size.height)
+        let fitted = CGSize(width: image.size.width * scale,
+                            height: image.size.height * scale)
+
+        return VStack(spacing: 0) {
+            TitleBar(title: title, isClose: true, onSettings: onClose)
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: fitted.width, height: fitted.height)
+                .padding(pixel * 2)
+                .background(Win95.surface)
+        }
+        .frame(width: fitted.width + pixel * 4)
+        .bevelRaised(pixel)
+        // Swallow taps so only the ✕ and the background close the window.
+        .contentShape(Rectangle())
+        .onTapGesture {}
     }
 }

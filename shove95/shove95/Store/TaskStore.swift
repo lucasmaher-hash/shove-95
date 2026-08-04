@@ -25,6 +25,7 @@ struct TaskSnapshot {
     let sortOrder: Double
     let overduePlaced: Bool
     let photoData: Data?
+    let extraPhotos: [Data]
 }
 
 enum LastAction {
@@ -160,8 +161,10 @@ final class TaskStore {
 
     // MARK: Photos (Phase 4, pulled forward 2026-08-04)
 
-    func setPhoto(_ task: TaskItem, data: Data?) {
-        task.photoData = data
+    /// Appends — photos accumulate left to right in the order added.
+    func addPhoto(_ task: TaskItem, data: Data?) {
+        guard let data else { return }
+        task.addPhoto(data)
         commit()
     }
 
@@ -204,7 +207,17 @@ final class TaskStore {
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
+        let changed = title != task.title
         task.title = title
+        // An overdue task whose text was actually rewritten is a NEW task in
+        // spirit — it re-dates to today and the overdue chip disappears
+        // (founder request 2026-08-04). Tapping in and out without changing
+        // anything keeps the chip.
+        if changed, let due = task.dueDate,
+           due < calendar.startOfDay(for: now()) {
+            task.dueDate = calendar.startOfDay(for: now())
+            task.overduePlaced = false
+        }
         commit()
     }
 
@@ -261,7 +274,8 @@ final class TaskStore {
             title: task.title, dueDate: task.dueDate, isImportant: task.isImportant,
             isCompleted: task.isCompleted, completedAt: task.completedAt,
             createdAt: task.createdAt, sortOrder: task.sortOrder,
-            overduePlaced: task.overduePlaced, photoData: task.photoData))
+            overduePlaced: task.overduePlaced, photoData: task.photoData,
+            extraPhotos: task.extraPhotos))
         context.delete(task)
         commit()
     }
@@ -317,6 +331,7 @@ final class TaskStore {
             task.sortOrder = snapshot.sortOrder
             task.overduePlaced = snapshot.overduePlaced
             task.photoData = snapshot.photoData
+            task.extraPhotos = snapshot.extraPhotos
             context.insert(task)
         case nil:
             return
