@@ -220,7 +220,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 
 | Event | Behaviour |
 |---|---|
-| Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap |
+| Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap. Commits at **22% of the row width (≈86pt) or 350pt/s** — deliberately forgiving, because moving a task between days is the one thing this app exists to make cheap. The original 40%/800 meant a swipe had to cross most of the screen. |
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
 | Drag to reorder | The real row follows the finger, rendered navy/white and drawn ON TOP; the rows it sweeps past slide one height out of the way (0.22s spring) |

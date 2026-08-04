@@ -46,8 +46,12 @@ struct TaskRowView: View {
     @State private var rubberBandBuzzed = false
     @State private var rowWidth: CGFloat = 390
 
-    private static let commitFraction: CGFloat = 0.4   // >40% of row width
-    private static let commitVelocity: CGFloat = 800   // or >800 pt/s
+    // Loosened 2026-08-04: 40% of the row (≈156pt) or 800pt/s meant a swipe
+    // had to cross most of the screen to register, which fights the whole
+    // premise — moving a task between days is THE thing this app is for, and
+    // it has to cost one flick.
+    private static let commitFraction: CGFloat = 0.22  // ≈86pt at 2×
+    private static let commitVelocity: CGFloat = 350   // or a brisk flick
     private static let rubberResistance: CGFloat = 0.3 // dead-end drag factor
 
     // ─────────────────────────────────────────────────────────────────────
