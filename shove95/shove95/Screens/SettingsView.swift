@@ -20,6 +20,9 @@ import Shove95Kit
 struct SettingsView: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    @Environment(SyncStatus.self) private var sync
+    @State private var showArchive = false
+    @State private var showAbout = false
     var onClose: () -> Void
 
     var body: some View {
@@ -41,10 +44,7 @@ struct SettingsView: View {
                         WorkspacesSection()
 
                         header("Data").padding(.top, Win95.Px.grid * 2 * pixel)
-                        Text("Archive, iCloud status and About arrive with sync.")
-                            .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
-                            .fixedSize(horizontal: false, vertical: true)
+                        dataSection
                     }
                     .padding(Win95.Px.grid * 2 * pixel)
                     // Clears the home indicator, since the well itself now
@@ -62,6 +62,43 @@ struct SettingsView: View {
         .ignoresSafeArea(.container, edges: .bottom)
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .preferredColorScheme(.light)
+        .fullScreenCover(isPresented: $showArchive) {
+            ArchiveView { showArchive = false }
+                .environment(\.pixel, pixel)
+                .environment(\.win95Scheme, settings.scheme)
+        }
+        .fullScreenCover(isPresented: $showAbout) {
+            AboutView { showAbout = false }
+                .environment(\.pixel, pixel)
+                .environment(\.win95Scheme, settings.scheme)
+        }
+    }
+
+    /// Archive, one line of iCloud status, About. The status is a LINE, not a
+    /// control: sync is silent (FR-013), so there is nothing here to press and
+    /// nothing to retry.
+    private var dataSection: some View {
+        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+            Win95Button(action: { showArchive = true }, compact: true) {
+                Text("Archive")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+            .fixedSize()
+
+            Text(sync.summary)
+                .font(W95Font.small(pixel))
+                .foregroundStyle(sync.isDegraded ? Win95.important : Win95.shadow)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Win95Button(action: { showAbout = true }, compact: true) {
+                Text("About")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+            .fixedSize()
+            .padding(.top, Win95.Px.grid * pixel)
+        }
     }
 
     private func header(_ title: String) -> some View {

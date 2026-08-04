@@ -24,8 +24,9 @@ struct TaskSnapshot {
     let createdAt: Date
     let sortOrder: Double
     let overduePlaced: Bool
-    let photoData: Data?
-    let extraPhotos: [Data]
+    /// Raw bytes, oldest first — the records themselves are gone by the time
+    /// undo runs (cascade delete), so the snapshot has to carry the payload.
+    let photos: [Data]
 }
 
 enum LastAction {
@@ -164,19 +165,43 @@ final class TaskStore {
     /// Appends — photos accumulate left to right in the order added.
     func addPhoto(_ task: TaskItem, data: Data?) {
         guard let data else { return }
-        task.addPhoto(data)
+        insertPhoto(data, into: task, order: task.nextPhotoOrder)
         commit()
     }
 
-    /// Removes one photo by its index in `allPhotos` (TASK-043). The legacy
-    /// first slot is refilled from the extras so ordering never gaps.
+    /// Removes one photo by its position in the strip. Orders are sparse on
+    /// purpose — nothing is renumbered, so a removal can't disturb the rest.
     func removePhoto(_ task: TaskItem, at index: Int) {
-        var photos = task.allPhotos
-        guard photos.indices.contains(index) else { return }
-        photos.remove(at: index)
-        task.photoData = photos.first
-        task.extraPhotos = Array(photos.dropFirst())
+        let ordered = task.orderedPhotos
+        guard ordered.indices.contains(index) else { return }
+        context.delete(ordered[index])
         commit()
+    }
+
+    private func insertPhoto(_ data: Data, into task: TaskItem, order: Int) {
+        let photo = TaskPhoto()
+        photo.data = data
+        photo.order = order
+        photo.task = task
+        context.insert(photo)
+    }
+
+    /// One-time move of photos out of the pre-CloudKit fields and into their
+    /// own records. Idempotent: a task is only touched while it still holds
+    /// legacy data, and the slots are cleared as it goes.
+    func migrateLegacyPhotos() {
+        let descriptor = FetchDescriptor<TaskItem>()
+        var moved = false
+        for task in (try? context.fetch(descriptor)) ?? [] where task.needsPhotoMigration {
+            var order = task.nextPhotoOrder
+            for data in task.legacyPhotos {
+                insertPhoto(data, into: task, order: order)
+                order += 1
+            }
+            task.clearLegacyPhotos()
+            moved = true
+        }
+        if moved { commit() }
     }
 
     // MARK: Mutations
@@ -273,8 +298,7 @@ final class TaskStore {
             title: task.title, dueDate: task.dueDate, isImportant: task.isImportant,
             isCompleted: task.isCompleted, completedAt: task.completedAt,
             createdAt: task.createdAt, sortOrder: task.sortOrder,
-            overduePlaced: task.overduePlaced, photoData: task.photoData,
-            extraPhotos: task.extraPhotos))
+            overduePlaced: task.overduePlaced, photos: task.allPhotos))
         context.delete(task)
         commit()
     }
@@ -300,8 +324,9 @@ final class TaskStore {
             task.createdAt = snapshot.createdAt
             task.sortOrder = snapshot.sortOrder
             task.overduePlaced = snapshot.overduePlaced
-            task.photoData = snapshot.photoData
-            task.extraPhotos = snapshot.extraPhotos
+            for (index, data) in snapshot.photos.enumerated() {
+                insertPhoto(data, into: task, order: index)
+            }
             context.insert(task)
         case nil:
             return

@@ -299,11 +299,16 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 5. Confirm with the founder that the paid Apple Developer account exists before TASK-050. Then read only the Reference sections listed above. Continue from the first unchecked task, marking each complete. When done: branch `phase-5/sync-settings-archive`, commit, push, PR."
 
-- [ ] **TASK-049** — (founder) Apple Developer Program enrollment
+- [x] **TASK-049** — (founder) Apple Developer Program enrollment
   Files: —
   Notes: Enroll at developer.apple.com ($99/yr) with the Apple Account used on both test devices. Wait for approval (can take days — start early). Switch Xcode signing to the paid team. **Blocks everything below.** Verify: Xcode shows the paid team; Certificates/Identifiers accessible.
 
-- [ ] **TASK-050** — CloudKit entitlement + container switch
+- [~] **TASK-050** — CloudKit entitlement + container switch *(code done; Xcode step pending)*
+  Photos restructured into their own entity first — an array of image blobs in
+  one record would have broken the 1MB CKRecord limit silently. Container
+  creation is resilient (CloudKit → local → memory, never a crash) and gated on
+  `ShoveCloudKitEnabled`, because a `.private` container without the entitlement
+  raises an ObjC exception Swift can't catch. Remaining: `docs/cloudkit-setup.md`.
   Files: `Shove95/Shove95.entitlements`, `Shove95/Shove95App.swift`, `Shove95/Info.plist`
   Notes: Add iCloud capability → CloudKit → container `iCloud.com.lucasmaher.shove95`; Background Modes → Remote notifications. ModelConfiguration → `.private("iCloud.com.lucasmaher.shove95")`. Existing local data must survive the switch (SwiftData migrates the store into the CK-backed configuration — verify, and export a debug JSON dump first as a belt-and-braces backup). Verify: app runs on a physical device signed into iCloud; console shows CK export activity; existing tasks intact.
 
@@ -313,10 +318,10 @@
 
 - [~] **TASK-052** — Settings screen *(partially delivered in Phase 3b, 2026-08-04)*
   Files: `Shove95/Screens/SettingsView.swift`, `Shove95/Components/TitleBar.swift`
-  Done: gear → full-screen `Settings - shove.95`, ✕ returns; Appearance scheme picker (5 schemes); tab renaming. Remaining for Phase 5: Archive →, iCloud status, About →.
+  Done: gear → full-screen `Settings - shove.95`, ✕ returns; Appearance scheme picker (5 schemes); tab renaming; workspaces; Archive, one-line iCloud status, About.
   Notes: Gear → full-screen Win95Window `Settings - shove.95`, ✕ returns. Rows (raised-bevel list items on surface, not a sunken well): Archive →, iCloud status, About →. iCloud status via `CKContainer(identifier:).accountStatus`: `iCloud: available` / `not signed in` / `restricted` — re-check on appear. Verify: status flips when signing out of iCloud in system settings (simulator ok).
 
-- [ ] **TASK-053** — Archive screen
+- [x] **TASK-053** — Archive screen
   Files: `Shove95/Screens/ArchiveView.swift`, `Shove95/Store/TaskStore.swift`
   Notes: `archivedTasks()` grouped by completion day (General tasks group under their completedAt day too), newest first; headers `Today — 3 items` / `Mon 28 Jul — 5 items` (W95FA, surface strip); rows struck-through with ticked checkbox. Untick → task leaves archive back to its bucket (overdue if past-dated — correct and intended). Context menu: Delete (permanent, no undo — PRD Open Q4 default). Empty: `(empty)`. Verify: complete a task, debug-shift completedAt to yesterday → appears here; untick returns it to Today as overdue.
 
@@ -324,11 +329,14 @@
   Files: `Shove95Kit/Tests/Shove95KitTests/DateEngineTests.swift` (extend)
   Notes: End-to-end check of the visibility handoff: completed-yesterday dated task is in Archive and NOT in its tab; completed-today still in tab; General 24h boundary. Add any missing test; manually verify in-app with debug date shifts. Verify: tests green + manual pass.
 
-- [ ] **TASK-055** — About screen
+- [x] **TASK-055** — About screen
   Files: `Shove95/Screens/AboutView.swift`
   Notes: `About - shove.95` window: app name, version+build (from bundle), `Typeface: W95FA by Alina Sava (SIL OFL)`, `Privacy policy` link (opens Safari to the TASK-056 URL), © year Lucas Maher. Terse voice — no marketing copy. Verify: link opens; version matches target settings.
 
-- [ ] **TASK-056** — Privacy policy live
+- [~] **TASK-056** — Privacy policy live *(drafted; publishing is the founder's call)*
+  `docs/privacy.md` is written. Not published: it is a legal statement made in
+  Lucas's name, so it wants his read before it goes on the web. Enable GitHub
+  Pages on /docs to serve it at the URL AboutView already links to.
   Files: `privacy/index.md`
   Notes: Content per PRD § Infrastructure: data stays in the user's private iCloud; developer has no access; no analytics; no third-party services; contact email. Founder enables GitHub Pages for the repo (or a gist/site — any stable URL). Record the final URL in this task's Notes and in AboutView. Verify: URL loads publicly on a phone.
 

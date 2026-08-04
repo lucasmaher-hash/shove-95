@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(SyncStatus.self) private var sync
     @State private var menu = MenuCoordinator()
     @State private var editing = EditingCoordinator()
 
@@ -150,6 +151,8 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showSettings) {
             SettingsView { showSettings = false }
                 .environment(settings)
+                .environment(sync)
+                .environment(store)
                 .environment(\.pixel, pixel)
                 // Presented content doesn't sit under RootView's `.id` rebuild,
                 // so the scheme has to reach it explicitly.
@@ -170,6 +173,7 @@ struct RootView: View {
 private struct WorkspaceMenu: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    @Environment(SyncStatus.self) private var sync
     var onPick: (String) -> Void
 
     var body: some View {
