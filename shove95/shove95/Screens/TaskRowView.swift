@@ -51,9 +51,15 @@ struct TaskRowView: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var showPhotoViewer = false
 
-    // Swipe commit thresholds (§16: one flick, not a screen-crossing drag)
+    // Swipe commit thresholds (§16: one flick, not a screen-crossing drag).
+    // The distance bar scales with RUNWAY: a swipe starting right of centre
+    // physically can't travel 86pt before the screen edge, which made
+    // off-text swipes on short rows bounce forever (traced 2026-08-04:
+    // dx 83 against a bar of 86). Half of what the finger COULD travel,
+    // capped at 22% of the row.
     private static let commitFraction: CGFloat = 0.22
-    private static let commitVelocity: CGFloat = 350
+    private static let runwayFraction: CGFloat = 0.5
+    private static let commitVelocity: CGFloat = 300
     private static let rubberResistance: CGFloat = 0.3
 
     // MARK: - Body
@@ -291,13 +297,14 @@ struct TaskRowView: View {
         }
     }
 
-    private func swipeEnded(_ dx: CGFloat, velocity: CGFloat) {
+    private func swipeEnded(_ dx: CGFloat, velocity: CGFloat, startX: CGFloat) {
         rubberBandBuzzed = false
         guard !task.isCompleted else { return }
 
         let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
-        let overThreshold = abs(dx) > rowWidth * Self.commitFraction
-            || abs(velocity) > Self.commitVelocity
+        let runway = dx > 0 ? max(1, rowWidth - startX) : max(1, startX)
+        let bar = min(rowWidth * Self.commitFraction, runway * Self.runwayFraction)
+        let overThreshold = abs(dx) > bar || abs(velocity) > Self.commitVelocity
         let sameSign = (dx < 0) == (velocity < 0) || abs(velocity) < 50
 
         guard currentBucket.steppedOnce(direction) != nil, overThreshold, sameSign else {

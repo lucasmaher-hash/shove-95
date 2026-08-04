@@ -34,8 +34,10 @@ struct RowGestureHandlers {
     var onHold: () -> Void
     /// Live horizontal drag, window-space dx from touch-down.
     var onSwipeChanged: (CGFloat) -> Void
-    /// Fingers up after a swipe: final dx + signed velocity (pt/s).
-    var onSwipeEnded: (CGFloat, CGFloat) -> Void
+    /// Fingers up after a swipe: final dx, signed velocity (pt/s), and the
+    /// touch's starting x in window space — the row scales its commit
+    /// threshold to the runway the finger actually had before the screen edge.
+    var onSwipeEnded: (CGFloat, CGFloat, CGFloat) -> Void
     /// The system or scroll view took the touch mid-swipe.
     var onSwipeCancelled: () -> Void
     /// Live vertical drag while armed, window-space dy from touch-down.
@@ -221,7 +223,7 @@ final class RowGestureCatcher: UIView {
             handlers?.onPressChanged(false)
         case .swiping:
             handlers?.onPressChanged(false)
-            handlers?.onSwipeEnded(dx, endVelocity(touches, dx: dx))
+            handlers?.onSwipeEnded(dx, endVelocity(touches, dx: dx), startPoint.x)
         case .reordering:
             handlers?.onPressChanged(false)
             handlers?.onReorderEnded()
