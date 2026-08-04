@@ -21,7 +21,12 @@ same schema, same data, only the mirroring is absent.
    Capabilities**.
 2. **Team:** pick your Apple Developer team. Leave *Automatically manage
    signing* ticked.
-3. **+ Capability → iCloud.** Tick **CloudKit**. Under Containers press **+**
+3. **+ Capability → iCloud.** Tick **CloudKit**.
+   *The capability list is alphabetical and long — iCloud sits between HomeKit
+   and In-App Purchase, well below the visible first screen. If it is genuinely
+   absent: you are on PROJECT rather than the shove95 TARGET (capabilities are
+   per-target), or no Team is selected yet — iCloud is paid-membership-only and
+   Xcode hides it until a paid team is picked, which is why step 2 comes first.* Under Containers press **+**
    and enter:
    ```
    iCloud.com.lucasmaher.shove95
