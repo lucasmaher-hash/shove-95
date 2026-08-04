@@ -235,7 +235,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Photo viewer close | **Instant.** No transition. |
 | Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |
 | Long-press menu close | Flat 0.11s ease-out, scaling back toward the anchor |
-| Row held | Tints to `light` and scales to 0.97; **the tint outlives the finger** and holds while that row's menu is open |
+| Row acted on | Tints to `light` whenever it is the thing being acted on — held (with 0.97 scale), menu open, **mid-swipe**, or **in edit mode** (unified 2026-08-04). The tint outlives the finger while the menu is open |
 | Tab change | Contents **slide in from the side the tab lives on** (0.22s ease-out). The sunken well, title bar and taskbar never move — the frame is fixed and the content travels through it. Title text and taskbar highlight swap instantly. |
 | Button press | **Instant** bevel inversion |
 

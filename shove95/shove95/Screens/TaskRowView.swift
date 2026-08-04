@@ -244,9 +244,12 @@ struct TaskRowView: View {
     // MARK: - Visual state
 
     private var rowBackground: Color {
-        // The tint outlives the finger while this row's menu is open, so it is
-        // obvious what the menu is acting on.
-        if isPressing || isMenuOpen { return Win95.light }
+        // One rule (founder 2026-08-04): whenever the row is the thing being
+        // ACTED ON — pressed, menu open, mid-swipe, or in edit mode — it
+        // carries the same held-grey tint.
+        if isPressing || isMenuOpen || isEditing || dragOffset != 0 {
+            return Win95.light
+        }
         return Win95.well
     }
 
