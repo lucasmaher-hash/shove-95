@@ -15,31 +15,47 @@ struct RootView: View {
     @State private var showSettings = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
+    @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(title: "\(selected.displayName) - shove.95") {
+            TitleBar(title: "\(settings.name(for: selected)) - shove.95") {
                 showSettings = true
             }
 
+            // The status panel floats over the list rather than taking layout
+            // space, so it can appear and vanish without shifting the rows.
             TaskListView(bucket: selected)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    if let action = store.lastAction {
+                        Win95StatusPanel(text: action.statusText(name: settings.name)) {
+                            withAnimation(.spring(duration: 0.25)) { store.undoLastAction() }
+                        }
+                        // Retires itself; any further mutation restarts the clock.
+                        .task(id: store.revision) {
+                            try? await Task.sleep(for: .seconds(6))
+                            if !Task.isCancelled { store.dismissLastAction() }
+                        }
+                    }
+                }
 
             #if DEBUG
             debugBar
             #endif
 
-            Win95StatusBar(
-                text: store.lastAction?.statusText ?? "",
-                onUndo: store.lastAction == nil ? nil : {
-                    withAnimation(.spring(duration: 0.25)) { store.undoLastAction() }
-                }
-            )
-
             Taskbar(selected: $selected)
         }
+        // Win95 palettes are read through static accessors, so the chrome is
+        // rebuilt wholesale when the scheme changes. The .id sits INSIDE the
+        // presentation modifiers — rebuilding above them would tear down
+        // `showSettings` and slam the Settings window shut on every pick.
+        .id(settings.scheme.id)
         .background(Win95.surface)
+        // The taskbar is window furniture — it stays docked at the bottom
+        // instead of riding up with the keyboard.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .environment(menu)
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
@@ -48,25 +64,12 @@ struct RootView: View {
             // Fires at midnight, timezone changes, clock changes (PRD §2).
             store.runDayRolloverPassIfNeeded()
         }
-        .sheet(isPresented: $showSettings) {
-            // Placeholder until Phase 5 builds the real Settings window.
-            VStack(spacing: 16) {
-                Text("Settings")
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-                Text("Archive · iCloud · About arrive in Phase 5.")
-                    .font(W95Font.small(pixel))
-                    .foregroundStyle(Win95.shadow)
-                Win95Button(action: { showSettings = false }) {
-                    Text("Close")
-                        .font(W95Font.small(pixel))
-                        .foregroundStyle(Win95.text)
-                }
-                .fixedSize()
-            }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Win95.surface)
+        // Full-screen, not a sheet: sheets bring rounded corners and a drag
+        // indicator, both prohibited (design.md §9).
+        .fullScreenCover(isPresented: $showSettings) {
+            SettingsView { showSettings = false }
+                .environment(settings)
+                .environment(\.pixel, pixel)
         }
     }
 

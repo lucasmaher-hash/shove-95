@@ -95,10 +95,10 @@ All derived from the 1995 spec. Point values shown at 2×.
 | Grid unit | 4px | 8pt | All spacing is a multiple: 2/4/8/16/24px → 4/8/16/32/48pt |
 | Standard button | 75×23px | 150×46pt | Minimum size |
 | Checkbox | 12×12px | 24×24pt | Tap target extended invisibly to 44pt |
-| Title bar | 18px tall | 36pt | Plus status bar inset above |
+| Title bar | 18px tall | 36pt | Gear (or ✕ on Settings) at the trailing edge |
 | Title bar control | 16×14px | 32×28pt | Raised bevel, pixel glyph |
 | Taskbar | 28px tall | 56pt | Extends into the home-indicator safe area |
-| Status bar | 12px tall | 24pt | Sunken panels, sits above the taskbar |
+| Status panel | 12px tall | 24pt | Floats above the taskbar; only present after an action |
 | Scrollbar | 16px wide | 32pt | Hidden on iOS; relevant for macOS |
 | List row | — | **44pt min** | Spec rows are 14px/28pt — too small for a thumb. Deliberate deviation. |
 | Photo thumbnail | 32×32px | 64×64pt | Sunken bevel frame |
@@ -140,7 +140,11 @@ A maximized Windows 95 window filling the screen.
 
 **List well** — sunken bevel, `#FFFFFF` background, edge to edge. No row separators (Windows 95 list boxes have none).
 
-**Status bar** — 24pt, sunken panel, `#222222` text showing the last action as `{task} → {destination}`, with a small raised `Undo` button at the trailing edge. Persistent: it remains until the next action replaces it. Empty when no action has occurred.
+**Status panel** *(revised 2026-08-04)* — a light panel (`statusBG`, raised bevel) carrying `#222222` text reading `{task} → {destination}`, with a flat `statusAccent` `Undo` block at the trailing edge. **No bevel on the Undo block** — it is a tint, not a button.
+
+It is **not window furniture**. It is absent until an action occurs, floats *over* the list well rather than taking layout space (so rows never shift when it appears), and retires itself after 6 seconds. Any further action restarts that clock. Undo remains single-level and reachable for as long as the panel is up.
+
+Originally this was a permanent silver status bar inset into the window chrome. The founder rejected that on device: standing chrome that is empty most of the time reads as broken, and greying out an always-present Undo advertises a control you cannot use.
 
 **Taskbar** — 56pt, raised, `#C0C0C0`, extending into the safe area with buttons positioned above the home indicator. Four text-only buttons (`Today` `Tomorrow` `Week` `General`) sharing the width. The active tab renders **pressed** (sunken bevel, label offset 1px down-right, dotted-hatch fill). A sunken clock well at the trailing edge shows the current date/time.
 
@@ -235,3 +239,35 @@ Things that would break the system, listed so they don't get reintroduced by hab
 - Continuous (non-stepped) Dynamic Type
 - Dark mode
 - Microsoft's icon artwork, the Windows logo, the Start button, or the word "Windows" in any user-facing string
+
+
+---
+
+## 12. Colour schemes *(added 2026-08-04)*
+
+Windows 95 shipped named Appearance schemes and swapping them was one of the era's
+small pleasures, so the theme picker is period-correct rather than a modern bolt-on.
+Five schemes ship: **Windows Standard**, **Desert**, **Eggplant**, **Rose**, **Slate**
+(`Win95Scheme.swift`). Each supplies the full token set — surface, highlight, light,
+shadow, darkShadow, text, the two title-bar gradient stops, selection pair, the list
+well, and the status-panel pair.
+
+Two rules hold across every scheme:
+
+1. **Bevel structure never changes.** Only the palette moves; the two nested 1px
+   frames stay exactly as §3 specifies. A scheme cannot introduce a radius or a shadow.
+2. **`important` stays `#FF0000` in every scheme.** Colour carries exactly one meaning
+   (§2). Remapping red to fit a palette would break that, so `Win95.important` is the
+   one hard-coded `static let` in the theme.
+
+Palettes are read through static accessors (`Win95.surface` etc.), so the chrome
+subtree is rebuilt via `.id(scheme.id)` when the scheme changes. That `.id` sits
+**inside** the presentation modifiers in `RootView` — rebuilding above them tears down
+`showSettings` and slams the Settings window shut on every pick.
+
+### Tab renaming
+
+All four tabs are renamable (`AppSettings`, UserDefaults-backed). Renaming changes the
+**label only** — `Bucket` semantics are date-derived and untouched, so a tab called
+"Heute" still means today. An empty field restores the built-in name. At 4× the custom
+name truncates to three characters, matching the built-in abbreviations.

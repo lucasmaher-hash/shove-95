@@ -13,6 +13,7 @@ import Shove95Kit
 struct shove95App: App {
     private let container: ModelContainer
     @State private var store: TaskStore
+    @State private var settings = AppSettings()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -28,6 +29,7 @@ struct shove95App: App {
         WindowGroup {
             RootView()
                 .environment(store)
+                .environment(settings)
                 .modifier(PixelScale()) // stepped 2×/3×/4× (FR-015)
         }
         .modelContainer(container)

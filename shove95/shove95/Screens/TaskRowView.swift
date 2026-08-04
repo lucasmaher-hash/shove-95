@@ -23,6 +23,8 @@ struct TaskRowView: View {
     @State private var isReordering = false
     @State private var reorderOffset: CGFloat = 0
     @State private var rowFrame: CGRect = .zero
+    @State private var isPressing = false
+    @State private var didLongPress = false
 
     @State private var isEditing = false
     @State private var draft = ""
@@ -81,10 +83,23 @@ struct TaskRowView: View {
                         .task { rowFrame = proxy.frame(in: .global) }
                 }
             }
+            .scaleEffect(isPressing && !isReordering ? 0.97 : 1, anchor: .center)
+            .animation(.spring(duration: 0.22), value: isPressing)
             .offset(y: reorderOffset)
             .zIndex(isReordering ? 1 : 0)
             .simultaneousGesture(swipeGesture)
             .simultaneousGesture(pressInteraction)
+            .simultaneousGesture(pressFeedback)
+            .onTapGesture {
+                // A long press ends with a lift, which SwiftUI also reports as
+                // a tap — so a plain tap handler would open the keyboard every
+                // time the menu appeared. Consume that one.
+                if didLongPress { didLongPress = false; return }
+                guard !task.isCompleted, !isEditing else { return }
+                draft = task.title
+                isEditing = true
+                editFocused = true
+            }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
             .accessibilityActions { accessibilityMoveActions }
@@ -95,7 +110,11 @@ struct TaskRowView: View {
     private var rowContent: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
             Win95Checkbox(isChecked: task.isCompleted) {
-                store.toggleCompleted(task)
+                // Position changes always animate (design.md §8): the row
+                // travels to or from the completed section rather than jumping.
+                withAnimation(.spring(duration: 0.35)) {
+                    store.toggleCompleted(task)
+                }
             }
 
             if isEditing {
@@ -118,13 +137,7 @@ struct TaskRowView: View {
                                         : (task.isImportant ? Win95.important : Win95.text)))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard !task.isCompleted else { return }
-                        draft = task.title
-                        isEditing = true
-                        editFocused = true
-                    }
+                    .allowsHitTesting(false) // the ROW owns tap-to-edit (see body)
             }
 
             Spacer(minLength: Win95.Px.grid * pixel)
@@ -140,8 +153,22 @@ struct TaskRowView: View {
         }
         .padding(.trailing, Win95.Px.grid * pixel)
         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
-        .background(isReordering ? Win95.selectionBG : Win95.highlight) // navy while dragged
+        .background(rowBackground) // grey while pressed, navy while dragged
         .contentShape(Rectangle())   // the ENTIRE row is swipeable, not just the text
+    }
+
+    private var rowBackground: Color {
+        if isReordering { return Win95.selectionBG }
+        if isPressing { return Win95.light }   // the press-in tint
+        return Win95.well
+    }
+
+    /// Touch-down / touch-up only — it never claims the touch, so the swipe and
+    /// the long press are unaffected.
+    private var pressFeedback: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in if !isPressing { isPressing = true } }
+            .onEnded { _ in isPressing = false }
     }
 
     // MARK: - Swipe
@@ -252,6 +279,7 @@ struct TaskRowView: View {
                 guard let drag else {
                     // Press recognised, finger still: open the menu.
                     if !isReordering, menu.request == nil {
+                        didLongPress = true
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         menu.show(task: task, at: menuAnchor)
                     }
@@ -262,6 +290,7 @@ struct TaskRowView: View {
                     // The finger travelled: this is a reorder, not a menu.
                     if !isReordering {
                         isReordering = true
+                        didLongPress = true
                         menu.dismiss()
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
@@ -269,6 +298,7 @@ struct TaskRowView: View {
                 }
             }
             .onEnded { _ in
+                isPressing = false
                 let steps = Int((reorderOffset / Win95.rowHeight(pixel)).rounded())
                 let wasReordering = isReordering
                 isReordering = false

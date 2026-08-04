@@ -64,7 +64,7 @@ struct Win95Checkbox: View {
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(Win95.highlight)
+                .fill(Win95.well)
                 .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                 .bevelSunken(pixel)
 
@@ -113,7 +113,7 @@ struct SunkenWell<Content: View>: View {
 
     var body: some View {
         content
-            .background(Win95.highlight)
+            .background(Win95.well)
             .bevelSunken(pixel)
     }
 }

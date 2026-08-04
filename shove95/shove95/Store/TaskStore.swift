@@ -31,10 +31,11 @@ enum LastAction {
                previousDueDate: Date?, previousSortOrder: Double, previousOverduePlaced: Bool)
     case deleted(snapshot: TaskSnapshot)
 
-    /// Status-bar text (voice rules: terse, no exclamation marks).
-    var statusText: String {
+    /// Status-panel text (voice rules: terse, no exclamation marks).
+    /// `name` resolves the destination label so renamed tabs read correctly.
+    func statusText(name: (Bucket) -> String) -> String {
         switch self {
-        case let .moved(_, title, destination, _, _, _): "\(title) → \(destination.displayName)"
+        case let .moved(_, title, destination, _, _, _): "\(title) → \(name(destination))"
         case let .deleted(snapshot): "\(snapshot.title) deleted"
         }
     }
@@ -53,8 +54,14 @@ final class TaskStore {
     /// the CloudKit phase adds a remote-change observer that bumps it too.
     private(set) var revision = 0
 
-    /// Single-level undo, persistent until replaced (PRD FR-009).
+    /// Single-level undo (PRD FR-009). The panel that surfaces it retires
+    /// itself on a timer — it reports a change, it is not standing chrome.
     private(set) var lastAction: LastAction?
+
+    /// Retires the status panel without undoing anything.
+    func dismissLastAction() {
+        lastAction = nil
+    }
 
     init(context: ModelContext) {
         self.context = context

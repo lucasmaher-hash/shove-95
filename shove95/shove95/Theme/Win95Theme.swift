@@ -41,29 +41,37 @@ struct PixelScale: ViewModifier {
 // MARK: - Palette (design.md §2 — six colors carry the whole interface)
 
 enum Win95 {
+    /// The active colour scheme. Set by AppSettings; RootView rebuilds its
+    /// subtree when it changes (see `.id(settings.scheme.id)`), which is what
+    /// makes these computed properties re-read.
+    nonisolated(unsafe) static var scheme: Win95Scheme = .classic
+
     // Chrome
-    static let surface     = Color(hex: 0xC0C0C0) // every chrome surface
-    static let highlight   = Color(hex: 0xFFFFFF) // bevel outer top-left (raised); list well bg
-    static let light       = Color(hex: 0xDFDFDF) // bevel inner top-left (raised)
-    static let shadow      = Color(hex: 0x808080) // bevel inner bottom-right (raised); secondary text
-    static let darkShadow  = Color(hex: 0x0A0A0A) // bevel outer bottom-right (raised)
-    static let text        = Color(hex: 0x222222) // all primary text
+    static var surface: Color     { Color(hex: scheme.surface) }
+    static var highlight: Color   { Color(hex: scheme.highlight) }
+    static var light: Color       { Color(hex: scheme.light) }
+    static var shadow: Color      { Color(hex: scheme.shadow) }
+    static var darkShadow: Color  { Color(hex: scheme.darkShadow) }
+    static var text: Color        { Color(hex: scheme.text) }
+    /// The list well behind the tasks.
+    static var well: Color        { Color(hex: scheme.well) }
 
     // Accents — one meaning each (design.md §2)
-    static let important        = Color(hex: 0xFF0000) // Important tasks. Nothing else is red.
-    static let titleActiveA     = Color(hex: 0x000080) // title bar gradient start (the app's only gradient)
-    static let titleActiveB     = Color(hex: 0x1084D0) // title bar gradient end
-    static let titleInactiveA   = Color(hex: 0x808080) // macOS only
-    static let titleInactiveB   = Color(hex: 0xB5B5B5) // macOS only
-    static let selectionBG      = Color(hex: 0x000080) // row being dragged/swiped
-    static let selectionText    = Color(hex: 0xFFFFFF)
-    static let desktop          = Color(hex: 0x008080) // teal — macOS only, unused on iOS
+    /// Important tasks. Red in EVERY scheme: colour carries exactly one
+    /// meaning, so this is deliberately not themeable.
+    static let important = Color(hex: 0xFF0000)
+    static var titleActiveA: Color   { Color(hex: scheme.titleA) }
+    static var titleActiveB: Color   { Color(hex: scheme.titleB) }
+    static var selectionBG: Color    { Color(hex: scheme.selectionBG) }
+    static var selectionText: Color  { Color(hex: scheme.selectionText) }
+    static var statusBG: Color     { Color(hex: scheme.statusBG) }
+    static var statusAccent: Color { Color(hex: scheme.statusAccent) }
+    static let desktop = Color(hex: 0x008080) // teal — macOS only
 
-    static let titleBarGradient = LinearGradient(
-        colors: [titleActiveA, titleActiveB],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
+    static var titleBarGradient: LinearGradient {
+        LinearGradient(colors: [titleActiveA, titleActiveB],
+                       startPoint: .leading, endPoint: .trailing)
+    }
 }
 
 // MARK: - Metrics (design.md §4 — spec px → pt = value × pixel)

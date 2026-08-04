@@ -302,8 +302,9 @@
   Files: `docs/qa-sync.md`
   Notes: Script + run with two devices (or device + second simulator signed into the same account): create task on A → appears on B ≤ ~1 min; edit title on B → updates on A; photo task round-trip; complete/undo round-trip; airplane-mode edit on A syncs on reconnect; simultaneous conflicting edits → last-writer-wins, no crash, no dupes. Verify: all documented as passing (with timings) in the file.
 
-- [ ] **TASK-052** — Settings screen
+- [~] **TASK-052** — Settings screen *(partially delivered in Phase 3b, 2026-08-04)*
   Files: `Shove95/Screens/SettingsView.swift`, `Shove95/Components/TitleBar.swift`
+  Done: gear → full-screen `Settings - shove.95`, ✕ returns; Appearance scheme picker (5 schemes); tab renaming. Remaining for Phase 5: Archive →, iCloud status, About →.
   Notes: Gear → full-screen Win95Window `Settings - shove.95`, ✕ returns. Rows (raised-bevel list items on surface, not a sunken well): Archive →, iCloud status, About →. iCloud status via `CKContainer(identifier:).accountStatus`: `iCloud: available` / `not signed in` / `restricted` — re-check on appear. Verify: status flips when signing out of iCloud in system settings (simulator ok).
 
 - [ ] **TASK-053** — Archive screen

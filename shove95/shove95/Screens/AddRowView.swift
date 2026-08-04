@@ -35,7 +35,7 @@ struct AddRowView: View {
             }
             .padding(.horizontal, Win95.Px.grid * pixel)
             .frame(minHeight: Win95.rowHeight(pixel))
-            .background(Win95.highlight)
+            .background(Win95.well)
             .bevelSunken(pixel)
             .padding(.top, Win95.Px.grid * pixel)
     }
