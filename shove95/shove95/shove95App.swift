@@ -92,6 +92,9 @@ struct shove95App: App {
                     if UserDefaults.standard.bool(forKey: "seedFillers") {
                         store.seedScrollFillers()
                     }
+                    if UserDefaults.standard.bool(forKey: "purgeSeeded") {
+                        store.purgeSeededTasks()
+                    }
                 }
                 #endif
 
