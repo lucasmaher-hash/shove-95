@@ -472,8 +472,13 @@ one interaction:
 ## 17. App icon *(2026-08-04)*
 
 `sho>` — "sho" in a sans-serif mono, then a large **pixel chevron** for the
-missing "v", white on the app's own azure (`#1084D0`, the light stop of the
-title-bar gradient).
+missing "v", white on a deep saturated blue (`#0C2EBE`).
+
+The blue is NOT the title-bar azure it started as. At icon size that lighter
+stop washed out against a bright home screen; the deeper tone holds the white
+and still reads as the same family. A solid triangle was tried and rejected —
+the open chevron is lighter and unmistakably an arrow at 40pt, where a filled
+triangle reads as a play button.
 
 The chevron is the whole idea: it is the app's verb. Tasks are shoved forward
 along the line — Today → Tomorrow → Week → General — and the icon is that
