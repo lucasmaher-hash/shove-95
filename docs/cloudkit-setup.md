@@ -29,7 +29,10 @@ same schema, same data, only the mirroring is absent.
    Xcode caches team membership; confirm the membership reads Active at
    developer.apple.com/account; and check it is the same Apple ID you enrolled
    with. Enrolment can take a few hours to activate after payment.*
-3. **+ Capability → iCloud.** Tick **CloudKit**.
+3. **+ Capability → iCloud.** **Double-click** it in the library — single
+   clicking only previews the description, and there is nothing to tick in that
+   window. The picker closes and an iCloud section appears in the editor; the
+   checkboxes are there. Tick **CloudKit**.
    *The capability list is alphabetical and long — iCloud sits between HomeKit
    and In-App Purchase, well below the visible first screen. If it is genuinely
    absent: you are on PROJECT rather than the shove95 TARGET (capabilities are
