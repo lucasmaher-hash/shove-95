@@ -47,12 +47,19 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(Win95.Px.grid * 2 * pixel)
+                    // Clears the home indicator, since the well itself now
+                    // runs to the physical bottom edge.
+                    .padding(.bottom, Win95.Px.grid * 8 * pixel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
         }
         .background(Win95.surface)
+        // The well runs to the bottom of the SCREEN. Stopping at the safe area
+        // drew its bottom border partway up, which read as a stray horizontal
+        // rule under the content (founder bug report 2026-08-04).
+        .ignoresSafeArea(.container, edges: .bottom)
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .preferredColorScheme(.light)
     }
@@ -189,10 +196,16 @@ private struct WorkspacesSection: View {
     @State private var newName = ""
     @FocusState private var addFocused: Bool
 
+    /// One trailing column for the whole section: Delete, Add, and the empty
+    /// slot on the undeletable default workspace all reserve this width, so
+    /// every name field ends at the same x (founder request 2026-08-04).
+    /// Sized to the longest label at any pixel scale.
+    private var buttonColumn: CGFloat { Win95.Px.grid * 12 * pixel }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
             ForEach(settings.workspaces) { workspace in
-                WorkspaceRow(workspace: workspace) {
+                WorkspaceRow(workspace: workspace, buttonColumn: buttonColumn) {
                     store.reassignTasksToDefaultWorkspace(from: workspace.id)
                     settings.removeWorkspace(workspace.id)
                 }
@@ -210,12 +223,11 @@ private struct WorkspacesSection: View {
                     .background(Win95.well)
                     .bevelSunken(pixel)
 
-                Win95Button(action: add, compact: true) {
+                Win95Button(action: add, compact: true, width: buttonColumn) {
                     Text("Add")
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
-                .fixedSize()
                 .accessibilityLabel("Add workspace")
             }
         }
@@ -232,6 +244,7 @@ private struct WorkspaceRow: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
     let workspace: Workspace
+    let buttonColumn: CGFloat
     var onDelete: () -> Void
 
     @State private var draft = ""
@@ -253,14 +266,16 @@ private struct WorkspaceRow: View {
                 .background(Win95.well)
                 .bevelSunken(pixel)
 
-            if workspace.id != Workspace.defaultID {
-                // Same compact size as the tab-name Default buttons.
-                Win95Button(action: onDelete, compact: true) {
+            if workspace.id == Workspace.defaultID {
+                // The default workspace can't be deleted, but it still holds
+                // the column open so its name field matches every other row.
+                Color.clear.frame(width: buttonColumn, height: 1)
+            } else {
+                Win95Button(action: onDelete, compact: true, width: buttonColumn) {
                     Text("Delete")
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.important)
                 }
-                .fixedSize()
                 .accessibilityLabel("Delete workspace \(workspace.name)")
             }
         }

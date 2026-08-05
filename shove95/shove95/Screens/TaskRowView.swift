@@ -43,6 +43,9 @@ struct TaskRowView: View {
 
     // Photos
     @State private var showPhotoPicker = false
+    @State private var showCamera = false
+    /// Camera vs Library — asked once per add, as a Win95 menu (TASK-044).
+    @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
     /// Index into task.allPhotos of the photo open in the viewer.
     @State private var viewerIndex: Int?
@@ -101,11 +104,30 @@ struct TaskRowView: View {
         .background(RowGestureView(handlers: gestureHandlers))
         .background(rowBackground)
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { data in
+                showCamera = false
+                guard let data else { return }
+                store.addPhoto(task, data: ImageImport.prepare(data))
+                addedPhotoThisEdit = true
+            }
+            .ignoresSafeArea()
+        }
+        // Source choice: a plain confirmation dialog is the one system sheet
+        // worth keeping — a hand-drawn Win95 menu for a two-item OS-level
+        // permission flow would be more costume than interface.
+        .confirmationDialog("Add photo", isPresented: $showSourceChoice) {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Camera") { showCamera = true }
+            }
+            Button("Photo Library") { showPhotoPicker = true }
+            Button("Cancel", role: .cancel) {}
+        }
         .onChange(of: pickedItem) { _, item in
             guard let item else { return }
             Task { @MainActor in
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    store.addPhoto(task, data: TaskStore.downscaledJPEG(from: data))
+                    store.addPhoto(task, data: ImageImport.prepare(data))
                     addedPhotoThisEdit = true // the plus retires for this session
                 }
                 pickedItem = nil
@@ -117,11 +139,20 @@ struct TaskRowView: View {
         )) {
             if let index = viewerIndex, index < task.allPhotos.count,
                let image = UIImage(data: task.allPhotos[index]) {
-                PhotoViewer(title: task.title, image: image) {
-                    // Closing stays instant (locked Q16).
-                    var t = Transaction(); t.disablesAnimations = true
-                    withTransaction(t) { viewerIndex = nil }
-                }
+                PhotoViewer(
+                    title: task.title,
+                    image: image,
+                    onRemove: {
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { viewerIndex = nil }
+                        store.removePhoto(task, at: index)
+                    },
+                    onClose: {
+                        // Closing stays instant (locked Q16).
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { viewerIndex = nil }
+                    }
+                )
                 .presentationBackground(Color.black.opacity(0.55))
             }
         }
@@ -167,7 +198,9 @@ struct TaskRowView: View {
         // line. Return commits: intercepted in the binding (§16).
         TextField("", text: returnCommitting, axis: .vertical)
             .font(W95Font.standard(pixel))
-            .foregroundStyle(Win95.text)
+            // Important stays red while you edit it — the flag doesn't pause
+            // because the caret is in the field (founder request 2026-08-04).
+            .foregroundStyle(task.isImportant ? Win95.important : Win95.text)
             .lineLimit(1...6)
             .focused($editFocused)
             .submitLabel(.done)
@@ -188,7 +221,7 @@ struct TaskRowView: View {
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())
-                    .onTapGesture { showPhotoPicker = true }
+                    .onTapGesture { chooseSource() }
                     .accessibilityLabel("Add photo")
             } else if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
                                                   now: store.now(), calendar: store.calendar) {
@@ -204,30 +237,68 @@ struct TaskRowView: View {
     /// Thumbnails accumulate LEFT TO RIGHT in the order added. Tapping one
     /// presses it in briefly — you see the press — then the viewer opens
     /// (founder request 2026-08-04). Closing stays instant.
+    ///
+    /// A plain HStack, NOT a horizontal ScrollView: a nested scroll view owns
+    /// horizontal pans, so swiping across a photo moved nothing while swiping
+    /// across the text moved the task. Square 64pt thumbnails (TASK-045's spec
+    /// size) fit four across, so scrolling isn't needed anyway.
     private var photoStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Win95.Px.grid * pixel) {
-                ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
-                    if let image = UIImage(data: data) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: Win95.Px.thumbnail * 2 * pixel,
-                                   height: Win95.Px.thumbnail * pixel)
-                            .clipped()
-                            .bevelSunken(pixel)
-                            .scaleEffect(pressedThumb == index ? 0.92 : 1)
-                            .animation(.easeOut(duration: 0.1), value: pressedThumb)
-                            .contentShape(Rectangle())
-                            .onTapGesture { openViewer(index) }
-                            .accessibilityLabel("Photo \(index + 1), opens in a window")
-                    }
+        HStack(spacing: Win95.Px.grid * pixel) {
+            ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
+                if let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: Win95.Px.thumbnail * pixel,
+                               height: Win95.Px.thumbnail * pixel)
+                        .clipped()
+                        .bevelSunken(pixel)
+                        .scaleEffect(pressedThumb == index ? 0.92 : 1)
+                        .animation(.easeOut(duration: 0.1), value: pressedThumb)
+                        // Hit-transparent, exactly like the title text: a
+                        // foreground view with its own tap gesture takes the
+                        // whole touch, so swiping across a photo moved nothing
+                        // (founder bug report 2026-08-04). The catcher behind
+                        // owns every touch and routes taps by region below.
+                        .allowsHitTesting(false)
+                        .accessibilityLabel("Photo \(index + 1), opens in a window")
                 }
             }
-            .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
-            .padding(.trailing, Win95.Px.grid * pixel)
-            .padding(.bottom, Win95.Px.grid * pixel)
+            Spacer(minLength: 0)
         }
+        .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
+        .padding(.trailing, Win95.Px.grid * pixel)
+        .padding(.bottom, Win95.Px.grid * pixel)
+    }
+
+    /// No camera on the simulator (and none on some devices) — skip straight
+    /// to the library rather than offering a dead option.
+    private func chooseSource() {
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            showSourceChoice = true
+        } else {
+            showPhotoPicker = true
+        }
+    }
+
+    /// Which thumbnail (if any) sits under a row-local point. The strip is a
+    /// fixed grid — leading inset, square thumbs, even spacing — so this is
+    /// arithmetic rather than a hit test.
+    private func photoIndex(at local: CGPoint) -> Int? {
+        guard !task.allPhotos.isEmpty else { return nil }
+        let thumb = Win95.Px.thumbnail * pixel
+        let gap = Win95.Px.grid * pixel
+        let stripHeight = thumb + gap
+        // The strip is always the bottom band, whatever height the title grew to.
+        guard local.y > rowFrame.height - stripHeight else { return nil }
+
+        let leading = Win95.rowHeight(pixel) + gap
+        guard local.x >= leading else { return nil }
+        let index = Int((local.x - leading) / (thumb + gap))
+        // Reject the gaps between thumbnails.
+        let withinThumb = (local.x - leading).truncatingRemainder(dividingBy: thumb + gap) <= thumb
+        guard withinThumb, index >= 0, index < task.allPhotos.count else { return nil }
+        return index
     }
 
     private func openViewer(_ index: Int) {
@@ -288,8 +359,15 @@ struct TaskRowView: View {
         )
     }
 
-    /// Tap → inline edit. Blocked on completed rows.
-    private func handleTap() {
+    /// Routes a tap by where it landed: a thumbnail opens the viewer, anything
+    /// else starts an edit. Geometry, not gestures — see the note on the photo
+    /// strip for why the images can't handle their own taps.
+    private func handleTap(at point: CGPoint) {
+        let local = CGPoint(x: point.x - rowFrame.minX, y: point.y - rowFrame.minY)
+        if let index = photoIndex(at: local) {
+            openViewer(index)
+            return
+        }
         guard !task.isCompleted, !isEditing else { return }
         draft = task.title
         isEditing = true
@@ -307,8 +385,7 @@ struct TaskRowView: View {
     private func handleHold() {
         guard !isEditing else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        menu.show(task: task, at: CGPoint(x: rowFrame.minX + Win95.Px.grid * pixel,
-                                          y: rowFrame.maxY + Win95.Px.grid * pixel))
+        menu.show(task: task, rowFrame: rowFrame)
     }
 
     /// Swipe left = pull forward (toward Today), right = defer (toward
@@ -425,18 +502,7 @@ struct TaskRowView: View {
     }
 }
 
-// MARK: - Photo pieces
-
-/// Bare pixel plus on a 12×12 grid — an affordance, not a button (no bevel).
-private struct PlusGlyph: Shape {
-    func path(in rect: CGRect) -> Path {
-        let u = rect.width / 12
-        var path = Path()
-        path.addRect(CGRect(x: 5 * u, y: 1 * u, width: 2 * u, height: 10 * u))
-        path.addRect(CGRect(x: 1 * u, y: 5 * u, width: 10 * u, height: 2 * u))
-        return path
-    }
-}
+// MARK: - Photo viewer
 
 /// Photo viewer, redesigned 2026-08-04: a floating Win95 window at ~3/4 of
 /// the screen that HUGS the image — title bar with ✕ on top, image inside a
@@ -447,6 +513,7 @@ private struct PhotoViewer: View {
     @Environment(\.pixel) private var pixel
     let title: String
     let image: UIImage
+    var onRemove: () -> Void
     var onClose: () -> Void
 
     var body: some View {
@@ -481,6 +548,20 @@ private struct PhotoViewer: View {
                 .frame(width: fitted.width, height: fitted.height)
                 .padding(pixel * 2)
                 .background(Win95.surface)
+            // Removal lives HERE, looking at the photo you are deleting —
+            // unambiguous in a way a row-level "remove photo" cannot be once
+            // a task holds several (TASK-044).
+            HStack {
+                Spacer()
+                Win95Button(action: onRemove, compact: true) {
+                    Text("Remove")
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.important)
+                }
+                .fixedSize()
+            }
+            .padding(pixel * 2)
+            .background(Win95.surface)
         }
         .frame(width: fitted.width + pixel * 4)
         .bevelRaised(pixel)

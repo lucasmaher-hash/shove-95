@@ -20,12 +20,17 @@ struct Win95Button<Label: View>: View {
     var action: () -> Void
     /// Vertically slimmer variant for dense settings rows.
     var compact: Bool = false
+    /// Fixed width, so a column of buttons with different labels lines up.
+    /// Applied INSIDE the button: the bevel and fill have to grow with it,
+    /// and a `.frame` on the outside would leave them at the label's size.
+    var width: CGFloat? = nil
     @ViewBuilder var label: Label
 
     var body: some View {
         Button(action: action) {
             label
                 .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+                .frame(width: width)
                 .frame(minHeight: (compact ? Win95.Px.buttonCompact
                                            : Win95.Px.buttonMinHeight) * pixel)
         }
@@ -151,3 +156,17 @@ struct DateChip: View {
             .background(Win95.statusAccent)
     }
 }
+
+// MARK: - Plus glyph
+
+/// Bare pixel plus on a 12×12 grid — an affordance, not a button (no bevel).
+struct PlusGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        var path = Path()
+        path.addRect(CGRect(x: 5 * u, y: 1 * u, width: 2 * u, height: 10 * u))
+        path.addRect(CGRect(x: 1 * u, y: 5 * u, width: 10 * u, height: 2 * u))
+        return path
+    }
+}
+
