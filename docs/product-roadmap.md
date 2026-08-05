@@ -376,7 +376,8 @@
   Files: fixes as needed
   Notes: Seed 500 tasks + 30 photos (debug generator). Instruments: cold launch < 1s, scroll/swipe/drag at 120fps without dropped-frame bursts, memory stable while scrolling photo rows. Fix hot spots (likely: full-fetch filtering → move to `#Predicate` per tab if needed; thumbnail decode → downscaled display images). Verify: numbers recorded vs NFR thresholds.
 
-- [ ] **TASK-062** — App icon + launch screen
+- [~] **TASK-062** — App icon + launch screen *(icon done; launch screen pending)*
+  Icon: `sho>` per the founder's brief — see design.md §17.
   Files: `Shove95/Resources/Assets.xcassets/AppIcon.appiconset`, launch screen config
   Notes: Resolve PRD Open Question 1 with the founder (default: bevelled raised square + pixel right-arrow, drawn from scratch — **no Microsoft artwork**). Render pixel-art at 1024 master with nearest-neighbor upscale so pixels stay square. Launch screen: flat `#C0C0C0` (Info.plist UILaunchScreen background color). Verify: icon crisp on home screen; launch → silver, no flash of white.
 

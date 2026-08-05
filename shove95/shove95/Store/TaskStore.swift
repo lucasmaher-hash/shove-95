@@ -88,6 +88,29 @@ final class TaskStore {
         self.context = context
     }
 
+    // MARK: Synced preferences (see AppPreferences.swift)
+
+    /// The account-wide preference record, created on first use. Deduped by
+    /// fixed id, oldest wins — two devices can each make one before they meet.
+    func preferences() -> AppPreferences {
+        _ = revision
+        let all = ((try? context.fetch(FetchDescriptor<AppPreferences>())) ?? [])
+            .filter { $0.id == AppPreferences.singletonID }
+            .sorted { $0.createdAt < $1.createdAt }
+        if let existing = all.first { return existing }
+        let fresh = AppPreferences()
+        context.insert(fresh)
+        commit()
+        return fresh
+    }
+
+    func setSchemeID(_ id: String) {
+        let preferences = preferences()
+        guard preferences.schemeID != id else { return }
+        preferences.schemeID = id
+        commit()
+    }
+
     // MARK: Workspaces (synced records — see Workspace.swift)
 
     /// Deduped by id: the store cannot enforce uniqueness under CloudKit, and

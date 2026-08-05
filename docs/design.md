@@ -465,3 +465,26 @@ one interaction:
 5. (Historical) `.zIndex` for a lifted row must be applied by the ForEach in
    the list, not inside the row's body — kept for the record although
    drag-reorder itself was removed 2026-08-04.
+
+
+---
+
+## 17. App icon *(2026-08-04)*
+
+`sho>` — "sho" in a sans-serif mono, then a large **pixel chevron** for the
+missing "v", white on the app's own azure (`#1084D0`, the light stop of the
+title-bar gradient).
+
+The chevron is the whole idea: it is the app's verb. Tasks are shoved forward
+along the line — Today → Tomorrow → Week → General — and the icon is that
+motion. Drawn as square blocks on a grid, two blocks thick, one step per row,
+so it belongs to the same pixel family as every glyph in the interface rather
+than being a smooth arrow pasted on top.
+
+Type is deliberately NOT W95FA. The interface is a 1995 costume; the icon is
+the product's signature and reads at 40pt, where a bitmap face turns to mush.
+Verified down to 40×40.
+
+One 1024×1024 source fills the light iOS slot; the dark and tinted slots are
+left empty so iOS derives them, keeping a single source of truth. The mac
+slots stay empty — filling them with a 1024 triggers a size warning per slot.

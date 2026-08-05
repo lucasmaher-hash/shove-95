@@ -132,11 +132,18 @@ struct RootView: View {
         .onAppear {
             store.seedWorkspacesIfNeeded(legacy: settings.legacyWorkspaces)
             syncWorkspaceScope()
+            adoptSyncedScheme()
         }
         .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
         // Workspaces are records now, so they ARRIVE — a second device's list
         // fills in as CloudKit delivers it, and the scope has to follow.
-        .onChange(of: store.revision) { syncWorkspaceScope() }
+        .onChange(of: store.revision) {
+            syncWorkspaceScope()
+            adoptSyncedScheme()
+        }
+        // Local pick → the synced record. The pair only ever writes when the
+        // values actually differ, or the two would chase each other forever.
+        .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
@@ -159,6 +166,16 @@ struct RootView: View {
                 // so the scheme has to reach it explicitly.
                 .environment(\.win95Scheme, settings.scheme)
         }
+    }
+
+    /// The colour scheme follows the ACCOUNT. A scheme picked on another
+    /// device arrives as a record change; adopt it unless it's already ours.
+    private func adoptSyncedScheme() {
+        let id = store.preferences().schemeID
+        guard id != settings.scheme.id else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true // appearance never animates
+        withTransaction(transaction) { settings.scheme = Win95Scheme.named(id) }
     }
 
     private var currentWorkspaceName: String {
