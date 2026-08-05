@@ -1,3 +1,8 @@
+---
+layout: page
+title: Privacy Policy
+---
+
 # Privacy Policy — shove.95
 
 **Last updated:** 4 August 2026
