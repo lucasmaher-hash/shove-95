@@ -74,6 +74,12 @@ final class TaskStore {
         didSet { revision += 1 }
     }
 
+    /// Workspace ids this device knows about, so unknown ones can be shown in
+    /// the default workspace rather than vanishing. Kept in sync by RootView.
+    var knownWorkspaceIDs: Set<String> = [] {
+        didSet { revision += 1 }
+    }
+
     init(context: ModelContext) {
         self.context = context
     }
@@ -89,24 +95,18 @@ final class TaskStore {
         let all = (try? context.fetch(descriptor)) ?? []
         // Workspace scoping happens HERE, the one choke point every query uses,
         // so buckets, archive, placement and rollover are all scoped for free.
-        return all.filter { $0.workspaceID == workspaceID }
-    }
-
-    /// Rescue pass: any task stamped with a workspace that no longer exists is
-    /// invisible in every tab, forever. That is silent data loss, so on launch
-    /// the orphans fold back into the default workspace. (It first happened for
-    /// real — the workspace list wasn't being persisted, so every relaunch
-    /// minted new ids and stranded the tasks written against the old ones.)
-    func reclaimOrphanedTasks(knownIDs: Set<String>) {
-        let descriptor = FetchDescriptor<TaskItem>()
-        var rescued = false
-        for task in (try? context.fetch(descriptor)) ?? [] {
-            if let id = task.workspaceID, !knownIDs.contains(id) {
-                task.workspaceID = nil
-                rescued = true
-            }
+        //
+        // A task whose workspace this device doesn't know about falls back to
+        // the DEFAULT workspace for display only — its record is never
+        // rewritten. That matters under sync: workspaces are still per-device
+        // preferences, so a task arriving from another device carries an id
+        // this one has never seen, and "fixing" the record would push the
+        // damage back to the device it came from.
+        return all.filter { task in
+            if task.workspaceID == workspaceID { return true }
+            guard workspaceID == nil, let id = task.workspaceID else { return false }
+            return !knownWorkspaceIDs.contains(id)
         }
-        if rescued { commit() }
     }
 
     /// Workspace deletion: its tasks fold back into the default workspace

@@ -86,3 +86,26 @@ iCloud section shows no container, check that file rather than the UI.
 - **Model changes after promotion are additive only.** You can add optional
   fields; you cannot rename or retype an existing one. This is why photos moved
   to their own entity now rather than later.
+
+
+## Known limitation: workspaces are not synced yet
+
+Workspaces live in each device's local preferences with randomly generated
+ids, while tasks reference a workspace BY id. So two devices' "Work"
+workspaces are different workspaces that happen to share a name, and a task
+filed under Work on one device arrives on the other carrying an id it has
+never seen.
+
+Handled non-destructively for now: an unrecognised workspace id shows the task
+in the DEFAULT workspace, and the record is never rewritten. (It was rewritten
+until 2026-08-04 — a launch "rescue" pass nulled unknown ids, which under sync
+would have pushed that erasure back to the device the task came from. Removed.)
+
+**The real fix is to make Workspace a synced model record** rather than a
+preference, keeping only the CURRENT SELECTION per-device — which workspace
+you happen to be looking at is genuinely local state. Until then, expect
+workspaces to behave correctly on one device and to collapse into the default
+on a second.
+
+Two more things that do not sync, by design: the colour scheme and the tab
+names. Both are device preferences, like text size.
