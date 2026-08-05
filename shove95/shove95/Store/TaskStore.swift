@@ -491,7 +491,41 @@ final class TaskStore {
 
     /// 15 filler rows in Today — enough height to exercise scrolling
     /// against the row pan (TASK-019 spike verification).
+    /// `-seedFillers YES` seeds 15; `-seedCount 300` seeds that many, for the
+    /// performance pass. Sort orders are assigned once up front rather than
+    /// per insert — `sortOrderForNewTask` scans the bucket, so seeding 300 the
+    /// naive way is quadratic and takes minutes.
+    /// `-purgeSeeded YES` removes seeded rows through the CONTEXT, so CloudKit
+    /// sees real deletions. Deleting them straight out of the SQLite file
+    /// would bypass the mirroring metadata and they would come back.
+    func purgeSeededTasks() {
+        let descriptor = FetchDescriptor<TaskItem>()
+        var removed = 0
+        for task in (try? context.fetch(descriptor)) ?? []
+        where task.title.hasPrefix("Perf ") || task.title.hasPrefix("Filler ") {
+            context.delete(task)
+            removed += 1
+        }
+        if removed > 0 { commit() }
+    }
+
     func seedScrollFillers() {
+        let count = max(1, UserDefaults.standard.integer(forKey: "seedCount"))
+        let today = DateEngine.startOfToday(now: now(), calendar: calendar)
+        if count > 15 {
+            var order = (allInBucket(.today).map(\.sortOrder).max() ?? 0) + 1
+            for i in 1...count {
+                let task = TaskItem()
+                task.title = "Perf \(i)"
+                task.dueDate = today
+                task.workspaceID = workspaceID
+                task.sortOrder = order
+                order += 1
+                context.insert(task)
+            }
+            commit()
+            return
+        }
         for i in 1...15 {
             let task = TaskItem()
             task.title = "Filler \(i)"

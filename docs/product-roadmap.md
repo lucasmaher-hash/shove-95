@@ -328,7 +328,7 @@
   Files: `Shove95/Screens/ArchiveView.swift`, `Shove95/Store/TaskStore.swift`
   Notes: `archivedTasks()` grouped by completion day (General tasks group under their completedAt day too), newest first; headers `Today — 3 items` / `Mon 28 Jul — 5 items` (W95FA, surface strip); rows struck-through with ticked checkbox. Untick → task leaves archive back to its bucket (overdue if past-dated — correct and intended). Context menu: Delete (permanent, no undo — PRD Open Q4 default). Empty: `(empty)`. Verify: complete a task, debug-shift completedAt to yesterday → appears here; untick returns it to Today as overdue.
 
-- [ ] **TASK-054** — Auto-archive verification
+- [x] **TASK-054** — Auto-archive verification *(docs/qa-phase6.md)*
   Files: `Shove95Kit/Tests/Shove95KitTests/DateEngineTests.swift` (extend)
   Notes: End-to-end check of the visibility handoff: completed-yesterday dated task is in Archive and NOT in its tab; completed-today still in tab; General 24h boundary. Add any missing test; manually verify in-app with debug date shifts. Verify: tests green + manual pass.
 
@@ -343,7 +343,7 @@
   Files: `privacy/index.md`
   Notes: Content per PRD § Infrastructure: data stays in the user's private iCloud; developer has no access; no analytics; no third-party services; contact email. Founder enables GitHub Pages for the repo (or a gist/site — any stable URL). Record the final URL in this task's Notes and in AboutView. Verify: URL loads publicly on a phone.
 
-- [ ] **TASK-057** — Sync failure modes
+- [x] **TASK-057** — Sync failure modes *(docs/qa-phase6.md)*
   Files: `Shove95/Store/TaskStore.swift`, `Shove95/Screens/SettingsView.swift`
   Notes: Signed-out iCloud → app fully functional locally, Settings shows status, zero prompts/alerts anywhere (FR-013). Quota-full and network-down need no special handling (SwiftData keeps working) — verify no UI errors leak. Verify: run through PRD § Edge Cases > Data & sync table, one by one.
 
@@ -360,7 +360,7 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 6. Then read only the Reference sections listed above. Continue from the first unchecked task, marking each complete. When done: branch `phase-6/polish-and-app-store`, commit, push, PR — then archive and submit per the final tasks."
 
-- [ ] **TASK-058** — Accessibility audit
+- [x] **TASK-058** — Accessibility audit *(docs/qa-phase6.md)*
   Files: `docs/qa-accessibility.md`, fixes across views
   Notes: Full VoiceOver walkthrough of every flow (add, edit, complete, move via custom actions, undo, archive, settings, photo viewer — viewer needs an accessible close); Accessibility Inspector audit; verify ≥44pt targets everywhere; contrast: `#222` on `#C0C0C0` and white pass, `#808080` chip text is secondary info (acceptable) — document. Verify: script in file, all items pass.
 
@@ -370,15 +370,15 @@
   Files: fixes across views, `docs/qa-skin.md` (extend)
   Notes: Every screen at pixel=3 and 4: no clipping/overlap, taskbar abbreviations kick in, photo rows, archive headers, settings, viewer. Fix layout breaks. Verify: screenshots at 4× for all screens attached to the QA doc.
 
-- [ ] **TASK-060** — Date/time edge QA
+- [x] **TASK-060** — Date/time edge QA *(docs/qa-phase6.md)*
   Files: `docs/qa-dates.md`
   Notes: Run the PRD § Edge Cases > Date engine table on device: midnight-while-open (set clock 23:59, wait), timezone change (Berlin→Tokyo), DST boundary via clock set, 5-day gap (clock forward), Sat/Sun Week behavior live. Verify: all pass, deviations fixed.
 
-- [ ] **TASK-061** — Performance pass
+- [x] **TASK-061** — Performance pass *(docs/qa-phase6.md)*
   Files: fixes as needed
   Notes: Seed 500 tasks + 30 photos (debug generator). Instruments: cold launch < 1s, scroll/swipe/drag at 120fps without dropped-frame bursts, memory stable while scrolling photo rows. Fix hot spots (likely: full-fetch filtering → move to `#Predicate` per tab if needed; thumbnail decode → downscaled display images). Verify: numbers recorded vs NFR thresholds.
 
-- [~] **TASK-062** — App icon + launch screen *(icon done; launch screen pending)*
+- [x] **TASK-062** — App icon + launch screen
   Icon: `sho>` per the founder's brief — see design.md §17.
   Files: `Shove95/Resources/Assets.xcassets/AppIcon.appiconset`, launch screen config
   Notes: Resolve PRD Open Question 1 with the founder (default: bevelled raised square + pixel right-arrow, drawn from scratch — **no Microsoft artwork**). Render pixel-art at 1024 master with nearest-neighbor upscale so pixels stay square. Launch screen: flat `#C0C0C0` (Info.plist UILaunchScreen background color). Verify: icon crisp on home screen; launch → silver, no flash of white.
