@@ -21,6 +21,14 @@ same schema, same data, only the mirroring is absent.
    Capabilities**.
 2. **Team:** pick your Apple Developer team. Leave *Automatically manage
    signing* ticked.
+   *It must NOT say "(Personal Team)" — that is the free tier, which cannot use
+   CloudKit, and while it is selected Xcode omits iCloud from the capability
+   list entirely. The paid membership appears as a separate entry without the
+   "(Personal Team)" suffix. If it isn't in the dropdown: Xcode → Settings →
+   Accounts → select the Apple ID → refresh (or sign out and back in), since
+   Xcode caches team membership; confirm the membership reads Active at
+   developer.apple.com/account; and check it is the same Apple ID you enrolled
+   with. Enrolment can take a few hours to activate after payment.*
 3. **+ Capability → iCloud.** Tick **CloudKit**.
    *The capability list is alphabetical and long — iCloud sits between HomeKit
    and In-App Purchase, well below the visible first screen. If it is genuinely
