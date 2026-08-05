@@ -166,6 +166,12 @@ struct RootView: View {
                 // Presented content doesn't sit under RootView's `.id` rebuild,
                 // so the scheme has to reach it explicitly.
                 .environment(\.win95Scheme, settings.scheme)
+                // ...and the typeface has to rebuild it, because fonts are read
+                // through a static that SwiftUI cannot see. Without this the
+                // face changed everywhere EXCEPT the screen you changed it on
+                // (founder report 2026-08-04). Transient state resets, which is
+                // fine: the fields reload from the same settings.
+                .id(settings.face.rawValue + settings.scheme.id)
         }
     }
 

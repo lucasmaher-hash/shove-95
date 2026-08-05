@@ -69,11 +69,13 @@ struct SettingsView: View {
             ArchiveView { showArchive = false }
                 .environment(\.pixel, pixel)
                 .environment(\.win95Scheme, settings.scheme)
+                .id(settings.face.rawValue + settings.scheme.id)
         }
         .fullScreenCover(isPresented: $showAbout) {
             AboutView { showAbout = false }
                 .environment(\.pixel, pixel)
                 .environment(\.win95Scheme, settings.scheme)
+                .id(settings.face.rawValue + settings.scheme.id)
         }
     }
 
