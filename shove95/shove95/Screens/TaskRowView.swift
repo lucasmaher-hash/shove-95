@@ -545,9 +545,10 @@ private struct PhotoViewer: View {
 
         return VStack(spacing: 0) {
             TitleBar(title: title, isClose: true, onSettings: onClose)
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
+            // Zoomable, with Live Text — the photo is the one place the Win95
+            // costume gives way, because selecting text in an image is an
+            // interaction people already know from Photos.
+            ZoomableImageView(image: image)
                 .frame(width: fitted.width, height: fitted.height)
                 .padding(pixel * 2)
                 .background(Win95.surface)
