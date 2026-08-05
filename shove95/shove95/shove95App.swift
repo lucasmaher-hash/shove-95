@@ -38,7 +38,7 @@ struct shove95App: App {
     }
 
     private static func makeContainer() -> (ModelContainer, SyncStatus.Mode) {
-        let models: [any PersistentModel.Type] = [TaskItem.self, TaskPhoto.self]
+        let models: [any PersistentModel.Type] = [TaskItem.self, TaskPhoto.self, Workspace.self]
         let schema = Schema(models)
 
         do {

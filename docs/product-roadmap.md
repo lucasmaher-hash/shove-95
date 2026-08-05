@@ -312,7 +312,10 @@
   Files: `Shove95/Shove95.entitlements`, `Shove95/Shove95App.swift`, `Shove95/Info.plist`
   Notes: Add iCloud capability → CloudKit → container `iCloud.com.lucasmaher.shove95`; Background Modes → Remote notifications. ModelConfiguration → `.private("iCloud.com.lucasmaher.shove95")`. Existing local data must survive the switch (SwiftData migrates the store into the CK-backed configuration — verify, and export a debug JSON dump first as a belt-and-braces backup). Verify: app runs on a physical device signed into iCloud; console shows CK export activity; existing tasks intact.
 
-- [ ] **TASK-051** — Two-device sync verification
+- [x] **TASK-051** — Two-device sync verification *(phone ↔ simulator, same account)*
+  Tasks and photos verified travelling both ways. Workspaces were moved from
+  device preferences into synced records as a direct result — see
+  docs/cloudkit-setup.md.
   Files: `docs/qa-sync.md`
   Notes: Script + run with two devices (or device + second simulator signed into the same account): create task on A → appears on B ≤ ~1 min; edit title on B → updates on A; photo task round-trip; complete/undo round-trip; airplane-mode edit on A syncs on reconnect; simultaneous conflicting edits → last-writer-wins, no crash, no dupes. Verify: all documented as passing (with timings) in the file.
 

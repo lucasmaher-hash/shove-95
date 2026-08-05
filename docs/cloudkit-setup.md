@@ -88,24 +88,23 @@ iCloud section shows no container, check that file rather than the UI.
   to their own entity now rather than later.
 
 
-## Known limitation: workspaces are not synced yet
+## What syncs, and what doesn't
 
-Workspaces live in each device's local preferences with randomly generated
-ids, while tasks reference a workspace BY id. So two devices' "Work"
-workspaces are different workspaces that happen to share a name, and a task
-filed under Work on one device arrives on the other carrying an id it has
-never seen.
+**Synced** (SwiftData → CloudKit private database): tasks, photos, and
+workspaces. Workspaces became records on 2026-08-04 — as device preferences
+with random ids they broke the moment a second device appeared, since tasks
+reference a workspace BY id and every task arriving from elsewhere carried an
+id the receiving device had never seen.
 
-Handled non-destructively for now: an unrecognised workspace id shows the task
-in the DEFAULT workspace, and the record is never rewritten. (It was rewritten
-until 2026-08-04 — a launch "rescue" pass nulled unknown ids, which under sync
-would have pushed that erasure back to the device the task came from. Removed.)
+Two consequences of that design worth knowing:
 
-**The real fix is to make Workspace a synced model record** rather than a
-preference, keeping only the CURRENT SELECTION per-device — which workspace
-you happen to be looking at is genuinely local state. Until then, expect
-workspaces to behave correctly on one device and to collapse into the default
-on a second.
+- The seeded pair use FIXED ids (`default`, `work`), so two devices that both
+  seed on first launch converge on one pair instead of four. CloudKit forbids
+  unique constraints, so readers dedupe by id and the oldest record wins.
+- A workspace this device doesn't recognise shows its tasks in the DEFAULT
+  workspace, and the record is never rewritten. Silent display fallback beats
+  mutating a record that another device is authoritative for.
 
-Two more things that do not sync, by design: the colour scheme and the tab
-names. Both are device preferences, like text size.
+**Not synced, deliberately:** the colour scheme, the tab names, and which
+workspace you are currently looking at. All three are device preferences, like
+text size — the last one is closer to a scroll position than to data.

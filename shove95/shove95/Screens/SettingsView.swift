@@ -241,10 +241,12 @@ private struct WorkspacesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
-            ForEach(settings.workspaces) { workspace in
+            ForEach(store.workspaces(), id: \.id) { workspace in
                 WorkspaceRow(workspace: workspace, buttonColumn: buttonColumn) {
-                    store.reassignTasksToDefaultWorkspace(from: workspace.id)
-                    settings.removeWorkspace(workspace.id)
+                    if settings.currentWorkspaceID == workspace.id {
+                        settings.currentWorkspaceID = Workspace.defaultID
+                    }
+                    store.deleteWorkspace(workspace) // its tasks fold into the default
                 }
             }
 
@@ -271,7 +273,7 @@ private struct WorkspacesSection: View {
     }
 
     private func add() {
-        settings.addWorkspace(named: newName)
+        store.addWorkspace(named: newName)
         newName = ""
         addFocused = false
     }
@@ -279,7 +281,7 @@ private struct WorkspacesSection: View {
 
 private struct WorkspaceRow: View {
     @Environment(\.pixel) private var pixel
-    @Environment(AppSettings.self) private var settings
+    @Environment(TaskStore.self) private var store
     let workspace: Workspace
     let buttonColumn: CGFloat
     var onDelete: () -> Void
@@ -303,7 +305,7 @@ private struct WorkspaceRow: View {
                 .background(Win95.well)
                 .bevelSunken(pixel)
 
-            if workspace.id == Workspace.defaultID {
+            if workspace.isDefault {
                 // The default workspace can't be deleted, but it still holds
                 // the column open so its name field matches every other row.
                 Color.clear.frame(width: buttonColumn, height: 1)
@@ -320,7 +322,7 @@ private struct WorkspaceRow: View {
     }
 
     private func commit() {
-        settings.renameWorkspace(workspace.id, to: draft)
-        draft = settings.workspaces.first { $0.id == workspace.id }?.name ?? draft
+        store.renameWorkspace(workspace, to: draft)
+        draft = workspace.name
     }
 }

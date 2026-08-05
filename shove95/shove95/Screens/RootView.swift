@@ -46,7 +46,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             TitleBar(
                 title: settings.name(for: selected),
-                workspace: settings.currentWorkspace.name,
+                workspace: currentWorkspaceName,
                 workspaceMenuOpen: showWorkspaceMenu,
                 onWorkspace: {
                     withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
@@ -130,13 +130,13 @@ struct RootView: View {
         // The store's queries are all scoped to the active workspace; keep it
         // pointed at the one the user picked, including across relaunches.
         .onAppear {
-            store.knownWorkspaceIDs = settings.knownWorkspaceStampIDs
-            store.workspaceID = settings.currentWorkspace.taskStampID
+            store.seedWorkspacesIfNeeded(legacy: settings.legacyWorkspaces)
+            syncWorkspaceScope()
         }
-        .onChange(of: settings.currentWorkspaceID) {
-            store.knownWorkspaceIDs = settings.knownWorkspaceStampIDs
-            store.workspaceID = settings.currentWorkspace.taskStampID
-        }
+        .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
+        // Workspaces are records now, so they ARRIVE — a second device's list
+        // fills in as CloudKit delivers it, and the scope has to follow.
+        .onChange(of: store.revision) { syncWorkspaceScope() }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
@@ -161,6 +161,25 @@ struct RootView: View {
         }
     }
 
+    private var currentWorkspaceName: String {
+        store.workspace(withID: settings.currentWorkspaceID)?.name ?? "Personal"
+    }
+
+    /// Points the store's queries at the selected workspace, and tells it which
+    /// ids exist so unknown ones can fall back to the default for display.
+    private func syncWorkspaceScope() {
+        let all = store.workspaces()
+        let ids = Set(all.compactMap(\.taskStampID))
+        if store.knownWorkspaceIDs != ids { store.knownWorkspaceIDs = ids }
+        // A workspace deleted on another device leaves this one pointing at
+        // nothing; fall back rather than showing an empty world.
+        if !all.contains(where: { $0.id == settings.currentWorkspaceID }) {
+            settings.currentWorkspaceID = Workspace.defaultID
+        }
+        let stamp = all.first { $0.id == settings.currentWorkspaceID }?.taskStampID
+        if store.workspaceID != stamp { store.workspaceID = stamp }
+    }
+
     private func closeWorkspaceMenu() {
         guard showWorkspaceMenu else { return }
         withAnimation(.easeOut(duration: 0.11)) { showWorkspaceMenu = false }
@@ -174,12 +193,12 @@ struct RootView: View {
 private struct WorkspaceMenu: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
-    @Environment(SyncStatus.self) private var sync
+    @Environment(TaskStore.self) private var store
     var onPick: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(settings.workspaces) { workspace in
+            ForEach(store.workspaces(), id: \.id) { workspace in
                 let isCurrent = workspace.id == settings.currentWorkspaceID
                 Text(workspace.name)
                     .font(W95Font.standard(pixel))
