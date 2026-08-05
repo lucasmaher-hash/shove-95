@@ -303,7 +303,7 @@
   Files: —
   Notes: Enroll at developer.apple.com ($99/yr) with the Apple Account used on both test devices. Wait for approval (can take days — start early). Switch Xcode signing to the paid team. **Blocks everything below.** Verify: Xcode shows the paid team; Certificates/Identifiers accessible.
 
-- [~] **TASK-050** — CloudKit entitlement + container switch *(code done; Xcode step pending)*
+- [x] **TASK-050** — CloudKit entitlement + container switch
   Photos restructured into their own entity first — an array of image blobs in
   one record would have broken the 1MB CKRecord limit silently. Container
   creation is resilient (CloudKit → local → memory, never a crash) and gated on

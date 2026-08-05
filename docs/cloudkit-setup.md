@@ -54,9 +54,12 @@ same schema, same data, only the mirroring is absent.
 6. **Run on a device.** The simulator can sync, but two simulators signed into
    the same account is a poor test — use your iPhone.
 
-`shove95/shove95.entitlements` is already written with the right container and
-services; step 3 should simply adopt it. If Xcode creates a second entitlements
-file, point **Build Settings → Code Signing Entitlements** back at this one.
+**Xcode writes its own entitlements file** at `shove95/shove95/shove95.entitlements`
+and points `CODE_SIGN_ENTITLEMENTS` at it — it does NOT adopt a pre-existing one
+elsewhere. On 2026-08-04 it created that file containing empty arrays and an
+unwanted `icloud-extended-share-access` key: capability added, nothing actually
+enabled. The prepared duplicate was deleted and the real file filled in. If the
+iCloud section shows no container, check that file rather than the UI.
 
 ## Verifying (TASK-051)
 
