@@ -176,6 +176,14 @@ A Windows 95 window, near-full-screen, centred: navy gradient title bar, a close
 
 ## 6. Typography
 
+**Typeface is switchable** *(2026-08-04)*. W95FA is the default and the point
+of the app, but a bitmap-derived face is genuinely hard for some people to
+read, and legibility outranks costume — so Settings offers the system face,
+applied to EVERYTHING including chrome, and synced with the colour scheme.
+The system face renders at 0.82× the nominal size: W95FA's glyphs fill their
+em box, so matching point sizes makes the system face look oversized in the
+same layout.
+
 **W95FA** — an OpenType recreation of the MS Sans Serif bitmap, licensed **SIL OFL**, which explicitly permits embedding and redistribution inside a commercial application. It is the only typeface in the app: title bar, taskbar, task text, status bar, settings.
 
 | Role | Spec | @2× |
@@ -225,12 +233,14 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Swipe to move | The row **slides off the screen edge** in the swipe direction; rows below close the gap. Commits at **22% of the row width (≈86pt) or 350pt/s** — deliberately forgiving, because moving a task between days is the one thing this app exists to make cheap. The original 40%/800 meant a swipe had to cross most of the screen. |
 | Swipe at a dead end | Rubber-band resistance, spring back, light haptic |
 | Wrapped task row | Checkbox, chip and photo-plus stay on the FIRST line; extra lines flow underneath. The text is padded by half the slack between one line and the 44pt band — padding rather than centring, so line one lands identically whether the row is one line or four |
+| Photo, zoom & text | Pinch or double-tap to zoom (double-tap targets the point you hit, not the centre); Live Text selects, copies, translates and looks up writing in the photo, via VisionKit — the same engine Photos uses. Deliberately NOT skinned: the costume stops at the window frame, because selection handles and the lookup menu are OS furniture people already know. |
 | Photo viewer | A floating Win95 window at ~3/4 of the screen that HUGS the image — title bar with ✕, image inside the frame, app dimmed behind. Only the ✕ or the dimmed background closes it; tapping the image does nothing. |
 | Overdue chip | Solid rectangle filled with the theme's status tint, date in black — no bevel, no outline. Editing an overdue task's text re-dates it to today and the chip disappears (a rewritten task is a new task). |
 | Photos | Multiple per task, added ONE per edit session — the theme-coloured plus retires after a pick and returns on the next edit. Thumbnails accumulate left→right in the order added. |
 | Return in any text field | **Commits and dismisses the keyboard.** It never inserts a line break — rows gain lines only by wrapping as the text grows. A vertical-axis `TextField` inserts a newline instead of firing `onSubmit`, so the newline is intercepted in the BINDING and the focus change is deferred a runloop turn; stripping it in `onChange`, or resigning focus inline, both lose to the field's own editing state and the newline survives. |
 | Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
+| Launch | If the first frame hasn't arrived within 220ms, the wordmark appears on the icon's blue and is held ~600ms so it can't flicker. A warm launch never shows it: a splash that always appears makes a fast launch feel slower. |
 | Photo viewer open | Thumbnail presses in (0.92 scale, ~140ms) so the press is SEEN, then the window appears with no transition (revised 2026-08-04) |
 | Photo viewer close | **Instant.** No transition. |
 | Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |
@@ -465,3 +475,31 @@ one interaction:
 5. (Historical) `.zIndex` for a lifted row must be applied by the ForEach in
    the list, not inside the row's body — kept for the record although
    drag-reorder itself was removed 2026-08-04.
+
+
+---
+
+## 17. App icon *(2026-08-04)*
+
+`sho>` — "sho" in a sans-serif mono, then a large **pixel chevron** for the
+missing "v", white on a deep saturated blue (`#0C2EBE`).
+
+The blue is NOT the title-bar azure it started as. At icon size that lighter
+stop washed out against a bright home screen; the deeper tone holds the white
+and still reads as the same family. A solid triangle was tried and rejected —
+the open chevron is lighter and unmistakably an arrow at 40pt, where a filled
+triangle reads as a play button.
+
+The chevron is the whole idea: it is the app's verb. Tasks are shoved forward
+along the line — Today → Tomorrow → Week → General — and the icon is that
+motion. Drawn as square blocks on a grid, two blocks thick, one step per row,
+so it belongs to the same pixel family as every glyph in the interface rather
+than being a smooth arrow pasted on top.
+
+Type is deliberately NOT W95FA. The interface is a 1995 costume; the icon is
+the product's signature and reads at 40pt, where a bitmap face turns to mush.
+Verified down to 40×40.
+
+One 1024×1024 source fills the light iOS slot; the dark and tinted slots are
+left empty so iOS derives them, keeping a single source of truth. The mac
+slots stay empty — filling them with a 1024 triggers a size warning per slot.

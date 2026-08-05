@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(SyncStatus.self) private var sync
     @State private var menu = MenuCoordinator()
     @State private var editing = EditingCoordinator()
 
@@ -45,7 +46,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             TitleBar(
                 title: settings.name(for: selected),
-                workspace: settings.currentWorkspace.name,
+                workspace: currentWorkspaceName,
                 workspaceMenuOpen: showWorkspaceMenu,
                 onWorkspace: {
                     withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
@@ -99,7 +100,7 @@ struct RootView: View {
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the
         // presentation modifiers — rebuilding above them would tear down
         // `showSettings` and slam the Settings window shut on every pick.
-        .id(settings.scheme.id)
+        .id(settings.scheme.id + settings.face.rawValue)
         .background(Win95.surface)
         // The taskbar is window furniture — it stays docked at the bottom
         // instead of riding up with the keyboard.
@@ -129,12 +130,21 @@ struct RootView: View {
         // The store's queries are all scoped to the active workspace; keep it
         // pointed at the one the user picked, including across relaunches.
         .onAppear {
-            store.reclaimOrphanedTasks(knownIDs: settings.knownWorkspaceStampIDs)
-            store.workspaceID = settings.currentWorkspace.taskStampID
+            store.seedWorkspacesIfNeeded(legacy: settings.legacyWorkspaces)
+            syncWorkspaceScope()
+            adoptSyncedScheme()
         }
-        .onChange(of: settings.currentWorkspaceID) {
-            store.workspaceID = settings.currentWorkspace.taskStampID
+        .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
+        // Workspaces are records now, so they ARRIVE — a second device's list
+        // fills in as CloudKit delivers it, and the scope has to follow.
+        .onChange(of: store.revision) {
+            syncWorkspaceScope()
+            adoptSyncedScheme()
         }
+        // Local pick → the synced record. The pair only ever writes when the
+        // values actually differ, or the two would chase each other forever.
+        .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
+        .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
@@ -150,11 +160,54 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showSettings) {
             SettingsView { showSettings = false }
                 .environment(settings)
+                .environment(sync)
+                .environment(store)
                 .environment(\.pixel, pixel)
                 // Presented content doesn't sit under RootView's `.id` rebuild,
                 // so the scheme has to reach it explicitly.
                 .environment(\.win95Scheme, settings.scheme)
+                // ...and the typeface has to rebuild it, because fonts are read
+                // through a static that SwiftUI cannot see. Without this the
+                // face changed everywhere EXCEPT the screen you changed it on
+                // (founder report 2026-08-04). Transient state resets, which is
+                // fine: the fields reload from the same settings.
+                .id(settings.face.rawValue + settings.scheme.id)
         }
+    }
+
+    /// The colour scheme follows the ACCOUNT. A scheme picked on another
+    /// device arrives as a record change; adopt it unless it's already ours.
+    private func adoptSyncedScheme() {
+        let preferences = store.preferences()
+        var transaction = Transaction()
+        transaction.disablesAnimations = true // appearance never animates
+        if preferences.schemeID != settings.scheme.id {
+            withTransaction(transaction) {
+                settings.scheme = Win95Scheme.named(preferences.schemeID)
+            }
+        }
+        if let face = AppFace(rawValue: preferences.fontID), face != settings.face {
+            withTransaction(transaction) { settings.face = face }
+        }
+    }
+
+    private var currentWorkspaceName: String {
+        store.workspace(withID: settings.currentWorkspaceID)?.name ?? "Personal"
+    }
+
+    /// Points the store's queries at the selected workspace, and tells it which
+    /// ids exist so unknown ones can fall back to the default for display.
+    private func syncWorkspaceScope() {
+        let all = store.workspaces()
+        let ids = Set(all.compactMap(\.taskStampID))
+        if store.knownWorkspaceIDs != ids { store.knownWorkspaceIDs = ids }
+        // A workspace deleted on another device leaves this one pointing at
+        // nothing; fall back rather than showing an empty world.
+        if !all.contains(where: { $0.id == settings.currentWorkspaceID }) {
+            settings.currentWorkspaceID = Workspace.defaultID
+        }
+        let stamp = all.first { $0.id == settings.currentWorkspaceID }?.taskStampID
+        if store.workspaceID != stamp { store.workspaceID = stamp }
     }
 
     private func closeWorkspaceMenu() {
@@ -170,11 +223,12 @@ struct RootView: View {
 private struct WorkspaceMenu: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    @Environment(TaskStore.self) private var store
     var onPick: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(settings.workspaces) { workspace in
+            ForEach(store.workspaces(), id: \.id) { workspace in
                 let isCurrent = workspace.id == settings.currentWorkspaceID
                 Text(workspace.name)
                     .font(W95Font.standard(pixel))

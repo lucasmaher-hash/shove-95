@@ -20,6 +20,9 @@ import Shove95Kit
 struct SettingsView: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    @Environment(SyncStatus.self) private var sync
+    @State private var showArchive = false
+    @State private var showAbout = false
     var onClose: () -> Void
 
     var body: some View {
@@ -32,6 +35,9 @@ struct SettingsView: View {
                         header("Appearance")
                         schemeRow
 
+                        header("Typeface").padding(.top, Win95.Px.grid * 2 * pixel)
+                        faceRow
+
                         header("Tab names").padding(.top, Win95.Px.grid * 2 * pixel)
                         ForEach(Bucket.line, id: \.self) { bucket in
                             NameField(bucket: bucket)
@@ -41,10 +47,7 @@ struct SettingsView: View {
                         WorkspacesSection()
 
                         header("Data").padding(.top, Win95.Px.grid * 2 * pixel)
-                        Text("Archive, iCloud status and About arrive with sync.")
-                            .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
-                            .fixedSize(horizontal: false, vertical: true)
+                        dataSection
                     }
                     .padding(Win95.Px.grid * 2 * pixel)
                     // Clears the home indicator, since the well itself now
@@ -62,6 +65,72 @@ struct SettingsView: View {
         .ignoresSafeArea(.container, edges: .bottom)
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .preferredColorScheme(.light)
+        .fullScreenCover(isPresented: $showArchive) {
+            ArchiveView { showArchive = false }
+                .environment(\.pixel, pixel)
+                .environment(\.win95Scheme, settings.scheme)
+                .id(settings.face.rawValue + settings.scheme.id)
+        }
+        .fullScreenCover(isPresented: $showAbout) {
+            AboutView { showAbout = false }
+                .environment(\.pixel, pixel)
+                .environment(\.win95Scheme, settings.scheme)
+                .id(settings.face.rawValue + settings.scheme.id)
+        }
+    }
+
+    /// Archive, one line of iCloud status, About. The status is a LINE, not a
+    /// control: sync is silent (FR-013), so there is nothing here to press and
+    /// nothing to retry.
+    private var dataSection: some View {
+        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+            Win95Button(action: { showArchive = true }, compact: true) {
+                Text("Archive")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+            .fixedSize()
+
+            Text(sync.summary)
+                .font(W95Font.small(pixel))
+                .foregroundStyle(sync.isDegraded ? Win95.important : Win95.shadow)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Win95Button(action: { showAbout = true }, compact: true) {
+                Text("About")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+            .fixedSize()
+            .padding(.top, Win95.Px.grid * pixel)
+        }
+    }
+
+    /// Two pressed-in choices, same idiom as the scheme swatches. The Win95
+    /// face is the app; the system face is here because a bitmap-derived font
+    /// is hard for some people to read, and legibility outranks costume.
+    private var faceRow: some View {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            ForEach(AppFace.allCases, id: \.self) { face in
+                let isSelected = settings.face == face
+                Text(face.label)
+                    .font(face == .w95 ? W95Font.standard(pixel)
+                                       : .system(size: Win95.Px.fontStandard * pixel * 0.82))
+                    .foregroundStyle(Win95.text)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: Win95.rowHeight(pixel))
+                    .background(Win95.surface)
+                    .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
+                    .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { settings.face = face }
+                    }
+                    .accessibilityLabel("\(face.label) typeface")
+                    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            }
+        }
     }
 
     private func header(_ title: String) -> some View {
@@ -204,10 +273,12 @@ private struct WorkspacesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
-            ForEach(settings.workspaces) { workspace in
+            ForEach(store.workspaces(), id: \.id) { workspace in
                 WorkspaceRow(workspace: workspace, buttonColumn: buttonColumn) {
-                    store.reassignTasksToDefaultWorkspace(from: workspace.id)
-                    settings.removeWorkspace(workspace.id)
+                    if settings.currentWorkspaceID == workspace.id {
+                        settings.currentWorkspaceID = Workspace.defaultID
+                    }
+                    store.deleteWorkspace(workspace) // its tasks fold into the default
                 }
             }
 
@@ -234,7 +305,7 @@ private struct WorkspacesSection: View {
     }
 
     private func add() {
-        settings.addWorkspace(named: newName)
+        store.addWorkspace(named: newName)
         newName = ""
         addFocused = false
     }
@@ -242,7 +313,7 @@ private struct WorkspacesSection: View {
 
 private struct WorkspaceRow: View {
     @Environment(\.pixel) private var pixel
-    @Environment(AppSettings.self) private var settings
+    @Environment(TaskStore.self) private var store
     let workspace: Workspace
     let buttonColumn: CGFloat
     var onDelete: () -> Void
@@ -266,7 +337,7 @@ private struct WorkspaceRow: View {
                 .background(Win95.well)
                 .bevelSunken(pixel)
 
-            if workspace.id == Workspace.defaultID {
+            if workspace.isDefault {
                 // The default workspace can't be deleted, but it still holds
                 // the column open so its name field matches every other row.
                 Color.clear.frame(width: buttonColumn, height: 1)
@@ -283,7 +354,7 @@ private struct WorkspaceRow: View {
     }
 
     private func commit() {
-        settings.renameWorkspace(workspace.id, to: draft)
-        draft = settings.workspaces.first { $0.id == workspace.id }?.name ?? draft
+        store.renameWorkspace(workspace, to: draft)
+        draft = workspace.name
     }
 }

@@ -10,21 +10,6 @@
 import SwiftUI
 import Shove95Kit
 
-/// A named container for tasks — work, private, design… The DEFAULT workspace
-/// has `id == nil` semantics on TaskItem but is represented here with a fixed
-/// sentinel id so it can sit in the same list; it is renamable, not deletable.
-struct Workspace: Identifiable, Codable, Equatable {
-    let id: String
-    var name: String
-
-    static let defaultID = "default"
-    static let fallback = Workspace(id: defaultID, name: "Personal")
-
-    /// What gets stamped on TaskItem.workspaceID: nil for the default
-    /// workspace, so pre-workspace tasks belong to it automatically.
-    var taskStampID: String? { id == Self.defaultID ? nil : id }
-}
-
 @Observable @MainActor
 final class AppSettings {
     private enum Key {
@@ -43,36 +28,31 @@ final class AppSettings {
         }
     }
 
+    /// The typeface, mirrored from the synced record. Assigning it updates the
+    /// static W95Font reads from, exactly as `scheme` does for the palette.
+    var face: AppFace = .w95 {
+        didSet { W95Font.face = face }
+    }
+
     /// Custom tab labels. Empty string = use the built-in name.
     private var customNames: [Bucket: String]
 
-    /// All workspaces, default first. Always contains at least the default.
-    private(set) var workspaces: [Workspace] {
-        didSet { persistWorkspaces() }
-    }
-
-    /// Called explicitly from `init` as well as from `didSet`: property
-    /// observers do NOT fire during initialization, so the first-run list was
-    /// built, used, and never written. Every relaunch then minted a fresh
-    /// "Work" with a fresh UUID, orphaning the tasks stamped with the old one.
-    private func persistWorkspaces() {
-        if let data = try? JSONEncoder().encode(workspaces) {
-            UserDefaults.standard.set(data, forKey: Key.workspaces)
-        }
-    }
-
-    /// Every workspace id a task may legitimately carry. Anything else is a
-    /// leftover from a deleted or lost workspace.
-    var knownWorkspaceStampIDs: Set<String> {
-        Set(workspaces.compactMap(\.taskStampID))
-    }
-
+    /// Which workspace this DEVICE is looking at. Deliberately not synced —
+    /// the workspaces themselves are records now, but where you happen to be
+    /// looking is local, like a scroll position.
     var currentWorkspaceID: String {
         didSet { UserDefaults.standard.set(currentWorkspaceID, forKey: Key.currentWorkspace) }
     }
 
-    var currentWorkspace: Workspace {
-        workspaces.first { $0.id == currentWorkspaceID } ?? .fallback
+    /// Workspaces this device held in preferences before they became synced
+    /// records. Read once, to seed the records with the SAME ids so tasks
+    /// already stamped with them keep their home.
+    var legacyWorkspaces: [(id: String, name: String)] {
+        struct Legacy: Codable { let id: String; let name: String }
+        guard let data = UserDefaults.standard.data(forKey: Key.workspaces),
+              let decoded = try? JSONDecoder().decode([Legacy].self, from: data)
+        else { return [] }
+        return decoded.map { ($0.id, $0.name) }
     }
 
     init() {
@@ -88,46 +68,8 @@ final class AppSettings {
         }
         customNames = names
 
-        var loaded: [Workspace] = []
-        if let data = UserDefaults.standard.data(forKey: Key.workspaces),
-           let decoded = try? JSONDecoder().decode([Workspace].self, from: data) {
-            loaded = decoded
-        }
-        if loaded.isEmpty {
-            // First run ships two workspaces: Personal (the undeletable
-            // default) and Work.
-            loaded = [.fallback, Workspace(id: UUID().uuidString, name: "Work")]
-        } else if !loaded.contains(where: { $0.id == Workspace.defaultID }) {
-            loaded.insert(.fallback, at: 0) // the default always exists
-        }
-        workspaces = loaded
-
-        let current = UserDefaults.standard.string(forKey: Key.currentWorkspace)
-        currentWorkspaceID = loaded.contains { $0.id == current } ? current! : Workspace.defaultID
-
-        persistWorkspaces() // didSet doesn't fire in init — see above
-    }
-
-    // MARK: Workspaces
-
-    func addWorkspace(named raw: String) {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        workspaces.append(Workspace(id: UUID().uuidString, name: name))
-    }
-
-    func renameWorkspace(_ id: String, to raw: String) {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, let index = workspaces.firstIndex(where: { $0.id == id }) else { return }
-        workspaces[index].name = name
-    }
-
-    /// The caller is responsible for reassigning the workspace's tasks first
-    /// (TaskStore.reassignTasksToDefaultWorkspace). The default is undeletable.
-    func removeWorkspace(_ id: String) {
-        guard id != Workspace.defaultID else { return }
-        workspaces.removeAll { $0.id == id }
-        if currentWorkspaceID == id { currentWorkspaceID = Workspace.defaultID }
+        currentWorkspaceID = UserDefaults.standard.string(forKey: Key.currentWorkspace)
+            ?? Workspace.defaultID
     }
 
     /// The label to show for a bucket — the user's name if set, else the default.

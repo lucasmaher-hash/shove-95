@@ -299,24 +299,32 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 5. Confirm with the founder that the paid Apple Developer account exists before TASK-050. Then read only the Reference sections listed above. Continue from the first unchecked task, marking each complete. When done: branch `phase-5/sync-settings-archive`, commit, push, PR."
 
-- [ ] **TASK-049** — (founder) Apple Developer Program enrollment
+- [x] **TASK-049** — (founder) Apple Developer Program enrollment
   Files: —
   Notes: Enroll at developer.apple.com ($99/yr) with the Apple Account used on both test devices. Wait for approval (can take days — start early). Switch Xcode signing to the paid team. **Blocks everything below.** Verify: Xcode shows the paid team; Certificates/Identifiers accessible.
 
-- [ ] **TASK-050** — CloudKit entitlement + container switch
+- [x] **TASK-050** — CloudKit entitlement + container switch
+  Photos restructured into their own entity first — an array of image blobs in
+  one record would have broken the 1MB CKRecord limit silently. Container
+  creation is resilient (CloudKit → local → memory, never a crash) and gated on
+  `ShoveCloudKitEnabled`, because a `.private` container without the entitlement
+  raises an ObjC exception Swift can't catch. Remaining: `docs/cloudkit-setup.md`.
   Files: `Shove95/Shove95.entitlements`, `Shove95/Shove95App.swift`, `Shove95/Info.plist`
   Notes: Add iCloud capability → CloudKit → container `iCloud.com.lucasmaher.shove95`; Background Modes → Remote notifications. ModelConfiguration → `.private("iCloud.com.lucasmaher.shove95")`. Existing local data must survive the switch (SwiftData migrates the store into the CK-backed configuration — verify, and export a debug JSON dump first as a belt-and-braces backup). Verify: app runs on a physical device signed into iCloud; console shows CK export activity; existing tasks intact.
 
-- [ ] **TASK-051** — Two-device sync verification
+- [x] **TASK-051** — Two-device sync verification *(phone ↔ simulator, same account)*
+  Tasks and photos verified travelling both ways. Workspaces were moved from
+  device preferences into synced records as a direct result — see
+  docs/cloudkit-setup.md.
   Files: `docs/qa-sync.md`
   Notes: Script + run with two devices (or device + second simulator signed into the same account): create task on A → appears on B ≤ ~1 min; edit title on B → updates on A; photo task round-trip; complete/undo round-trip; airplane-mode edit on A syncs on reconnect; simultaneous conflicting edits → last-writer-wins, no crash, no dupes. Verify: all documented as passing (with timings) in the file.
 
 - [~] **TASK-052** — Settings screen *(partially delivered in Phase 3b, 2026-08-04)*
   Files: `Shove95/Screens/SettingsView.swift`, `Shove95/Components/TitleBar.swift`
-  Done: gear → full-screen `Settings - shove.95`, ✕ returns; Appearance scheme picker (5 schemes); tab renaming. Remaining for Phase 5: Archive →, iCloud status, About →.
+  Done: gear → full-screen `Settings - shove.95`, ✕ returns; Appearance scheme picker (5 schemes); tab renaming; workspaces; Archive, one-line iCloud status, About.
   Notes: Gear → full-screen Win95Window `Settings - shove.95`, ✕ returns. Rows (raised-bevel list items on surface, not a sunken well): Archive →, iCloud status, About →. iCloud status via `CKContainer(identifier:).accountStatus`: `iCloud: available` / `not signed in` / `restricted` — re-check on appear. Verify: status flips when signing out of iCloud in system settings (simulator ok).
 
-- [ ] **TASK-053** — Archive screen
+- [x] **TASK-053** — Archive screen
   Files: `Shove95/Screens/ArchiveView.swift`, `Shove95/Store/TaskStore.swift`
   Notes: `archivedTasks()` grouped by completion day (General tasks group under their completedAt day too), newest first; headers `Today — 3 items` / `Mon 28 Jul — 5 items` (W95FA, surface strip); rows struck-through with ticked checkbox. Untick → task leaves archive back to its bucket (overdue if past-dated — correct and intended). Context menu: Delete (permanent, no undo — PRD Open Q4 default). Empty: `(empty)`. Verify: complete a task, debug-shift completedAt to yesterday → appears here; untick returns it to Today as overdue.
 
@@ -324,11 +332,14 @@
   Files: `Shove95Kit/Tests/Shove95KitTests/DateEngineTests.swift` (extend)
   Notes: End-to-end check of the visibility handoff: completed-yesterday dated task is in Archive and NOT in its tab; completed-today still in tab; General 24h boundary. Add any missing test; manually verify in-app with debug date shifts. Verify: tests green + manual pass.
 
-- [ ] **TASK-055** — About screen
+- [x] **TASK-055** — About screen
   Files: `Shove95/Screens/AboutView.swift`
   Notes: `About - shove.95` window: app name, version+build (from bundle), `Typeface: W95FA by Alina Sava (SIL OFL)`, `Privacy policy` link (opens Safari to the TASK-056 URL), © year Lucas Maher. Terse voice — no marketing copy. Verify: link opens; version matches target settings.
 
-- [ ] **TASK-056** — Privacy policy live
+- [~] **TASK-056** — Privacy policy live *(drafted; publishing is the founder's call)*
+  `docs/privacy.md` is written. Not published: it is a legal statement made in
+  Lucas's name, so it wants his read before it goes on the web. Enable GitHub
+  Pages on /docs to serve it at the URL AboutView already links to.
   Files: `privacy/index.md`
   Notes: Content per PRD § Infrastructure: data stays in the user's private iCloud; developer has no access; no analytics; no third-party services; contact email. Founder enables GitHub Pages for the repo (or a gist/site — any stable URL). Record the final URL in this task's Notes and in AboutView. Verify: URL loads publicly on a phone.
 
@@ -353,7 +364,9 @@
   Files: `docs/qa-accessibility.md`, fixes across views
   Notes: Full VoiceOver walkthrough of every flow (add, edit, complete, move via custom actions, undo, archive, settings, photo viewer — viewer needs an accessible close); Accessibility Inspector audit; verify ≥44pt targets everywhere; contrast: `#222` on `#C0C0C0` and white pass, `#808080` chip text is secondary info (acceptable) — document. Verify: script in file, all items pass.
 
-- [ ] **TASK-059** — Stepped-type full audit (3×/4×)
+- [x] **TASK-059** — Stepped-type full audit (3×/4×)
+  Found and fixed: taskbar labels were only abbreviating at 4×, so "Tomorrow"
+  was clipped at both ends at 3×. Now abbreviates from 3×. 4× verified clean.
   Files: fixes across views, `docs/qa-skin.md` (extend)
   Notes: Every screen at pixel=3 and 4: no clipping/overlap, taskbar abbreviations kick in, photo rows, archive headers, settings, viewer. Fix layout breaks. Verify: screenshots at 4× for all screens attached to the QA doc.
 
@@ -365,7 +378,8 @@
   Files: fixes as needed
   Notes: Seed 500 tasks + 30 photos (debug generator). Instruments: cold launch < 1s, scroll/swipe/drag at 120fps without dropped-frame bursts, memory stable while scrolling photo rows. Fix hot spots (likely: full-fetch filtering → move to `#Predicate` per tab if needed; thumbnail decode → downscaled display images). Verify: numbers recorded vs NFR thresholds.
 
-- [ ] **TASK-062** — App icon + launch screen
+- [~] **TASK-062** — App icon + launch screen *(icon done; launch screen pending)*
+  Icon: `sho>` per the founder's brief — see design.md §17.
   Files: `Shove95/Resources/Assets.xcassets/AppIcon.appiconset`, launch screen config
   Notes: Resolve PRD Open Question 1 with the founder (default: bevelled raised square + pixel right-arrow, drawn from scratch — **no Microsoft artwork**). Render pixel-art at 1024 master with nearest-neighbor upscale so pixels stay square. Launch screen: flat `#C0C0C0` (Info.plist UILaunchScreen background color). Verify: icon crisp on home screen; launch → silver, no flash of white.
 

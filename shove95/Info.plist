@@ -6,9 +6,11 @@
 	<array>
 		<string>W95FA.otf</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Take a photo to attach to a task.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Attach a photo from your library to a task.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>ShoveCloudKitEnabled</key>
+	<true/>
 </dict>
 </plist>

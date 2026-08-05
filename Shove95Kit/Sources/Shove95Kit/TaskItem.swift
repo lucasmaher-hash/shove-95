@@ -24,13 +24,20 @@ public final class TaskItem {
     /// gets placed again the next time it goes overdue. Prevents re-placing a
     /// task the user has dragged (PRD §3 placement table).
     public var overduePlaced: Bool = false
-    /// First photo (legacy slot — kept so pre-multi-photo tasks need no
-    /// migration). Downscaled on import: ≤2048px long edge, JPEG q0.8.
+    // ── Photos ──────────────────────────────────────────────────────────
+    // Each photo is its OWN record (TASK-050). The previous shape — one
+    // `Data?` plus an `[Data]` array — could not go to CloudKit: an array of
+    // image blobs serialises into a single field, and CKRecord caps
+    // non-asset payload at 1MB, so two photos would have failed to sync
+    // silently. As a separate entity each photo's `data` maps to a CKAsset,
+    // which has no such limit.
+    @Relationship(deleteRule: .cascade, inverse: \TaskPhoto.task)
+    public var photos: [TaskPhoto]? = nil
+
+    // Legacy slots, read once by the launch migration and then left empty.
+    // Kept (rather than deleted) so an existing store opens without a
+    // versioned-schema migration.
     @Attribute(.externalStorage) public var photoData: Data? = nil
-    /// Additional photos, in the order they were added (they render to the
-    /// RIGHT of earlier ones). Defaulted, so the store migrates lightweight.
-    /// CloudKit note for Phase 5: an array of Data does not become CKAssets —
-    /// if records exceed 1MB this needs restructuring into a child entity.
     public var extraPhotos: [Data] = []
     /// Which workspace this task lives in. nil = the default workspace, which
     /// is also what every pre-workspace task migrates to (optional + defaulted
@@ -39,17 +46,31 @@ public final class TaskItem {
 
     public init() {}
 
-    /// Every photo, oldest first. The legacy single slot leads.
+    /// Every photo, oldest first — the order they were added, left to right.
     public var allPhotos: [Data] {
+        orderedPhotos.compactMap(\.data)
+    }
+
+    public var orderedPhotos: [TaskPhoto] {
+        (photos ?? []).sorted { $0.order < $1.order }
+    }
+
+    /// True while this task still holds photos in the pre-CloudKit slots.
+    public var needsPhotoMigration: Bool {
+        photoData != nil || !extraPhotos.isEmpty
+    }
+
+    /// The legacy contents, oldest first, for the launch migration.
+    public var legacyPhotos: [Data] {
         (photoData.map { [$0] } ?? []) + extraPhotos
     }
 
-    /// Appends to the end — new photos appear to the right of existing ones.
-    public func addPhoto(_ data: Data) {
-        if photoData == nil && extraPhotos.isEmpty {
-            photoData = data
-        } else {
-            extraPhotos.append(data)
-        }
+    public func clearLegacyPhotos() {
+        photoData = nil
+        extraPhotos = []
+    }
+
+    public var nextPhotoOrder: Int {
+        ((photos ?? []).map(\.order).max() ?? -1) + 1
     }
 }

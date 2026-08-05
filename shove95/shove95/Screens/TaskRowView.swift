@@ -524,8 +524,11 @@ private struct PhotoViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture(perform: onClose)
 
-                window(maxWidth: geo.size.width * 0.75,
-                       maxHeight: geo.size.height * 0.75)
+                // 0.75 → 0.86: the founder asked for 15% more window
+                // (2026-08-04). Still short of the edges, so the app stays
+                // visible behind it and the thing reads as a window.
+                window(maxWidth: geo.size.width * 0.86,
+                       maxHeight: geo.size.height * 0.86)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -542,9 +545,10 @@ private struct PhotoViewer: View {
 
         return VStack(spacing: 0) {
             TitleBar(title: title, isClose: true, onSettings: onClose)
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
+            // Zoomable, with Live Text — the photo is the one place the Win95
+            // costume gives way, because selecting text in an image is an
+            // interaction people already know from Photos.
+            ZoomableImageView(image: image)
                 .frame(width: fitted.width, height: fitted.height)
                 .padding(pixel * 2)
                 .background(Win95.surface)

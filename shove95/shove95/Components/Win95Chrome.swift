@@ -270,9 +270,12 @@ private struct TaskbarButton: View {
     let isActive: Bool
     var action: () -> Void
 
-    /// Labels abbreviate at the largest scale so four buttons still fit (FR-015).
+    /// Labels abbreviate from 3× so four buttons still fit (FR-015). It was
+    /// 4× until the stepped-type audit: at 3× "Tomorrow" was clipped at both
+    /// ends, and `minimumScaleFactor` can't save a label that long in a
+    /// quarter of the bar.
     private var label: String {
-        pixel >= 4 ? settings.shortName(for: bucket) : settings.name(for: bucket)
+        pixel >= 3 ? settings.shortName(for: bucket) : settings.name(for: bucket)
     }
 
     var body: some View {

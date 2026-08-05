@@ -24,8 +24,9 @@ struct TaskSnapshot {
     let createdAt: Date
     let sortOrder: Double
     let overduePlaced: Bool
-    let photoData: Data?
-    let extraPhotos: [Data]
+    /// Raw bytes, oldest first — the records themselves are gone by the time
+    /// undo runs (cascade delete), so the snapshot has to carry the payload.
+    let photos: [Data]
 }
 
 enum LastAction {
@@ -69,12 +70,131 @@ final class TaskStore {
     /// created before workspaces existed). RootView keeps this in sync with
     /// AppSettings; every query below is scoped to it, so switching workspace
     /// swaps the entire visible world in one assignment.
+    /// Guarded against no-op writes. `workspaces()` reads `revision`, and
+    /// RootView re-syncs the scope whenever `revision` changes — so a setter
+    /// that bumped unconditionally span the update loop until the UI rendered
+    /// nothing at all (2026-08-04).
     var workspaceID: String? {
-        didSet { revision += 1 }
+        didSet { if workspaceID != oldValue { revision += 1 } }
+    }
+
+    /// Workspace ids this device knows about, so unknown ones can be shown in
+    /// the default workspace rather than vanishing. Kept in sync by RootView.
+    var knownWorkspaceIDs: Set<String> = [] {
+        didSet { if knownWorkspaceIDs != oldValue { revision += 1 } }
     }
 
     init(context: ModelContext) {
         self.context = context
+    }
+
+    // MARK: Synced preferences (see AppPreferences.swift)
+
+    /// The account-wide preference record, created on first use. Deduped by
+    /// fixed id, oldest wins — two devices can each make one before they meet.
+    func preferences() -> AppPreferences {
+        _ = revision
+        let all = ((try? context.fetch(FetchDescriptor<AppPreferences>())) ?? [])
+            .filter { $0.id == AppPreferences.singletonID }
+            .sorted { $0.createdAt < $1.createdAt }
+        if let existing = all.first { return existing }
+        let fresh = AppPreferences()
+        context.insert(fresh)
+        commit()
+        return fresh
+    }
+
+    func setFontID(_ id: String) {
+        let preferences = preferences()
+        guard preferences.fontID != id else { return }
+        preferences.fontID = id
+        commit()
+    }
+
+    func setSchemeID(_ id: String) {
+        let preferences = preferences()
+        guard preferences.schemeID != id else { return }
+        preferences.schemeID = id
+        commit()
+    }
+
+    // MARK: Workspaces (synced records — see Workspace.swift)
+
+    /// Deduped by id: the store cannot enforce uniqueness under CloudKit, and
+    /// two devices seeding the same fixed ids independently would otherwise
+    /// show "Personal" twice. Oldest record wins so the pick is stable.
+    func workspaces() -> [Workspace] {
+        _ = revision
+        let all = (try? context.fetch(FetchDescriptor<Workspace>())) ?? []
+        var byID: [String: Workspace] = [:]
+        for workspace in all {
+            if let existing = byID[workspace.id], existing.createdAt <= workspace.createdAt {
+                continue
+            }
+            byID[workspace.id] = workspace
+        }
+        // Default first, then oldest to newest.
+        return byID.values.sorted {
+            if $0.isDefault != $1.isDefault { return $0.isDefault }
+            return $0.createdAt < $1.createdAt
+        }
+    }
+
+    func workspace(withID id: String) -> Workspace? {
+        workspaces().first { $0.id == id }
+    }
+
+    /// First run: Personal + Work, with FIXED ids so a second device converges
+    /// on the same two rather than adding its own pair. `legacy` carries any
+    /// workspaces this device had in preferences before they were records, so
+    /// existing task assignments survive the change.
+    func seedWorkspacesIfNeeded(legacy: [(id: String, name: String)]) {
+        guard workspaces().isEmpty else { return }
+        var seeded: [(String, String)] = [(Workspace.defaultID, "Personal")]
+        if legacy.isEmpty {
+            seeded.append((Workspace.workID, "Work"))
+        } else {
+            // Preserve the ids tasks are already stamped with.
+            for entry in legacy where entry.id != Workspace.defaultID {
+                seeded.append((entry.id, entry.name))
+            }
+            if let defaultName = legacy.first(where: { $0.id == Workspace.defaultID })?.name {
+                seeded[0].1 = defaultName
+            }
+        }
+        for (id, name) in seeded {
+            context.insert(Workspace(id: id, name: name))
+        }
+        commit()
+    }
+
+    @discardableResult
+    func addWorkspace(named raw: String) -> Workspace? {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        let workspace = Workspace(id: UUID().uuidString, name: name)
+        context.insert(workspace)
+        commit()
+        return workspace
+    }
+
+    func renameWorkspace(_ workspace: Workspace, to raw: String) {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != workspace.name else { return }
+        workspace.name = name
+        commit()
+    }
+
+    /// The default is undeletable; a deleted workspace's tasks fold back into
+    /// it rather than being destroyed — deleting a label must never delete work.
+    func deleteWorkspace(_ workspace: Workspace) {
+        guard !workspace.isDefault, let stamp = workspace.taskStampID else { return }
+        for task in (try? context.fetch(FetchDescriptor<TaskItem>())) ?? []
+        where task.workspaceID == stamp {
+            task.workspaceID = nil
+        }
+        context.delete(workspace)
+        commit()
     }
 
     // MARK: Queries
@@ -88,34 +208,18 @@ final class TaskStore {
         let all = (try? context.fetch(descriptor)) ?? []
         // Workspace scoping happens HERE, the one choke point every query uses,
         // so buckets, archive, placement and rollover are all scoped for free.
-        return all.filter { $0.workspaceID == workspaceID }
-    }
-
-    /// Rescue pass: any task stamped with a workspace that no longer exists is
-    /// invisible in every tab, forever. That is silent data loss, so on launch
-    /// the orphans fold back into the default workspace. (It first happened for
-    /// real — the workspace list wasn't being persisted, so every relaunch
-    /// minted new ids and stranded the tasks written against the old ones.)
-    func reclaimOrphanedTasks(knownIDs: Set<String>) {
-        let descriptor = FetchDescriptor<TaskItem>()
-        var rescued = false
-        for task in (try? context.fetch(descriptor)) ?? [] {
-            if let id = task.workspaceID, !knownIDs.contains(id) {
-                task.workspaceID = nil
-                rescued = true
-            }
+        //
+        // A task whose workspace this device doesn't know about falls back to
+        // the DEFAULT workspace for display only — its record is never
+        // rewritten. That matters under sync: workspaces are still per-device
+        // preferences, so a task arriving from another device carries an id
+        // this one has never seen, and "fixing" the record would push the
+        // damage back to the device it came from.
+        return all.filter { task in
+            if task.workspaceID == workspaceID { return true }
+            guard workspaceID == nil, let id = task.workspaceID else { return false }
+            return !knownWorkspaceIDs.contains(id)
         }
-        if rescued { commit() }
-    }
-
-    /// Workspace deletion: its tasks fold back into the default workspace
-    /// rather than being destroyed — deleting a label must never delete work.
-    func reassignTasksToDefaultWorkspace(from id: String) {
-        let descriptor = FetchDescriptor<TaskItem>()
-        for task in (try? context.fetch(descriptor)) ?? [] where task.workspaceID == id {
-            task.workspaceID = nil
-        }
-        commit()
     }
 
     /// Every task currently mapping to the bucket — completed included.
@@ -164,19 +268,43 @@ final class TaskStore {
     /// Appends — photos accumulate left to right in the order added.
     func addPhoto(_ task: TaskItem, data: Data?) {
         guard let data else { return }
-        task.addPhoto(data)
+        insertPhoto(data, into: task, order: task.nextPhotoOrder)
         commit()
     }
 
-    /// Removes one photo by its index in `allPhotos` (TASK-043). The legacy
-    /// first slot is refilled from the extras so ordering never gaps.
+    /// Removes one photo by its position in the strip. Orders are sparse on
+    /// purpose — nothing is renumbered, so a removal can't disturb the rest.
     func removePhoto(_ task: TaskItem, at index: Int) {
-        var photos = task.allPhotos
-        guard photos.indices.contains(index) else { return }
-        photos.remove(at: index)
-        task.photoData = photos.first
-        task.extraPhotos = Array(photos.dropFirst())
+        let ordered = task.orderedPhotos
+        guard ordered.indices.contains(index) else { return }
+        context.delete(ordered[index])
         commit()
+    }
+
+    private func insertPhoto(_ data: Data, into task: TaskItem, order: Int) {
+        let photo = TaskPhoto()
+        photo.data = data
+        photo.order = order
+        photo.task = task
+        context.insert(photo)
+    }
+
+    /// One-time move of photos out of the pre-CloudKit fields and into their
+    /// own records. Idempotent: a task is only touched while it still holds
+    /// legacy data, and the slots are cleared as it goes.
+    func migrateLegacyPhotos() {
+        let descriptor = FetchDescriptor<TaskItem>()
+        var moved = false
+        for task in (try? context.fetch(descriptor)) ?? [] where task.needsPhotoMigration {
+            var order = task.nextPhotoOrder
+            for data in task.legacyPhotos {
+                insertPhoto(data, into: task, order: order)
+                order += 1
+            }
+            task.clearLegacyPhotos()
+            moved = true
+        }
+        if moved { commit() }
     }
 
     // MARK: Mutations
@@ -273,8 +401,7 @@ final class TaskStore {
             title: task.title, dueDate: task.dueDate, isImportant: task.isImportant,
             isCompleted: task.isCompleted, completedAt: task.completedAt,
             createdAt: task.createdAt, sortOrder: task.sortOrder,
-            overduePlaced: task.overduePlaced, photoData: task.photoData,
-            extraPhotos: task.extraPhotos))
+            overduePlaced: task.overduePlaced, photos: task.allPhotos))
         context.delete(task)
         commit()
     }
@@ -300,8 +427,9 @@ final class TaskStore {
             task.createdAt = snapshot.createdAt
             task.sortOrder = snapshot.sortOrder
             task.overduePlaced = snapshot.overduePlaced
-            task.photoData = snapshot.photoData
-            task.extraPhotos = snapshot.extraPhotos
+            for (index, data) in snapshot.photos.enumerated() {
+                insertPhoto(data, into: task, order: index)
+            }
             context.insert(task)
         case nil:
             return
