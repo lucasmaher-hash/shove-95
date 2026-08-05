@@ -176,6 +176,14 @@ A Windows 95 window, near-full-screen, centred: navy gradient title bar, a close
 
 ## 6. Typography
 
+**Typeface is switchable** *(2026-08-04)*. W95FA is the default and the point
+of the app, but a bitmap-derived face is genuinely hard for some people to
+read, and legibility outranks costume — so Settings offers the system face,
+applied to EVERYTHING including chrome, and synced with the colour scheme.
+The system face renders at 0.82× the nominal size: W95FA's glyphs fill their
+em box, so matching point sizes makes the system face look oversized in the
+same layout.
+
 **W95FA** — an OpenType recreation of the MS Sans Serif bitmap, licensed **SIL OFL**, which explicitly permits embedding and redistribution inside a commercial application. It is the only typeface in the app: title bar, taskbar, task text, status bar, settings.
 
 | Role | Spec | @2× |
@@ -231,6 +239,7 @@ What did *not* change: appearance is still instant. The title text swaps with no
 | Return in any text field | **Commits and dismisses the keyboard.** It never inserts a line break — rows gain lines only by wrapping as the text grows. A vertical-axis `TextField` inserts a newline instead of firing `onSubmit`, so the newline is intercepted in the BINDING and the focus change is deferred a runloop turn; stripping it in `onChange`, or resigning focus inline, both lose to the field's own editing state and the newline survives. |
 | Field opens under the keyboard | The list scrolls it to sit just above the keyboard (0.25s ease-out). A field already clear of the keyboard does NOT move — being yanked is as disorienting as being hidden |
 | Scroll past either end | Rubber-band bounce — `.scrollBounceBehavior(.always)`, so it gives even when the list is shorter than the well |
+| Launch | If the first frame hasn't arrived within 220ms, the wordmark appears on the icon's blue and is held ~600ms so it can't flicker. A warm launch never shows it: a splash that always appears makes a fast launch feel slower. |
 | Photo viewer open | Thumbnail presses in (0.92 scale, ~140ms) so the press is SEEN, then the window appears with no transition (revised 2026-08-04) |
 | Photo viewer close | **Instant.** No transition. |
 | Long-press menu open | **Springs** from the row's bottom-left anchor — scale 0.86 → 1 + fade, 0.26s, bounce 0.38 |

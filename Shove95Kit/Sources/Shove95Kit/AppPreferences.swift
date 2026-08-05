@@ -15,6 +15,9 @@ import SwiftData
 public final class AppPreferences {
     public var id: String = AppPreferences.singletonID
     public var schemeID: String = "classic"
+    /// "w95" or "system" — the founder wants the choice on every device
+    /// (2026-08-04), so it lives here rather than in UserDefaults.
+    public var fontID: String = "w95"
     public var createdAt: Date = Date.now
 
     public init() {}

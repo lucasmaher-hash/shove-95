@@ -114,6 +114,7 @@ struct Win95Menu: View {
                 menu.dismiss()
                 action()
             }
+            .accessibilityAddTraits(.isButton)
     }
 
     private var separator: some View {

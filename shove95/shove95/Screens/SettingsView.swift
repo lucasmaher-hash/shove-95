@@ -35,6 +35,9 @@ struct SettingsView: View {
                         header("Appearance")
                         schemeRow
 
+                        header("Typeface").padding(.top, Win95.Px.grid * 2 * pixel)
+                        faceRow
+
                         header("Tab names").padding(.top, Win95.Px.grid * 2 * pixel)
                         ForEach(Bucket.line, id: \.self) { bucket in
                             NameField(bucket: bucket)
@@ -98,6 +101,33 @@ struct SettingsView: View {
             }
             .fixedSize()
             .padding(.top, Win95.Px.grid * pixel)
+        }
+    }
+
+    /// Two pressed-in choices, same idiom as the scheme swatches. The Win95
+    /// face is the app; the system face is here because a bitmap-derived font
+    /// is hard for some people to read, and legibility outranks costume.
+    private var faceRow: some View {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            ForEach(AppFace.allCases, id: \.self) { face in
+                let isSelected = settings.face == face
+                Text(face.label)
+                    .font(face == .w95 ? W95Font.standard(pixel)
+                                       : .system(size: Win95.Px.fontStandard * pixel * 0.82))
+                    .foregroundStyle(Win95.text)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: Win95.rowHeight(pixel))
+                    .background(Win95.surface)
+                    .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
+                    .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { settings.face = face }
+                    }
+                    .accessibilityLabel("\(face.label) typeface")
+                    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            }
         }
     }
 

@@ -15,6 +15,10 @@ struct shove95App: App {
     @State private var store: TaskStore
     @State private var settings = AppSettings()
     @State private var sync = SyncStatus()
+    /// Late splash: shown only if the first frame is slow, and then held long
+    /// enough not to flicker. See LaunchCover.
+    @State private var showLaunchCover = false
+    @State private var launchSettled = false
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -69,7 +73,8 @@ struct shove95App: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            ZStack {
+                RootView()
                 .environment(store)
                 .environment(settings)
                 .environment(sync)
@@ -89,6 +94,28 @@ struct shove95App: App {
                     }
                 }
                 #endif
+
+                if showLaunchCover { LaunchCover() }
+            }
+            .task {
+                // If the app is ready inside this window, no cover at all.
+                try? await Task.sleep(for: .milliseconds(220))
+                guard !launchSettled else { return }
+                withAnimation(.easeOut(duration: 0.15)) { showLaunchCover = true }
+                // Held so a brief appearance doesn't read as a flicker.
+                try? await Task.sleep(for: .milliseconds(600))
+                withAnimation(.easeOut(duration: 0.25)) { showLaunchCover = false }
+            }
+            .task {
+                // "Ready" = the first query has returned. Cheap, and it is the
+                // thing that actually takes time on a cold CloudKit launch.
+                _ = store.tasks(in: .today)
+                launchSettled = true
+                if showLaunchCover {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    withAnimation(.easeOut(duration: 0.25)) { showLaunchCover = false }
+                }
+            }
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, newPhase in

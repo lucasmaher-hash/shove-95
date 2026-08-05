@@ -104,6 +104,13 @@ final class TaskStore {
         return fresh
     }
 
+    func setFontID(_ id: String) {
+        let preferences = preferences()
+        guard preferences.fontID != id else { return }
+        preferences.fontID = id
+        commit()
+    }
+
     func setSchemeID(_ id: String) {
         let preferences = preferences()
         guard preferences.schemeID != id else { return }

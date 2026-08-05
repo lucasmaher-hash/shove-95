@@ -28,6 +28,12 @@ final class AppSettings {
         }
     }
 
+    /// The typeface, mirrored from the synced record. Assigning it updates the
+    /// static W95Font reads from, exactly as `scheme` does for the palette.
+    var face: AppFace = .w95 {
+        didSet { W95Font.face = face }
+    }
+
     /// Custom tab labels. Empty string = use the built-in name.
     private var customNames: [Bucket: String]
 

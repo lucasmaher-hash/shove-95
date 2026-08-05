@@ -364,7 +364,9 @@
   Files: `docs/qa-accessibility.md`, fixes across views
   Notes: Full VoiceOver walkthrough of every flow (add, edit, complete, move via custom actions, undo, archive, settings, photo viewer — viewer needs an accessible close); Accessibility Inspector audit; verify ≥44pt targets everywhere; contrast: `#222` on `#C0C0C0` and white pass, `#808080` chip text is secondary info (acceptable) — document. Verify: script in file, all items pass.
 
-- [ ] **TASK-059** — Stepped-type full audit (3×/4×)
+- [x] **TASK-059** — Stepped-type full audit (3×/4×)
+  Found and fixed: taskbar labels were only abbreviating at 4×, so "Tomorrow"
+  was clipped at both ends at 3×. Now abbreviates from 3×. 4× verified clean.
   Files: fixes across views, `docs/qa-skin.md` (extend)
   Notes: Every screen at pixel=3 and 4: no clipping/overlap, taskbar abbreviations kick in, photo rows, archive headers, settings, viewer. Fix layout breaks. Verify: screenshots at 4× for all screens attached to the QA doc.
 

@@ -100,7 +100,7 @@ struct RootView: View {
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the
         // presentation modifiers — rebuilding above them would tear down
         // `showSettings` and slam the Settings window shut on every pick.
-        .id(settings.scheme.id)
+        .id(settings.scheme.id + settings.face.rawValue)
         .background(Win95.surface)
         // The taskbar is window furniture — it stays docked at the bottom
         // instead of riding up with the keyboard.
@@ -144,6 +144,7 @@ struct RootView: View {
         // Local pick → the synced record. The pair only ever writes when the
         // values actually differ, or the two would chase each other forever.
         .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
+        .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
         .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
@@ -171,11 +172,17 @@ struct RootView: View {
     /// The colour scheme follows the ACCOUNT. A scheme picked on another
     /// device arrives as a record change; adopt it unless it's already ours.
     private func adoptSyncedScheme() {
-        let id = store.preferences().schemeID
-        guard id != settings.scheme.id else { return }
+        let preferences = store.preferences()
         var transaction = Transaction()
         transaction.disablesAnimations = true // appearance never animates
-        withTransaction(transaction) { settings.scheme = Win95Scheme.named(id) }
+        if preferences.schemeID != settings.scheme.id {
+            withTransaction(transaction) {
+                settings.scheme = Win95Scheme.named(preferences.schemeID)
+            }
+        }
+        if let face = AppFace(rawValue: preferences.fontID), face != settings.face {
+            withTransaction(transaction) { settings.face = face }
+        }
     }
 
     private var currentWorkspaceName: String {
