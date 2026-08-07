@@ -492,32 +492,33 @@ final class TaskStore {
     /// 15 filler rows in Today — enough height to exercise scrolling
     /// against the row pan (TASK-019 spike verification).
     /// `-seedDemo YES` fills the store with the App Store screenshot content.
-    /// Deliberately mundane and slightly unfinished-looking: a to-do list in a
-    /// screenshot should look like someone's actual Tuesday, not a product
-    /// diagram where every row is the same length and nothing is overdue.
+    /// Deliberately mundane: a to-do list in a screenshot should look like
+    /// somebody's actual Tuesday, not a product diagram where every row is the
+    /// same length and nothing is late.
     func seedDemo() {
         let today = DateEngine.startOfToday(now: now(), calendar: calendar)
         let tomorrow = DateEngine.startOfTomorrow(now: now(), calendar: calendar)
         let week = DateEngine.targetDate(for: .week, now: now(), calendar: calendar)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
 
-        // (title, due, important, completed)
-        let rows: [(String, Date?, Bool, Bool)] = [
-            ("call the dentist back",          yesterday, true,  false), // overdue + important
-            ("finish the ergonomics reading",  today,     false, false),
-            ("pick up the parcel",             today,     false, false),
-            ("book train to Hamburg",          today,     true,  false),
-            ("water the plants",               today,     false, true),  // done, still visible today
-            ("send Marie the photos",          tomorrow,  false, false),
-            ("renew the Bahncard",             tomorrow,  false, false),
-            ("dentist follow-up",              week,      false, false),
-            ("sort out the bike light",        week,      false, false),
-            ("read the Rams book",             nil,       false, false), // General
-            ("find a decent desk lamp",        nil,       false, false),
+        // (title, due, important, completed, photo)
+        let rows: [(String, Date?, Bool, Bool, Data?)] = [
+            ("call the dentist back",         twoDaysAgo, true,  false, nil),
+            ("pick up the parcel",            yesterday,  false, false, DemoPhotos.parcelLabel()),
+            ("sort out the bike light",       yesterday,  true,  false, DemoPhotos.receipt()),
+            ("finish the ergonomics reading", today,      false, false, DemoPhotos.lectureNote()),
+            ("book train to Hamburg",         today,      true,  false, nil),
+            ("water the plants",              today,      false, true,  nil),
+            ("send Marie the photos",         tomorrow,   false, false, nil),
+            ("renew the Bahncard",            tomorrow,   false, false, nil),
+            ("dentist follow-up",             week,       false, false, nil),
+            ("read the Rams book",            nil,        false, false, nil),
+            ("find a decent desk lamp",       nil,        false, false, nil),
         ]
 
         var order = 0.0
-        for (title, due, important, completed) in rows {
+        for (title, due, important, completed, photo) in rows {
             let task = TaskItem()
             task.title = title
             task.dueDate = due
@@ -530,6 +531,7 @@ final class TaskStore {
                 task.completedAt = now()
             }
             context.insert(task)
+            if let photo { addPhoto(task, data: photo) }
         }
         commit()
     }
