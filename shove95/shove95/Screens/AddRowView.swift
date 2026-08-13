@@ -3,8 +3,15 @@
 //  shove95
 //
 //  Permanent inline capture row (PRD FR-006, locked Q15-A). Return commits
-//  and dismisses the keyboard. A ✚ to the right attaches a photo to the task
-//  being written, so a photo doesn't have to wait for a second pass.
+//  and dismisses the keyboard.
+//
+//  A PLAIN row, not a boxed input (founder direction 2026-08-14): it shares
+//  the checkbox-then-text layout every task row uses, sits directly on the
+//  well with no sunken frame of its own, and reads as the list's last row
+//  rather than a separate control bolted underneath it. The photo ✚ only
+//  appears once the field is focused — an idle row has nothing to attach a
+//  photo TO yet, so showing the control earlier would invite a press that
+//  does nothing.
 //
 
 import SwiftUI
@@ -61,15 +68,27 @@ struct AddRowView: View {
     }
 
     var body: some View {
-        // Field and ✚ share ONE sunken frame, so the row reads as a single
-        // input with a control in it rather than a box plus a floating glyph.
-        // The placeholder is bare "new task": the ✚ is now the add affordance,
-        // and a second plus in the text was saying it twice.
-        HStack(spacing: 0) {
-            // Vertical axis: a long entry wraps and the field grows a line at a
-            // time instead of scrolling the text out of sight. That growth is
-            // the ONLY way a line is added — Return is a commit, never a break.
-            TextField("new task", text: returnCommitting, axis: .vertical)
+        // .top: matches every task row, so the add row lines up with them
+        // even though it never wraps to a second line.
+        HStack(alignment: .top, spacing: Win95.Px.grid * pixel) {
+            // The same sunken box a task's checkbox uses, but permanently
+            // empty and inert — there is no task yet to check off. Tapping it
+            // focuses the field, exactly like tapping the row text would.
+            Rectangle()
+                .fill(Win95.well)
+                .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                .bevelSunken(pixel)
+                .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                .contentShape(Rectangle())
+                .onTapGesture { focused = true }
+                .accessibilityHidden(true)
+
+            // Vertical axis: a long entry wraps and the field grows a line at
+            // a time instead of scrolling the text out of sight. That growth
+            // is the ONLY way a line is added — Return is a commit, never a
+            // break. No background, no bevel: the row sits directly on the
+            // well like any other.
+            TextField("add", text: returnCommitting, axis: .vertical)
                 .lineLimit(1...4)
                 .font(W95Font.standard(pixel))
                 .foregroundStyle(Win95.text)
@@ -82,23 +101,25 @@ struct AddRowView: View {
                         editing.end(EditingCoordinator.addRowID)
                     }
                 }
-                .padding(.horizontal, Win95.Px.grid * pixel)
+                .padding(.vertical, firstLineInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Same bare theme-coloured glyph as an existing task's ✚. Dimmed
-            // and inert until there's something to attach it to.
-            PlusGlyph()
-                .fill(Win95.accent)
-                .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
-                .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
-                .opacity(canAttach ? 1 : 0.3)
-                .contentShape(Rectangle())
-                .onTapGesture { attachPhoto() }
-                .disabled(!canAttach)
-                .accessibilityLabel("Add photo to new task")
+            // Same bare theme-coloured glyph an existing task's photo control
+            // uses — appears only while composing, matching the skeu row.
+            if focused {
+                PlusGlyph()
+                    .fill(Win95.accent)
+                    .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                    .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                    .opacity(canAttach ? 1 : 0.3)
+                    .contentShape(Rectangle())
+                    .onTapGesture { attachPhoto() }
+                    .disabled(!canAttach)
+                    .accessibilityLabel("Add photo to new task")
+            }
         }
+        .padding(.trailing, Win95.Px.grid * pixel)
         .frame(minHeight: Win95.rowHeight(pixel))
-        .background(Win95.well)
-        .bevelSunken(pixel)
         .background {
             GeometryReader { proxy in
                 Color.clear
@@ -106,7 +127,6 @@ struct AddRowView: View {
                     .task { frame = proxy.frame(in: .global) }
             }
         }
-        .padding(.top, Win95.Px.grid * pixel)
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
@@ -153,5 +173,15 @@ struct AddRowView: View {
         } else {
             showPhotoPicker = true
         }
+    }
+
+    /// Half the slack between one text line and the 44pt row band — the same
+    /// measurement TaskRowView uses, so the add row's text sits on the same
+    /// baseline as every task above it.
+    private var firstLineInset: CGFloat {
+        let lineHeight = UIFont(name: W95Font.postScriptName,
+                                size: Win95.Px.fontStandard * pixel)?.lineHeight
+            ?? Win95.Px.fontStandard * pixel * 1.2
+        return max(0, (Win95.rowHeight(pixel) - lineHeight) / 2)
     }
 }

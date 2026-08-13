@@ -38,6 +38,12 @@ struct SettingsView: View {
                         header("Typeface").padding(.top, Win95.Px.grid * 2 * pixel)
                         faceRow
 
+                        header("Design").padding(.top, Win95.Px.grid * 2 * pixel)
+                        designRow
+
+                        header("Light & dark").padding(.top, Win95.Px.grid * 2 * pixel)
+                        appearanceRow
+
                         header("Tab names").padding(.top, Win95.Px.grid * 2 * pixel)
                         ForEach(Bucket.line, id: \.self) { bucket in
                             NameField(bucket: bucket)
@@ -64,7 +70,6 @@ struct SettingsView: View {
         // rule under the content (founder bug report 2026-08-04).
         .ignoresSafeArea(.container, edges: .bottom)
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .preferredColorScheme(.light)
         .fullScreenCover(isPresented: $showArchive) {
             ArchiveView { showArchive = false }
                 .environment(\.pixel, pixel)
@@ -112,23 +117,46 @@ struct SettingsView: View {
     private var faceRow: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
             ForEach(AppFace.allCases, id: \.self) { face in
-                let isSelected = settings.face == face
-                Text(face.label)
-                    .font(face == .w95 ? W95Font.standard(pixel)
-                                       : .system(size: Win95.Px.fontStandard * pixel * 0.82))
-                    .foregroundStyle(Win95.text)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: Win95.rowHeight(pixel))
-                    .background(Win95.surface)
-                    .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
-                    .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        var t = Transaction(); t.disablesAnimations = true
-                        withTransaction(t) { settings.face = face }
-                    }
-                    .accessibilityLabel("\(face.label) typeface")
-                    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+                // Each option is set in the face it selects — the label is the
+                // preview.
+                SegmentedChoice(
+                    label: face.label,
+                    font: face == .w95 ? W95Font.standard(pixel)
+                                       : .system(size: Win95.Px.fontStandard * pixel * 0.82),
+                    // Binds to whichever look is active — each keeps its own
+                    // choice, so switching design doesn't drag a face along.
+                    isSelected: settings.activeFace == face,
+                    accessibilityLabel: "\(face.label) typeface"
+                ) { settings.activeFace = face }
+            }
+        }
+    }
+
+    /// The whole point of this phase: one tap swaps the app's visual language.
+    private var designRow: some View {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            ForEach(DesignMode.allCases, id: \.self) { mode in
+                SegmentedChoice(
+                    label: mode.label,
+                    font: W95Font.small(pixel),
+                    isSelected: settings.design == mode,
+                    accessibilityLabel: "\(mode.label) design"
+                ) { settings.design = mode }
+            }
+        }
+    }
+
+    /// Global, not skeu-only — the Windows look gains dark palettes later and
+    /// will read this same value.
+    private var appearanceRow: some View {
+        HStack(spacing: Win95.Px.grid * pixel) {
+            ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                SegmentedChoice(
+                    label: mode.label,
+                    font: W95Font.small(pixel),
+                    isSelected: settings.appearance == mode,
+                    accessibilityLabel: "\(mode.label) appearance"
+                ) { settings.appearance = mode }
             }
         }
     }
@@ -180,6 +208,43 @@ private struct SchemeSwatch: View {
             .contentShape(Rectangle())
             .onTapGesture(perform: action)
             .accessibilityLabel(scheme.name)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+// MARK: - Segmented choice
+
+/// One option in a row of mutually exclusive choices. Selected renders as a
+/// pressed toolbar button — sunken bevel, nudged a pixel down and right — the
+/// same idiom the scheme swatches use, so the three switches read as one family.
+private struct SegmentedChoice: View {
+    @Environment(\.pixel) private var pixel
+    let label: String
+    let font: Font
+    let isSelected: Bool
+    let accessibilityLabel: String
+    var action: () -> Void
+
+    var body: some View {
+        Text(label)
+            .font(font)
+            .foregroundStyle(Win95.text)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, Win95.Px.grid * pixel)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: Win95.rowHeight(pixel))
+            .background(Win95.surface)
+            .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
+            .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Appearance never animates (design.md §8).
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t, action)
+            }
+            .accessibilityLabel(accessibilityLabel)
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

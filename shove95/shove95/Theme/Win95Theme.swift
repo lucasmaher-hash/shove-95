@@ -76,9 +76,14 @@ enum Win95 {
     static var selectionBG: Color    { Color(hex: scheme.selectionBG) }
     static var selectionText: Color  { Color(hex: scheme.selectionText) }
     static var statusBG: Color     { Color(hex: scheme.statusBG) }
-    /// The theme's signature colour (the title bar's dark stop) — used for
-    /// small accents like the add-photo plus.
-    static var accent: Color       { Color(hex: scheme.titleA) }
+    /// The theme's signature colour — used for small accents like the
+    /// add-photo plus. In dark schemes `titleA` is deliberately darkened for
+    /// title-bar contrast, which reads as nearly invisible on a small glyph,
+    /// so dark mode reaches for the brighter `titleB` stop lightened further
+    /// still — title-bar brightness alone isn't enough against a dark surface.
+    static var accent: Color {
+        Color(hex: scheme.isDark ? scheme.titleB.lightened(by: 0.4) : scheme.titleA)
+    }
     static var statusAccent: Color { Color(hex: scheme.statusAccent) }
     static let desktop = Color(hex: 0x008080) // teal — macOS only
 
@@ -126,12 +131,28 @@ extension Win95 {
 
 // MARK: - Hex helper
 
+extension UInt32 {
+    /// Blends this hex colour toward white by `amount` (0...1). Used to lift
+    /// a dark-scheme accent (already the brighter `titleB` stop) further
+    /// above the surrounding dark surface — title-bar colours alone aren't
+    /// bright enough for a small standalone glyph.
+    func lightened(by amount: Double) -> UInt32 {
+        let r = Double((self >> 16) & 0xFF), g = Double((self >> 8) & 0xFF), b = Double(self & 0xFF)
+        func mix(_ c: Double) -> UInt32 { UInt32(Swift.min(255, c + (255 - c) * amount)) }
+        return (mix(r) << 16) | (mix(g) << 8) | mix(b)
+    }
+}
+
 extension Color {
-    init(hex: UInt32) {
+    /// The alpha parameter is SkeuKit's requirement (design system §2.7); Win95
+    /// never passes it, since a 1995 palette has no translucency.
+    init(hex: UInt32, alpha: Double = 1) {
         self.init(
+            .sRGB,
             red: Double((hex >> 16) & 0xFF) / 255,
             green: Double((hex >> 8) & 0xFF) / 255,
-            blue: Double(hex & 0xFF) / 255
+            blue: Double(hex & 0xFF) / 255,
+            opacity: alpha
         )
     }
 }

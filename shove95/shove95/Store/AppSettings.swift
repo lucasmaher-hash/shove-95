@@ -14,6 +14,10 @@ import Shove95Kit
 final class AppSettings {
     private enum Key {
         static let scheme = "settings.scheme"
+        static let design = "settings.design"
+        static let appearance = "settings.appearance"
+        static let skeuTheme = "settings.skeu.theme"
+        static let skeuFace = "settings.skeu.face"
         // v2: the founder settled the default set at Personal + Work
         // (2026-08-04); the bump orphans pre-release test data.
         static let workspaces = "settings.workspaces.v2"
@@ -21,17 +25,58 @@ final class AppSettings {
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
     }
 
+    /// Always the LIGHT instance — it is what the picker shows and what syncs.
+    /// The dark twin is resolved by id at paint time, in AppShell, which is
+    /// the only place that knows the current lighting. Assigning `Win95.scheme`
+    /// here as well would race that: this setter runs first with the light
+    /// palette and the screen flashes it before AppShell corrects the value.
     var scheme: Win95Scheme {
-        didSet {
-            UserDefaults.standard.set(scheme.id, forKey: Key.scheme)
-            Win95.scheme = scheme
-        }
+        didSet { UserDefaults.standard.set(scheme.id, forKey: Key.scheme) }
     }
 
     /// The typeface, mirrored from the synced record. Assigning it updates the
     /// static W95Font reads from, exactly as `scheme` does for the palette.
     var face: AppFace = .w95 {
         didSet { W95Font.face = face }
+    }
+
+    /// Which visual language the app speaks. Local to the device for now: the
+    /// scheme and typeface ride the synced `AppPreferences` record, and adding
+    /// a field there is a CloudKit schema change worth making on its own rather
+    /// than folding into the look.
+    var design: DesignMode {
+        didSet { UserDefaults.standard.set(design.rawValue, forKey: Key.design) }
+    }
+
+    /// Light / dark / follow-the-device. Global by design — the Windows look
+    /// gains dark palettes later and will read the same value.
+    var appearance: AppearanceMode {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Key.appearance) }
+    }
+
+    /// The typeface for the skeu look. Separate from `face`, and defaulting the
+    /// other way: that design is drawn for SF Pro, the Windows one for W95FA.
+    /// One shared value would mean each look inheriting the other's face.
+    var skeuFace: AppFace {
+        didSet {
+            UserDefaults.standard.set(skeuFace.rawValue, forKey: Key.skeuFace)
+            SkeuFont.face = skeuFace
+        }
+    }
+
+    /// The typeface of whichever look is on screen. The settings row binds here,
+    /// so there is one visible switch rather than two that look identical.
+    var activeFace: AppFace {
+        get { design == .skeu ? skeuFace : face }
+        set { if design == .skeu { skeuFace = newValue } else { face = newValue } }
+    }
+
+    /// The skeuomorphic palette. Kept separate from `scheme` rather than mapped
+    /// onto it: the five Windows schemes and the five skeu themes are different
+    /// sets, and collapsing them would mean one look silently repicking the
+    /// other's colours.
+    var skeuTheme: SkeuTheme {
+        didSet { UserDefaults.standard.set(skeuTheme.id, forKey: Key.skeuTheme) }
     }
 
     /// Custom tab labels. Empty string = use the built-in name.
@@ -59,6 +104,16 @@ final class AppSettings {
         let stored = UserDefaults.standard.string(forKey: Key.scheme) ?? Win95Scheme.classic.id
         scheme = Win95Scheme.named(stored)
         Win95.scheme = Win95Scheme.named(stored)
+
+        design = DesignMode(rawValue: UserDefaults.standard.string(forKey: Key.design) ?? "")
+            ?? .win95
+        appearance = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: Key.appearance) ?? "")
+            ?? .system
+        skeuTheme = SkeuTheme.named(UserDefaults.standard.string(forKey: Key.skeuTheme) ?? "")
+        let storedFace = AppFace(rawValue: UserDefaults.standard.string(forKey: Key.skeuFace) ?? "")
+            ?? .system
+        skeuFace = storedFace
+        SkeuFont.face = storedFace
 
         var names: [Bucket: String] = [:]
         for bucket in Bucket.line {

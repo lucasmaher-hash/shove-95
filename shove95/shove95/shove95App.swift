@@ -74,7 +74,7 @@ struct shove95App: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                RootView()
+                AppShell()
                 .environment(store)
                 .environment(settings)
                 .environment(sync)

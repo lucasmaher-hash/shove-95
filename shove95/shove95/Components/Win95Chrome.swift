@@ -43,10 +43,10 @@ struct TitleBar: View {
                 HStack(spacing: Win95.Px.grid * pixel) {
                     Text(workspace)
                         .font(W95Font.standard(pixel))
-                        .foregroundStyle(Color(hex: scheme.highlight))
+                        .foregroundStyle(Color(hex: scheme.selectionText))
                         .lineLimit(1)
                     DownArrowGlyph()
-                        .fill(Color(hex: scheme.highlight))
+                        .fill(Color(hex: scheme.selectionText))
                         .frame(width: 7 * pixel, height: 4 * pixel)
                 }
                 .scaleEffect(workspaceMenuOpen ? 0.92 : 1, anchor: .leading)
@@ -64,13 +64,13 @@ struct TitleBar: View {
 
                 Text(title)
                     .font(W95Font.standard(pixel))
-                    .foregroundStyle(Color(hex: scheme.highlight))
+                    .foregroundStyle(Color(hex: scheme.selectionText))
                     .lineLimit(1)
                     .padding(.trailing, Win95.Px.grid * 2 * pixel)
             } else {
                 Text(title)
                     .font(W95Font.standard(pixel))
-                    .foregroundStyle(Color(hex: scheme.highlight))
+                    .foregroundStyle(Color(hex: scheme.selectionText))
                     .padding(.leading, Win95.Px.grid * pixel)
                     .lineLimit(1)
 
@@ -227,6 +227,12 @@ struct Win95StatusPanel: View {
 struct Taskbar: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    // Painted from the scheme rather than the statics, same reasoning as
+    // TitleBar: nothing else about this view's inputs changes when the
+    // palette does, so without this dependency SwiftUI has no reason to
+    // redraw it (see EnvironmentValues.win95Scheme) — it sat one tap stale
+    // after every scheme/appearance change (founder bug report 2026-08-14).
+    @Environment(\.win95Scheme) private var scheme
     @Binding var selected: Bucket
 
     var body: some View {
@@ -253,11 +259,11 @@ struct Taskbar: View {
         // docked Win95 taskbar has no bottom bevel, and the full raised frame
         // drew a line that read as a second bar (founder bug report
         // 2026-08-04).
-        .background(Win95.surface.ignoresSafeArea(edges: .bottom))
+        .background(Color(hex: scheme.surface).ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
-                Rectangle().fill(Win95.highlight).frame(height: pixel)
-                Rectangle().fill(Win95.light).frame(height: pixel)
+                Rectangle().fill(Color(hex: scheme.highlight)).frame(height: pixel)
+                Rectangle().fill(Color(hex: scheme.light)).frame(height: pixel)
             }
         }
     }
@@ -266,6 +272,7 @@ struct Taskbar: View {
 private struct TaskbarButton: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
+    @Environment(\.win95Scheme) private var scheme
     let bucket: Bucket
     let isActive: Bool
     var action: () -> Void
@@ -281,14 +288,14 @@ private struct TaskbarButton: View {
     var body: some View {
         Text(label)
             .font(W95Font.small(pixel))
-            .foregroundStyle(Win95.text)
+            .foregroundStyle(Color(hex: scheme.text))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .offset(x: isActive ? pixel : 0, y: isActive ? pixel : 0)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Pressed tab: a lighter grey, flat — the authentic dotted hatch
             // read as noise at phone size (founder restyle 2026-08-04).
-            .background(isActive ? Win95.light : Win95.surface)
+            .background(Color(hex: isActive ? scheme.light : scheme.surface))
             .modifier(TaskbarBevel(isActive: isActive, pixel: pixel))
             .contentShape(Rectangle())
             .onTapGesture(perform: action)

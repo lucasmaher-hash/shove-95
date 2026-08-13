@@ -567,7 +567,9 @@ Xcode 26.6 toolchain; Swift Testing (bundled) for Shove95Kit tests.
 
 ## 13. Out of Scope
 
-Per `product-vision.md` § Explicitly Out of Scope, all deferred with reasoning there: dark mode (likely never), notifications/reminders (v1.1 — most valuable deferred feature), macOS app (immediately post-v1; Shove95Kit exists for it), multiple photos, recurring tasks / subtasks / tags / projects / search / collaboration (permanently, barring proven daily need), statistics/streaks (brand-incompatible), data export (pre-requisite only if external users ever matter). Also out of scope for v1: iPad-optimized layout (iPhone layout runs compatibly), widgets, Watch, Siri/Shortcuts, localization (English UI only).
+**Revised 2026-08-14:** dark mode has SHIPPED and is no longer out of scope — Light / Dark / System as one global `AppearanceMode`, with dark palettes for all five Win95 schemes plus the skeu look. See `design.md` §1 for the structural rules the dark palettes obey. A second design mode (`DesignMode.skeu`, soft skeuomorphism) also ships alongside the Windows 95 look; see `SKEUOMORPHIC_DESIGN_SYSTEM.md` and `skeu-mode-plan.md`.
+
+Per `product-vision.md` § Explicitly Out of Scope, all deferred with reasoning there: notifications/reminders (v1.1 — most valuable deferred feature), macOS app (immediately post-v1; Shove95Kit exists for it), multiple photos, recurring tasks / subtasks / tags / projects / search / collaboration (permanently, barring proven daily need), statistics/streaks (brand-incompatible), data export (pre-requisite only if external users ever matter). Also out of scope for v1: iPad-optimized layout (iPhone layout runs compatibly), widgets, Watch, Siri/Shortcuts, localization (English UI only).
 
 -----
 

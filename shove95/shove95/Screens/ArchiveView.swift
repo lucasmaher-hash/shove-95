@@ -50,7 +50,6 @@ struct ArchiveView: View {
         }
         .background(Win95.surface)
         .ignoresSafeArea(.container, edges: .bottom)
-        .preferredColorScheme(.light)
     }
 
     /// Newest day first; the day itself is the only grouping (PRD § Archive).

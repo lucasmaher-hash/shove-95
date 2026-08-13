@@ -72,7 +72,6 @@ struct AboutView: View {
         }
         .background(Win95.surface)
         .ignoresSafeArea(.container, edges: .bottom)
-        .preferredColorScheme(.light)
     }
 
     private var version: String {

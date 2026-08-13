@@ -41,13 +41,10 @@ struct TaskListView: View {
         ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 0) {
-                if active.isEmpty && completed.isEmpty {
-                    Text("(empty)")
-                        .font(W95Font.standard(pixel))
-                        .foregroundStyle(Win95.shadow)
-                        .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel) * 2)
-                }
-
+                // No empty-state text: the add row's own "add" placeholder
+                // already says the list is empty and where to start — a
+                // second "(empty)" line above it was saying the same thing
+                // twice (founder direction 2026-08-14).
                 ForEach(active, id: \.id) { task in
                     TaskRowView(task: task)
                         .id(task.id.uuidString)

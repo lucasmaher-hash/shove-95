@@ -429,7 +429,7 @@ struct TaskRowView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(150))
             withAnimation(.spring(duration: 0.25)) {
-                store.step(task, direction: direction)
+                _ = store.step(task, direction: direction) // destination unused here
             }
             dragOffset = 0 // row identity survives the move
         }
@@ -532,7 +532,6 @@ private struct PhotoViewer: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .preferredColorScheme(.light)
     }
 
     private func window(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {

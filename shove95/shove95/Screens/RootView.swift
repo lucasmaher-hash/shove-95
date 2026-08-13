@@ -146,7 +146,6 @@ struct RootView: View {
         .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
         .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
-        .preferredColorScheme(.light) // Win95 has no dark mode (design.md §1)
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).

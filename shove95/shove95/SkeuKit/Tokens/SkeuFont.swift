@@ -1,0 +1,84 @@
+//
+//  SkeuFont.swift
+//  shove95
+//
+//  Typography (§6). SF Pro for UI, New York for the wordmark, rounded numerals
+//  for counters.
+//
+//  Two deliberate departures from the doc's literal code:
+//
+//  1. Tokens map to system TEXT STYLES rather than fixed point sizes, so
+//     Dynamic Type works natively. §6.3 sanctions this explicitly — the fixed
+//     sizes in §6.2 are the design reference, not the shipping values. The
+//     mapping is chosen so the default (Large) size matches the reference: e.g.
+//     `title1` → `.title` is 28pt on the nose.
+//
+//  2. The tokens honour a typeface switch, because the founder kept that choice
+//     in the menu — the bitmap face stays reachable from the skeu look too.
+//     W95FA is set ~1.22× the system size: the inverse of the 0.82 factor
+//     W95Font already uses to keep the two faces optically level.
+//
+//     The selection is SEPARATE from `W95Font.face`. The two looks default
+//     differently — SF Pro here, W95FA there — and sharing one value would mean
+//     the skeu screens silently inheriting a bitmap face they were not drawn
+//     for, which is exactly what the first build did.
+//
+
+import SwiftUI
+
+enum SkeuFont {
+
+    /// Set from `AppSettings` before any view renders — a static for the same
+    /// reason `W95Font.face` is one: every view in the tree reads it.
+    nonisolated(unsafe) static var face: AppFace = .system
+
+    // MARK: Display
+
+    /// The wordmark. New York, italic — the reference uses a high-contrast
+    /// serif here, and New York is the system serif, so nothing gets bundled.
+    static var display: Font {
+        switch SkeuFont.face {
+        case .w95:    .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+        case .system: .system(.largeTitle, design: .serif).italic()
+        }
+    }
+
+    // MARK: Titles
+
+    static var title1: Font { styled(.title, weight: .semibold, w95: 34) }
+    static var title2: Font { styled(.title2, weight: .semibold, w95: 27) }
+    static var title3: Font { styled(.title3, weight: .semibold, w95: 24) }
+
+    // MARK: Body
+
+    static var body: Font { styled(.body, weight: .regular, w95: 20) }
+    static var bodyEmph: Font { styled(.body, weight: .medium, w95: 20) }
+    static var callout: Font { styled(.subheadline, weight: .regular, w95: 18) }
+    static var caption: Font { styled(.footnote, weight: .regular, w95: 16) }
+
+    /// Section eyebrows. Pair with `.textCase(.uppercase)`, `.tracking(0.8)`
+    /// and `inkFaint` — always as the top line of a two-line stack.
+    static var eyebrow: Font { styled(.caption2, weight: .semibold, w95: 13) }
+
+    // MARK: Numerals
+
+    /// Counters and balances. Monospaced digits so a changing number does not
+    /// shuffle the layout around it.
+    static var numeral: Font {
+        switch SkeuFont.face {
+        case .w95:    .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+        case .system: .system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit()
+        }
+    }
+
+    /// Maps a token onto a system text style, or onto W95FA at the equivalent
+    /// optical size when the bitmap face is selected.
+    private static func styled(_ style: Font.TextStyle,
+                               weight: Font.Weight,
+                               w95 size: CGFloat) -> Font {
+        switch SkeuFont.face {
+        case .w95:    .custom(W95Font.postScriptName, size: size, relativeTo: style)
+        case .system: .system(style).weight(weight)
+        }
+    }
+}
