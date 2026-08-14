@@ -79,6 +79,7 @@ private struct SkeuSheet<Content: View>: View {
                         .padding(.bottom, SkeuSpace.xxl)
                 }
                 .scrollBounceBehavior(.always, axes: .vertical)
+        .scrollIndicators(.hidden)
             }
         }
     }

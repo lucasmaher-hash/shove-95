@@ -85,8 +85,17 @@ struct SkeuSettingsView: View {
             skeu.canvas.ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: G.sectionGap) {
+                // LAZY, not a plain VStack. Seven cards, each carrying a
+                // trough (four inner shadows apiece) and the selected option's
+                // glass (five blurred lens layers, two additive gradients,
+                // three shadows) — all of it was being rasterised on the first
+                // frame, while the sheet was still sliding up. That is what
+                // made the presentation stutter (founder bug report
+                // 2026-08-14). Only the cards actually on screen now render.
+                LazyVStack(alignment: .leading, spacing: G.sectionGap) {
                     header
+                        // Lands the ✕ on exactly the gear's y — see SkeuTopBar.
+                        .padding(.top, SkeuTopBar.inset)
 
                     panel("Design") {
                         ForEach(DesignMode.allCases, id: \.self) { mode in
@@ -128,9 +137,10 @@ struct SkeuSettingsView: View {
                     workspacesPanel
                     dataPanel
                 }
-                .padding(.horizontal, 21.5) // the screen margin of the root
+                .padding(.horizontal, SkeuTopBar.margin) // the root's screen margin
                 .padding(.vertical, SkeuSpace.md)
             }
+            .scrollIndicators(.hidden)
         }
         .fullScreenCover(isPresented: $showArchive) {
             SkeuArchiveView { showArchive = false }
@@ -216,12 +226,15 @@ struct SkeuSettingsView: View {
                 SkeuHaptic.press()
                 onClose()
             } label: {
+                // Same size, same glyph weight and same corner as the gear
+                // this sheet opened from — see SkeuTopBar.
+                let size = SkeuTopBar.control * chromeScale
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: SkeuTopBar.icon * chromeScale, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
-                    .frame(width: circleSize, height: circleSize)
-                    .skeuGlass(Circle(), height: circleSize)
+                    .frame(width: size, height: size)
+                    .skeuGlass(Circle(), height: size)
             }
             .buttonStyle(.plain)
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
@@ -285,6 +298,12 @@ struct SkeuSettingsView: View {
         }
         .shadow(color: drop(0.19), radius: 26.8, x: -6.5, y: 10.6)
         .shadow(color: drop(0.16), radius: 49, x: -25.4, y: 42)
+        // Rasterise the finished card once instead of re-rendering its
+        // gradients, inner shadows and lens stack every frame of the sheet's
+        // slide. The card's content is static between taps, so there is
+        // nothing to lose — and `plusLighter` still composites correctly
+        // because the material it brightens lives inside this same group.
+        .compositingGroup()
     }
 
     /// A labelled option pill. Options share the trough's width evenly, as the
@@ -305,7 +324,15 @@ struct SkeuSettingsView: View {
                 .padding(.horizontal, G.pillPadH * 0.6)
                 .frame(maxWidth: .infinity)
                 .frame(height: pillH)
-                .skeuGlass(Capsule(), height: pillH, prominent: selected)
+                // ONLY the selected option wears glass (founder direction
+                // 2026-08-14). A lens on every choice made the row read as
+                // four buttons with no answer to "which one is on"; the
+                // selection now carries the only surface in the trough.
+                .background {
+                    if selected {
+                        Color.clear.skeuGlass(Capsule(), height: pillH)
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
@@ -368,6 +395,12 @@ struct SkeuSettingsView: View {
         }
         .shadow(color: drop(0.19), radius: 26.8, x: -6.5, y: 10.6)
         .shadow(color: drop(0.16), radius: 49, x: -25.4, y: 42)
+        // Rasterise the finished card once instead of re-rendering its
+        // gradients, inner shadows and lens stack every frame of the sheet's
+        // slide. The card's content is static between taps, so there is
+        // nothing to lose — and `plusLighter` still composites correctly
+        // because the material it brightens lives inside this same group.
+        .compositingGroup()
     }
 
     /// A text field in a trough, with an optional control at its trailing end.

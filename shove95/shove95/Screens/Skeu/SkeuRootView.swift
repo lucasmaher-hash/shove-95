@@ -77,7 +77,10 @@ private enum F {
     /// eats the rest. Notes clears ~55pt by drawing INTO that inset, so this
     /// lifts by the difference. Small on purpose: the status bar's own glyphs
     /// sit above this line, and a larger lift would run the pill into them.
-    static let marginTopLift = -8.0
+    /// Positive now (founder direction 2026-08-14): the negative lift put the
+    /// workspace pill and gear tight against the status-bar glyphs. They sit
+    /// just below the safe area instead.
+    static let marginTopLift = 6.0
 
     // Workspace bar — node 2:655, positioned by 2:654
     static let topHeight = 145.8 * s * scaleUp        // 39.2 → 50.2
@@ -114,6 +117,18 @@ private enum F {
     /// halo pooled at the ends and pinched at the edges. The vertical wins.
     static let bloomOverhang = 15.4 * s * scaleUp     // 4.1 → 5.3
 
+    /// The tab bar's own type size and pill padding, SMALLER than the shared
+    /// `label`/`glassPadH`.
+    ///
+    /// Four labels have to share the phone's width, and "Tomorrow" is the
+    /// longest word in the app. At the shared 16.4 it did not fit its quarter,
+    /// so `minimumScaleFactor` shrank that ONE label and the row read as three
+    /// normal tabs and one small one (founder bug report 2026-08-14). Sizing
+    /// the row so its widest member fits keeps every label identical, which is
+    /// the whole point of a four-up toggle.
+    static let tabLabel = 41 * s * scaleUp            // 11.0 → 14.1
+    static let tabPillPadH = 22 * s * scaleUp         // 5.9 → 7.6
+
     // Task rows — no frame reference yet; sized against the bars.
     static let rowHeight: CGFloat = 44 * scaleUp      // 56.3
     static let rowGap: CGFloat = 2 * scaleUp          // 2.6
@@ -134,6 +149,10 @@ struct SkeuRootView: View {
 
     @State private var showSettings = false
     @State private var bucket: Bucket = .today
+    /// Which way the last tab change travelled — decided BEFORE `bucket`
+    /// moves, so both halves of the transition agree on a direction. Same
+    /// mechanism the Win95 root uses.
+    @State private var goingRight = true
     @State private var draft = ""
     @FocusState private var addFocused: Bool
     @State private var menu = MenuCoordinator()
@@ -190,12 +209,27 @@ struct SkeuRootView: View {
                 workspaceBar
                     .padding(.horizontal, F.margin)
                     .padding(.top, F.marginTopLift)
-                taskList
-                    .padding(.horizontal, F.margin)
-                    // The undo panel FLOATS over the list rather than taking
-                    // layout space, so it can come and go without shifting the
-                    // rows — and it sits above the tab bar, not inside it.
-                    .overlay(alignment: .bottom) { undoPanel }
+                // Tabs slide in from the side they live on: tapping a tab to
+                // the right brings its list in from the right. Only the LIST
+                // travels — the bars are furniture and hold still, so the
+                // frame reads as fixed and the content as moving through it
+                // (the Win95 root's rule, matched here).
+                ZStack {
+                    taskList
+                        .id(bucket)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: goingRight ? .trailing : .leading),
+                            removal: .move(edge: goingRight ? .leading : .trailing)
+                        ))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped() // contents travel; the window never does
+                .padding(.horizontal, F.margin)
+                // The undo panel FLOATS over the list rather than taking
+                // layout space, so it can come and go without shifting the
+                // rows — and it sits above the tab bar, not inside it. Outside
+                // the slide, so it doesn't ride along.
+                .overlay(alignment: .bottom) { undoPanel }
                 tabBar
                     .padding(.horizontal, F.margin)
                     .padding(.bottom, F.marginNotch)
@@ -244,9 +278,10 @@ struct SkeuRootView: View {
             // The gear stands in for the frame's ✚ — this screen still has to
             // reach Settings, and there is nowhere else yet.
             Button { showSettings = true } label: {
-                let size = glyphBox * F.topControlScale
+                // Shared with the ✕ that closes every sheet — see SkeuTopBar.
+                let size = SkeuTopBar.control * chromeScale
                 Image(systemName: "gearshape")
-                    .font(.system(size: glyphSize * F.topControlScale, weight: .medium))
+                    .font(.system(size: SkeuTopBar.icon * chromeScale, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: size, height: size)
@@ -316,6 +351,7 @@ struct SkeuRootView: View {
         .scrollDismissesKeyboard(.interactively)
         // The give at the limit is what tells you the list ended.
         .scrollBounceBehavior(.always, axes: .vertical)
+        .scrollIndicators(.hidden)
         // The list carries its own bottom inset so the keyboard has somewhere
         // to sit. `.ignoresSafeArea(.keyboard)` above keeps the BARS docked,
         // and that same modifier is why automatic field-avoidance never fires
@@ -590,18 +626,19 @@ struct SkeuRootView: View {
             let pillHeight = bottomBarHeight - F.glassPadV * 2
             ForEach(Bucket.line, id: \.self) { line in
                 Text(settings.name(for: line))
-                    .font(.system(size: labelSize))
-                    .tracking(-0.02 * F.label)
+                    .font(.system(size: F.tabLabel * textScale))
+                    .tracking(-0.02 * F.tabLabel)
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     // NOT fixedSize: that pins each label to its full
                     // intrinsic width, so at large Dynamic Type the four of
                     // them together exceeded the screen and pushed the whole
                     // layout off both edges — checkboxes clipped on the left,
-                    // the gear on the right. Shrinking to fit is the correct
-                    // failure mode for a fixed-width four-up bar.
+                    // the gear on the right. The scale floor is the last
+                    // resort for accessibility sizes; at normal sizes
+                    // `tabLabel` is chosen so nothing shrinks at all.
                     .minimumScaleFactor(0.5)
-                    .padding(.horizontal, F.glassPadH)
+                    .padding(.horizontal, F.tabPillPadH)
                     .padding(.vertical, F.glassPadV)
                     .background {
                         if bucket == line {
@@ -612,13 +649,21 @@ struct SkeuRootView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        SkeuHaptic.selection()
-                        withAnimation(SkeuMotion.layout) { bucket = line }
-                    }
+                    .onTapGesture { select(line) }
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Resolves the slide direction BEFORE the selection moves, so the
+    /// outgoing and incoming lists agree on which way they are travelling.
+    private func select(_ line: Bucket) {
+        guard line != bucket,
+              let from = Bucket.line.firstIndex(of: bucket),
+              let to = Bucket.line.firstIndex(of: line) else { return }
+        SkeuHaptic.selection()
+        goingRight = to > from
+        withAnimation(SkeuMotion.layout) { bucket = line }
     }
 
     // MARK: Pieces
@@ -1199,15 +1244,15 @@ private struct SkeuTaskRow: View {
                                                   isCompleted: task.isCompleted,
                                                   now: store.now(),
                                                   calendar: store.calendar) {
-                // A glass lozenge, not a flat tinted block: in this look every
-                // object earns its presence from light. Hit-transparent, like
-                // the title and the thumbnails — the row owns the touch.
+                // BARE TEXT — no glass, no frame (founder direction
+                // 2026-08-14). The chip states a fact; it is not a control,
+                // and a lens around it read as something you could press.
+                // Hit-transparent like the title and the thumbnails — the row
+                // owns the touch.
                 Text(chip)
                     .font(.system(size: labelSize * 0.85, weight: .medium))
-                    .foregroundStyle(skeu.ink)
+                    .foregroundStyle(skeu.inkMuted)
                     .padding(.horizontal, SkeuSpace.sm)
-                    .frame(height: 24)
-                    .skeuGlass(Capsule(), height: 24)
                     .frame(height: rowH)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true) // the row's label already says it

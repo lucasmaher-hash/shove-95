@@ -60,6 +60,26 @@ enum SkeuControl {
     static let minTouch: CGFloat = 44
 }
 
+// MARK: - Top-bar control
+
+/// The round control in the top-right corner: the gear on the main screen, the
+/// ✕ on every sheet. Shared rather than defined twice, because the two are the
+/// same button in two states — a sheet opens from the gear and closes back to
+/// it, so any drift in size or position reads as the button jumping (founder
+/// direction 2026-08-14).
+///
+/// Multiply by the chrome scale at the call site for Dynamic Type.
+enum SkeuTopBar {
+    /// 37 × 1.2 — the frame's round button at the top bar's own +20%.
+    static let control: CGFloat = 44.4
+    /// 18.5 × 1.2 — its glyph.
+    static let icon: CGFloat = 22.2
+    /// Distance below the safe area. Matches the main screen's top bar.
+    static let inset: CGFloat = 6.0
+    /// Page-edge inset, horizontal.
+    static let margin: CGFloat = 21.5
+}
+
 // MARK: - Spacing (§7)
 
 enum SkeuSpace {
