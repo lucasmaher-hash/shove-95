@@ -125,6 +125,8 @@ private enum F {
 
 struct SkeuRootView: View {
     @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
@@ -135,8 +137,25 @@ struct SkeuRootView: View {
     @State private var draft = ""
     @FocusState private var addFocused: Bool
     @State private var menu = MenuCoordinator()
+    /// Which field is open and where its bottom edge sits — the same
+    /// coordinator the Win95 list uses, so both looks lift fields identically.
+    @State private var editing = EditingCoordinator()
     /// How much of the list the keyboard is covering, in points.
     @State private var keyboardOverlap: CGFloat = 0
+    /// The keyboard's top edge in global coordinates; .infinity when hidden.
+    @State private var keyboardTop: CGFloat = .infinity
+
+    // Dynamic Type (FR-015): text on the full curve, chrome at half — see
+    // SkeuTypeScale for why the two differ. The BARS are fixed-height chrome
+    // transcribed from the Figma frame, so they take the gentler curve; the
+    // labels inside them take the full one and truncate if they must.
+    private var labelSize: CGFloat { F.label * textScale }
+    private var rowH: CGFloat { F.rowHeight * chromeScale }
+    private var checkSize: CGFloat { F.check * chromeScale }
+    private var glyphSize: CGFloat { F.plusIcon * chromeScale }
+    private var glyphBox: CGFloat { F.plus * chromeScale }
+    private var topBarHeight: CGFloat { F.topHeight * chromeScale }
+    private var bottomBarHeight: CGFloat { F.bottomHeight * chromeScale }
 
     /// The tab bar's glass pill glides from the old selection to the new one
     /// instead of popping in fresh each time (founder direction 2026-08-14).
@@ -157,6 +176,11 @@ struct SkeuRootView: View {
     @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
     @State private var pendingPhotos: [Data] = []
+    /// The add row's frame in global space — reported to the editing
+    /// coordinator so a focused field can be lifted above the keyboard.
+    @State private var addRowFrame: CGRect = .zero
+    /// Guards against a double insert when both Return paths fire.
+    @State private var committingAdd = false
 
     var body: some View {
         ZStack {
@@ -183,6 +207,7 @@ struct SkeuRootView: View {
         // The row menu draws above everything, unclipped by the scroll view.
         .overlay { SkeuMenuOverlay() }
         .environment(menu)
+        .environment(editing)
         // The store's queries are scoped to the active workspace. The Win95
         // root does this sync when IT is mounted; in skeu mode this view is
         // the one that has to keep the scope pointed at the user's pick.
@@ -192,14 +217,19 @@ struct SkeuRootView: View {
         }
         .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
         .onChange(of: store.revision) { syncWorkspaceScope() }
+        // Fires at midnight, timezone changes and clock changes (PRD §2). The
+        // Win95 root has always done this; without it here, a task left
+        // overnight in the skeu look never gets its arrival placement and the
+        // day boundary silently passes — a DATA bug, not a cosmetic one.
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.significantTimeChangeNotification)) { _ in
+            store.runDayRolloverPassIfNeeded()
+        }
         .fullScreenCover(isPresented: $showSettings) {
-            // Wrapped in the magnifier so the panels can be inspected like the
-            // rest of the look. Switching design to Windows 95 in there removes
-            // THIS view from AppShell, which tears the cover down and lands on
-            // the Win95 root — exactly the right behaviour, free of charge.
-            ZoomInspector {
-                SkeuSettingsView { showSettings = false }
-            }
+            // Switching design to Windows 95 in there removes THIS view from
+            // AppShell, which tears the cover down and lands on the Win95
+            // root — exactly the right behaviour, free of charge.
+            SkeuSettingsView { showSettings = false }
         }
     }
 
@@ -214,9 +244,9 @@ struct SkeuRootView: View {
             // The gear stands in for the frame's ✚ — this screen still has to
             // reach Settings, and there is nowhere else yet.
             Button { showSettings = true } label: {
-                let size = F.plus * F.topControlScale
+                let size = glyphBox * F.topControlScale
                 Image(systemName: "gearshape")
-                    .font(.system(size: F.plusIcon * F.topControlScale, weight: .medium))
+                    .font(.system(size: glyphSize * F.topControlScale, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: size, height: size)
@@ -235,25 +265,42 @@ struct SkeuRootView: View {
 
         // ScrollView, not List — List eats the horizontal pans the app's core
         // swipe will need (the TASK-019 spike finding; same reason as Win95).
-        return ScrollView {
+        //
+        // ScrollViewReader so a field that opens under the keyboard can be
+        // lifted to sit just above it, exactly as TaskListView does. Without
+        // it, editing a row near the bottom put the caret behind the keyboard
+        // with no way to see what you were typing.
+        return ScrollViewReader { proxy in
+        ScrollView {
             LazyVStack(spacing: F.rowGap) {
                 // No empty-state text: the add row's own "add" placeholder
                 // already says the list is empty and where to start.
                 ForEach(active, id: \.id) { task in
                     taskRow(task)
+                        .id(task.id.uuidString)
                 }
 
                 if !completed.isEmpty {
                     Color.clear.frame(height: F.rowGap)
                     ForEach(completed, id: \.id) { task in
                         taskRow(task)
+                            .id(task.id.uuidString)
                     }
                 }
 
                 addRow
+                    .id(EditingCoordinator.addRowID)
             }
             .padding(.vertical, SkeuSpace.lg)
         }
+        .onChange(of: editing.focused) { _, _ in
+            // A beat for the inset to land, then lift the field if it needs it.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                liftFocusedFieldIfCovered(proxy)
+            }
+        }
+        .onChange(of: keyboardTop) { _, _ in liftFocusedFieldIfCovered(proxy) }
         .scrollDismissesKeyboard(.interactively)
         // The give at the limit is what tells you the list ended.
         .scrollBounceBehavior(.always, axes: .vertical)
@@ -273,10 +320,24 @@ struct SkeuRootView: View {
             // What the keyboard covers, minus the chrome already parked down
             // there: only the part that eats into the list matters.
             let covered = max(0, screenHeight - frame.origin.y)
-            let chrome = F.bottomHeight + F.margin * 2
+            let chrome = bottomBarHeight + F.margin * 2
+            keyboardTop = covered > 0 ? frame.origin.y : .infinity
             withAnimation(.easeOut(duration: 0.25)) {
                 keyboardOverlap = max(0, covered - chrome)
             }
+        }
+        } // ScrollViewReader
+    }
+
+    /// Docks the focused field just above the keyboard — but ONLY if the
+    /// keyboard is actually covering it. A field already in the clear stays
+    /// exactly where it is (founder spec 2026-08-04); yanking it would be as
+    /// disorienting as hiding it.
+    private func liftFocusedFieldIfCovered(_ proxy: ScrollViewProxy) {
+        guard let id = editing.focused, editing.focusedBottom > 0 else { return }
+        guard editing.focusedBottom + SkeuSpace.md > keyboardTop else { return }
+        withAnimation(.easeOut(duration: 0.25)) {
+            proxy.scrollTo(id, anchor: .bottom)
         }
     }
 
@@ -297,19 +358,33 @@ struct SkeuRootView: View {
     private var addRow: some View {
         HStack(spacing: F.glassGap) {
             ZStack {}
-                .frame(width: F.check, height: F.check)
-                .skeuGlass(Circle(), height: F.check, prominent: false)
+                .frame(width: checkSize, height: checkSize)
+                .skeuGlass(Circle(), height: checkSize, prominent: false)
                 .frame(width: SkeuControl.minTouch, height: SkeuControl.minTouch)
                 .contentShape(Rectangle())
                 .onTapGesture { addFocused = true }
 
-            TextField("", text: $draft,
-                      prompt: Text("add").foregroundStyle(skeu.inkFaint))
-                .font(.system(size: F.label))
+            // Vertical axis so a long entry wraps and the row grows a line at a
+            // time, matching the Win95 add row. That growth is the ONLY way a
+            // line is added — Return is a commit, never a break.
+            TextField("", text: returnCommittingAdd,
+                      prompt: Text("add").foregroundStyle(skeu.inkFaint),
+                      axis: .vertical)
+                .lineLimit(1...4)
+                .font(.system(size: labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($addFocused)
                 .submitLabel(.done)
+                // BOTH Return paths — see AddRowView.returnCommitting for why
+                // intercepting only one of them fails on device.
                 .onSubmit(commitAdd)
+                .onChange(of: addFocused) { _, isFocused in
+                    if isFocused {
+                        editing.begin(EditingCoordinator.addRowID, bottom: addRowFrame.maxY)
+                    } else {
+                        editing.end(EditingCoordinator.addRowID)
+                    }
+                }
 
             // Photos picked mid-composition wait here, visibly, until commit.
             ForEach(Array(pendingPhotos.enumerated()), id: \.offset) { _, data in
@@ -317,7 +392,7 @@ struct SkeuRootView: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: F.check, height: F.check)
+                        .frame(width: checkSize, height: checkSize)
                         .clipShape(RoundedRectangle(cornerRadius: SkeuRadius.xs,
                                                     style: .continuous))
                 }
@@ -335,10 +410,10 @@ struct SkeuRootView: View {
                     // direction 2026-08-14). It keeps the full-size frame so
                     // the tap target stays honest; only the surface is gone.
                     Image(systemName: "camera")
-                        .font(.system(size: F.plusIcon, weight: .medium))
+                        .font(.system(size: glyphSize, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(skeu.ink)
-                        .frame(width: F.plus, height: F.plus)
+                        .frame(width: glyphBox, height: glyphBox)
                 }
                 .buttonStyle(.plain)
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -347,8 +422,15 @@ struct SkeuRootView: View {
         }
         .padding(.leading, SkeuSpace.xs)
         .padding(.trailing, F.padTrail)
-        .frame(minHeight: F.rowHeight)
+        .frame(minHeight: rowH)
         .animation(SkeuMotion.press, value: addFocused)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.frame(in: .global)) { _, new in addRowFrame = new }
+                    .task { addRowFrame = proxy.frame(in: .global) }
+            }
+        }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
@@ -378,19 +460,45 @@ struct SkeuRootView: View {
         }
     }
 
-    private func commitAdd() {
-        // Buffered photos attach HERE, to the task the user was composing —
-        // not to some fresh context the moment the camera was pressed.
-        if let task = store.addTask(title: draft, in: bucket) {
-            for data in pendingPhotos {
-                store.addPhoto(task, data: data)
+    /// The newline half of the Return story — see `AddRowView.returnCommitting`
+    /// for why both this and `onSubmit` have to be wired.
+    private var returnCommittingAdd: Binding<String> {
+        Binding(
+            get: { draft },
+            set: { new in
+                guard new.contains("\n") else { draft = new; return }
+                draft = new.replacingOccurrences(of: "\n", with: "")
+                commitAdd()
             }
-            pendingPhotos = []
+        )
+    }
+
+    private func commitAdd() {
+        guard !committingAdd else { return } // second call for one Return
+        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else {
+            draft = ""
+            Task { @MainActor in addFocused = false }
+            return
         }
+        committingAdd = true
         draft = ""
-        // Keyboard dismisses on commit: a field that stays open reads as
-        // "still typing" and hides the list you just added to.
-        addFocused = false
+        // Deferred: a store write and a focus change from inside a binding
+        // setter both land mid-update, where SwiftUI drops them.
+        Task { @MainActor in
+            // Buffered photos attach HERE, to the task the user was composing —
+            // not to some fresh context the moment the camera was pressed.
+            if let task = store.addTask(title: title, in: bucket) {
+                for data in pendingPhotos {
+                    store.addPhoto(task, data: data)
+                }
+                pendingPhotos = []
+            }
+            // Keyboard dismisses on commit: a field that stays open reads as
+            // "still typing" and hides the list you just added to.
+            addFocused = false
+            committingAdd = false
+        }
     }
 
     // MARK: Undo
@@ -403,14 +511,14 @@ struct SkeuRootView: View {
         if let action = store.lastAction {
             HStack(spacing: F.glassGap) {
                 Text(action.statusText(name: settings.name))
-                    .font(.system(size: F.label))
+                    .font(.system(size: labelSize))
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text("Undo")
-                    .font(.system(size: F.label, weight: .medium))
+                    .font(.system(size: labelSize, weight: .medium))
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     .padding(.horizontal, F.glassPadH)
@@ -448,7 +556,7 @@ struct SkeuRootView: View {
         // to General than to Today (founder bug report 2026-08-14). The tab
         // bar is a fully centred four-up toggle, not a positioned frame
         // element, so it gets equal breathing room on both sides instead.
-        trough(height: F.bottomHeight, spacing: 0, symmetric: true) {
+        trough(height: bottomBarHeight, spacing: 0, symmetric: true) {
             // Equal-width columns, not the frame's fixed 122.79 gap or a
             // Spacer-packed row: either of those lets the group drift off
             // whichever side has the bigger neighbour, and the label inside
@@ -467,14 +575,20 @@ struct SkeuRootView: View {
             // the text across with the pill; the founder's note was that the
             // words should hold still and only the lens should travel
             // (2026-08-14).
-            let pillHeight = F.bottomHeight - F.glassPadV * 2
+            let pillHeight = bottomBarHeight - F.glassPadV * 2
             ForEach(Bucket.line, id: \.self) { line in
                 Text(settings.name(for: line))
-                    .font(.system(size: F.label))
+                    .font(.system(size: labelSize))
                     .tracking(-0.02 * F.label)
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
-                    .fixedSize()
+                    // NOT fixedSize: that pins each label to its full
+                    // intrinsic width, so at large Dynamic Type the four of
+                    // them together exceeded the screen and pushed the whole
+                    // layout off both edges — checkboxes clipped on the left,
+                    // the gear on the right. Shrinking to fit is the correct
+                    // failure mode for a fixed-width four-up bar.
+                    .minimumScaleFactor(0.5)
                     .padding(.horizontal, F.glassPadH)
                     .padding(.vertical, F.glassPadV)
                     .background {
@@ -562,6 +676,8 @@ struct SkeuRootView: View {
 private struct SkeuWorkspacePill: View {
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
 
     @State private var isOpen = false
 
@@ -571,10 +687,10 @@ private struct SkeuWorkspacePill: View {
         let others = workspaces.filter { $0.id != settings.currentWorkspaceID }
         // Everything in here rides the same +20% as the gear, font included,
         // so the pill grows as one piece instead of a bigger box around
-        // unchanged text.
+        // unchanged text. Dynamic Type layers on top of that.
         let scale = F.topControlScale
-        let label = F.label * scale
-        let rowHeight = (F.topHeight - F.glassPadV * 2) * scale
+        let label = F.label * scale * textScale
+        let rowHeight = (F.topHeight - F.glassPadV * 2) * scale * chromeScale
 
         return VStack(alignment: .leading, spacing: 0) {
             Button {
@@ -586,7 +702,10 @@ private struct SkeuWorkspacePill: View {
                         .font(.system(size: label))
                         .tracking(-0.02 * label)
                         .lineLimit(1)
-                        .fixedSize()
+                        // Shrink rather than pin: a long workspace name at
+                        // large Dynamic Type used to push the settings gear
+                        // clean off the screen.
+                        .minimumScaleFactor(0.6)
 
                     // Two strokes, nothing else — no circle, no glass of its
                     // own. It rides inside the pill it controls, the same way
@@ -663,8 +782,19 @@ private struct SkeuTaskRow: View {
     @Environment(\.skeu) private var skeu
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
+    @Environment(EditingCoordinator.self) private var editing
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
     let task: TaskItem
+
+    // Dynamic Type (FR-015): text on the full curve, chrome at half — see
+    // SkeuTypeScale for why the two differ.
+    private var labelSize: CGFloat { F.label * textScale }
+    private var rowH: CGFloat { F.rowHeight * chromeScale }
+    private var checkSize: CGFloat { F.check * chromeScale }
+    private var glyphSize: CGFloat { F.plusIcon * chromeScale }
+    private var glyphBox: CGFloat { F.plus * chromeScale }
 
     @State private var isPressing = false
     @State private var dragOffset: CGFloat = 0
@@ -757,10 +887,62 @@ private struct SkeuTaskRow: View {
                     SkeuPhotoViewer(image: image) { viewerIndex = nil }
                 }
             }
+            // VoiceOver (FR-016). The row's whole interaction vocabulary is
+            // custom — a UIKit swipe and a press-and-hold menu, neither of
+            // which VoiceOver can perform — so every move has to exist as a
+            // named action too. Without this the skeu look was a dead end for
+            // VoiceOver users: they could tick a task off and nothing more.
+            //
+            // Collapsed to ONE element only while resting. Doing it during an
+            // edit would swallow the TextField and leave no way to reach the
+            // caret — the row has to hand its children back the moment it
+            // becomes an input.
+            .accessibilityElement(children: isEditing ? .contain : .ignore)
+            .accessibilityLabel(isEditing ? "" : accessibilityDescription)
+            .accessibilityActions { if !isEditing { accessibilityMoveActions } }
     }
 
     private var currentBucket: Bucket {
         task.bucket(now: store.now(), calendar: store.calendar)
+    }
+
+    // MARK: VoiceOver
+
+    private var accessibilityDescription: String {
+        var parts = [task.title]
+        if task.isImportant { parts.append("important") }
+        if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                       now: store.now(), calendar: store.calendar) {
+            parts.append("overdue since \(chip)")
+        }
+        if !task.allPhotos.isEmpty {
+            parts.append(task.allPhotos.count == 1 ? "1 photo"
+                                                   : "\(task.allPhotos.count) photos")
+        }
+        if task.isCompleted { parts.append("completed") }
+        return parts.joined(separator: ", ")
+    }
+
+    @ViewBuilder
+    private var accessibilityMoveActions: some View {
+        Button(task.isCompleted ? "Uncomplete" : "Complete") { store.toggleCompleted(task) }
+        if !task.isCompleted {
+            if currentBucket.steppedOnce(.deferOne) != nil {
+                Button("Defer one step") { _ = store.step(task, direction: .deferOne) }
+            }
+            if currentBucket.steppedOnce(.pullOne) != nil {
+                Button("Pull forward one step") { _ = store.step(task, direction: .pullOne) }
+            }
+            ForEach(currentBucket.menuDestinations, id: \.label) { destination in
+                Button("Move to \(destination.bucket.displayName)") {
+                    store.move(task, to: destination.bucket)
+                }
+            }
+            Button(task.isImportant ? "Unmark Important" : "Mark as Important") {
+                store.toggleImportant(task)
+            }
+        }
+        Button("Delete") { store.delete(task) }
     }
 
     private var handlers: RowGestureHandlers {
@@ -792,6 +974,9 @@ private struct SkeuTaskRow: View {
         draft = task.title
         isEditing = true
         addedPhotoThisEdit = false // fresh session, the camera returns
+        // Tells the list where this field sits, so it can be lifted clear of
+        // the keyboard if it opens underneath one.
+        editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
         // Focus must land AFTER the TextField exists — setting it in the same
         // pass that creates the field is a race.
         Task { @MainActor in editFocused = true }
@@ -800,6 +985,7 @@ private struct SkeuTaskRow: View {
     private func commitEdit() {
         guard isEditing else { return }
         isEditing = false
+        editing.end(task.id.uuidString)
         store.editTitle(task, to: draft) // empty draft → store reverts
     }
 
@@ -934,8 +1120,8 @@ private struct SkeuTaskRow: View {
                         .foregroundStyle(skeu.ink)
                 }
             }
-            .frame(width: F.check, height: F.check)
-            .skeuGlass(Circle(), height: F.check, prominent: task.isCompleted)
+            .frame(width: checkSize, height: checkSize)
+            .skeuGlass(Circle(), height: checkSize, prominent: task.isCompleted)
             // §3.3 minimum target: the gesture owns the full 44pt square.
             .frame(width: SkeuControl.minTouch, height: SkeuControl.minTouch)
             .contentShape(Rectangle())
@@ -950,7 +1136,7 @@ private struct SkeuTaskRow: View {
                 // Wraps by itself as the text grows — the only way a task
                 // gains a line. Return commits (intercepted in the binding).
                 TextField("", text: returnCommitting, axis: .vertical)
-                    .font(.system(size: F.label))
+                    .font(.system(size: labelSize))
                     .tracking(-0.02 * F.label)
                     // Important stays red while you edit it — the flag doesn't
                     // pause because the caret is in the field.
@@ -958,13 +1144,18 @@ private struct SkeuTaskRow: View {
                     .lineLimit(1...6)
                     .focused($editFocused)
                     .submitLabel(.done)
+                    // Return arrives EITHER as a "\n" in the binding or as a
+                    // submit, depending on the iOS build — see
+                    // AddRowView.returnCommitting. Both just drop focus;
+                    // `onChange` is the single commit point.
+                    .onSubmit { editFocused = false }
                     .onChange(of: editFocused) { _, focused in
                         if !focused { commitEdit() }
                     }
-                    .frame(minHeight: F.rowHeight)
+                    .frame(minHeight: rowH)
             } else {
                 Text(task.title)
-                    .font(.system(size: F.label))
+                    .font(.system(size: labelSize))
                     .tracking(-0.02 * F.label)
                     // Important stays red in EVERY look — colour carries
                     // exactly one meaning, the rule the Win95 side enforces.
@@ -974,7 +1165,7 @@ private struct SkeuTaskRow: View {
                     .strikethrough(task.isCompleted, color: skeu.inkMuted)
                     .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: F.rowHeight)
+                    .frame(minHeight: rowH)
                     .allowsHitTesting(false) // the ROW owns tap-to-edit
             }
 
@@ -984,11 +1175,11 @@ private struct SkeuTaskRow: View {
                 // One photo per session, matching the Win95 row.
                 // Bare glyph, no glass circle — see the add row's camera.
                 Image(systemName: "camera")
-                    .font(.system(size: F.plusIcon, weight: .medium))
+                    .font(.system(size: glyphSize, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
-                    .frame(width: F.plus, height: F.plus)
-                    .frame(width: SkeuControl.minTouch, height: F.rowHeight)
+                    .frame(width: glyphBox, height: glyphBox)
+                    .frame(width: SkeuControl.minTouch, height: rowH)
                     .contentShape(Rectangle())
                     .onTapGesture { chooseSource() }
                     .accessibilityLabel("Add photo")
@@ -1000,12 +1191,12 @@ private struct SkeuTaskRow: View {
                 // object earns its presence from light. Hit-transparent, like
                 // the title and the thumbnails — the row owns the touch.
                 Text(chip)
-                    .font(.system(size: F.label * 0.85, weight: .medium))
+                    .font(.system(size: labelSize * 0.85, weight: .medium))
                     .foregroundStyle(skeu.ink)
                     .padding(.horizontal, SkeuSpace.sm)
                     .frame(height: 24)
                     .skeuGlass(Capsule(), height: 24)
-                    .frame(height: F.rowHeight)
+                    .frame(height: rowH)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true) // the row's label already says it
             }
@@ -1015,7 +1206,7 @@ private struct SkeuTaskRow: View {
         // object. The troughs are reserved for chrome: bars, inputs, panels.
         .padding(.leading, SkeuSpace.xs)
         .padding(.trailing, F.padTrail)
-        .frame(minHeight: F.rowHeight)
+        .frame(minHeight: rowH)
     }
 
     /// Thumbnails accumulate left to right in the order added. Tapping one

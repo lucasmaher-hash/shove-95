@@ -51,14 +51,15 @@ struct AppShell: View {
                     Win95.scheme = settings.scheme.resolved(dark: isDark)
                 }
         case .skeu:
-            // TEMPORARY: the magnifier is scaffolding for tuning the surface
-            // work. Unwrap this once the skeu look is signed off — see
-            // ZoomInspector.swift.
-            ZoomInspector { SkeuRootView() }
+            SkeuRootView()
                 // The palette rides the environment, so it needs no help. The
                 // TYPEFACE does: SkeuFont reads a static, which SwiftUI cannot
                 // see, so the subtree has to be rebuilt when it changes.
                 .id(settings.skeuFace.rawValue)
+                // Dynamic Type (FR-015). The Win95 side gets this from its
+                // stepped pixel unit; the skeu look has no such unit, so it
+                // resolves the setting into two multipliers here.
+                .skeuTypeScaling()
                 .skeuTheme(settings.skeuTheme.palette(dark: isDark))
                 .preferredColorScheme(settings.appearance.preferred)
         }

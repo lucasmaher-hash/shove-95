@@ -42,29 +42,52 @@ struct AddRowView: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var photoTarget: TaskItem?
 
-    /// Return commits instead of adding a line — see TaskRowView for why this
-    /// has to be intercepted in the binding rather than in `onChange`.
+    /// Return commits instead of adding a line.
+    ///
+    /// A vertical-axis TextField can answer the Return key TWO ways, and which
+    /// one you get is not stable across iOS versions: it either inserts a "\n"
+    /// into the binding, or it fires `onSubmit` and inserts nothing. Both paths
+    /// are wired to `commit()` — intercepting only the newline is what made the
+    /// row appear dead on device while working in the simulator, because
+    /// synthetic text injection writes the "\n" as a character whereas a real
+    /// keyboard sends a submit (founder bug report, unreproducible until the
+    /// two input paths were separated).
+    ///
+    /// `commit()` guards against running twice, so a build where BOTH fire is
+    /// harmless.
     private var returnCommitting: Binding<String> {
         Binding(
             get: { text },
             set: { new in
                 guard new.contains("\n") else { text = new; return }
-                guard !committing else { return } // second call for one Return
-                committing = true
-                let title = new.replacingOccurrences(of: "\n", with: "")
-                text = ""
-                // Deferred: a store write and a focus change from inside a
-                // binding setter both land mid-update, where SwiftUI drops them.
-                Task { @MainActor in
-                    store.addTask(title: title, in: bucket) // empty → no-op
-                    // Keyboard DISMISSES on commit (2026-08-04): a field that
-                    // stays open reads as "still typing" and hides the list
-                    // you just added to.
-                    focused = false
-                    committing = false
-                }
+                text = new.replacingOccurrences(of: "\n", with: "")
+                commit()
             }
         )
+    }
+
+    /// Creates the task and clears the row. Safe to call from a binding setter:
+    /// the store write and the focus change are deferred a runloop turn, since
+    /// both land mid-update otherwise and SwiftUI drops them.
+    private func commit() {
+        guard !committing else { return } // second call for one Return
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else {
+            // Nothing typed — Return just closes the row rather than sitting
+            // there looking broken.
+            text = ""
+            Task { @MainActor in focused = false }
+            return
+        }
+        committing = true
+        text = ""
+        Task { @MainActor in
+            store.addTask(title: title, in: bucket)
+            // Keyboard DISMISSES on commit (2026-08-04): a field that stays
+            // open reads as "still typing" and hides the list you just added to.
+            focused = false
+            committing = false
+        }
     }
 
     var body: some View {
@@ -94,6 +117,8 @@ struct AddRowView: View {
                 .foregroundStyle(Win95.text)
                 .focused($focused)
                 .submitLabel(.done)
+                // The other half of the Return story — see `returnCommitting`.
+                .onSubmit { commit() }
                 .onChange(of: focused) { _, isFocused in
                     if isFocused {
                         editing.begin(EditingCoordinator.addRowID, bottom: frame.maxY)

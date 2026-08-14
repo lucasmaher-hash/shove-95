@@ -204,6 +204,12 @@ struct TaskRowView: View {
             .lineLimit(1...6)
             .focused($editFocused)
             .submitLabel(.done)
+            // Return arrives EITHER as a "\n" in the binding or as a submit,
+            // depending on the iOS build — see AddRowView.returnCommitting for
+            // the full story. Both paths just drop focus; `onChange` below is
+            // the single place the edit is actually committed, so a build where
+            // both fire commits once.
+            .onSubmit { editFocused = false }
             .onChange(of: editFocused) { _, focused in
                 if !focused { commitEdit() }
             }
