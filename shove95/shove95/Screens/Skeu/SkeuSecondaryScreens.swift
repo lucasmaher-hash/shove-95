@@ -31,6 +31,13 @@ private enum S {
 
 /// Header + scrolling body, shared by both screens.
 private struct SkeuSheet<Content: View>: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015) — see SkeuTypeScale.
+    private var labelSize: CGFloat { S.label * textScale }
+    private var pillH: CGFloat { S.pillHeight * chromeScale }
+    private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     let title: String
     var onClose: () -> Void
@@ -56,8 +63,8 @@ private struct SkeuSheet<Content: View>: View {
                             .font(.system(size: 15, weight: .medium))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(skeu.ink)
-                            .frame(width: S.closeCircle, height: S.closeCircle)
-                            .skeuGlass(Circle(), height: S.closeCircle)
+                            .frame(width: closeSize, height: closeSize)
+                            .skeuGlass(Circle(), height: closeSize)
                     }
                     .buttonStyle(.plain)
                     .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
@@ -81,6 +88,13 @@ private struct SkeuSheet<Content: View>: View {
 /// with SkeuSettingsView: the two will drift, and a "generic card" that both
 /// import is the kind of premature abstraction that ends up with six flags.
 private struct SkeuPanel<Content: View>: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015) — see SkeuTypeScale.
+    private var labelSize: CGFloat { S.label * textScale }
+    private var pillH: CGFloat { S.pillHeight * chromeScale }
+    private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     var title: String?
     @ViewBuilder var content: Content
@@ -126,6 +140,13 @@ private struct SkeuPanel<Content: View>: View {
 // MARK: - Archive
 
 struct SkeuArchiveView: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015) — see SkeuTypeScale.
+    private var labelSize: CGFloat { S.label * textScale }
+    private var pillH: CGFloat { S.pillHeight * chromeScale }
+    private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(TaskStore.self) private var store
     var onClose: () -> Void
@@ -136,7 +157,7 @@ struct SkeuArchiveView: View {
 
             if days.isEmpty {
                 Text("(empty)")
-                    .font(.system(size: S.label))
+                    .font(.system(size: labelSize))
                     .foregroundStyle(skeu.inkFaint)
                     .frame(maxWidth: .infinity, minHeight: 160)
             } else {
@@ -162,19 +183,19 @@ struct SkeuArchiveView: View {
             // Struck through and muted, exactly as it looked the moment it
             // left the list — no live checkbox, nothing here is actionable.
             Text(task.title)
-                .font(.system(size: S.label))
+                .font(.system(size: labelSize))
                 .strikethrough(color: skeu.inkFaint)
                 .foregroundStyle(skeu.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("Delete")
-                .font(.system(size: S.label * 0.9, weight: .medium))
+                .font(.system(size: labelSize * 0.9, weight: .medium))
                 .foregroundStyle(skeu.critical)
                 .lineLimit(1)
                 .padding(.horizontal, SkeuSpace.md)
-                .frame(height: S.pillHeight)
-                .skeuGlass(Capsule(), height: S.pillHeight)
+                .frame(height: pillH)
+                .skeuGlass(Capsule(), height: pillH)
                 .contentShape(Capsule())
                 .onTapGesture {
                     SkeuHaptic.warning()
@@ -189,6 +210,13 @@ struct SkeuArchiveView: View {
 // MARK: - About
 
 struct SkeuAboutView: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015) — see SkeuTypeScale.
+    private var labelSize: CGFloat { S.label * textScale }
+    private var pillH: CGFloat { S.pillHeight * chromeScale }
+    private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(\.openURL) private var openURL
     var onClose: () -> Void
@@ -207,11 +235,11 @@ struct SkeuAboutView: View {
                             .foregroundStyle(skeu.ink)
 
                         Text("Version \(version) (\(build))")
-                            .font(.system(size: S.label))
+                            .font(.system(size: labelSize))
                             .foregroundStyle(skeu.inkMuted)
 
                         Text("Four tabs. One swipe moves a task between them.")
-                            .font(.system(size: S.label))
+                            .font(.system(size: labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, SkeuSpace.xs)
@@ -222,17 +250,17 @@ struct SkeuAboutView: View {
                     VStack(alignment: .leading, spacing: SkeuSpace.md) {
                         // Both credits are licence conditions, not courtesies.
                         Text("Typeface: W95FA by Alina Sava (SIL OFL)")
-                            .font(.system(size: S.label))
+                            .font(.system(size: labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Not affiliated with Microsoft. Windows 95 is a trademark of Microsoft Corporation.")
-                            .font(.system(size: S.label))
+                            .font(.system(size: labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Privacy policy")
-                            .font(.system(size: S.label, weight: .medium))
+                            .font(.system(size: labelSize, weight: .medium))
                             .foregroundStyle(skeu.ink)
                             .padding(.horizontal, SkeuSpace.lg)
                             .frame(height: 38)
@@ -248,7 +276,7 @@ struct SkeuAboutView: View {
                 }
 
                 Text("© \(year) Lucas Maher")
-                    .font(.system(size: S.label))
+                    .font(.system(size: labelSize))
                     .foregroundStyle(skeu.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

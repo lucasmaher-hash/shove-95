@@ -59,6 +59,17 @@ private enum G {
 }
 
 struct SkeuSettingsView: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015): text on the full curve, chrome at half. Without
+    // this the eyebrow headings scaled (they use SkeuFont tokens) while every
+    // field label stayed fixed — giant titles over tiny controls.
+    private var labelSize: CGFloat { G.label * textScale }
+    private var fieldH: CGFloat { G.fieldHeight * chromeScale }
+    private var pillH: CGFloat { G.pillHeight * chromeScale }
+    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
+    private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
@@ -186,7 +197,7 @@ struct SkeuSettingsView: View {
                 }
 
                 Text(sync.summary)
-                    .font(.system(size: G.label))
+                    .font(.system(size: labelSize))
                     .foregroundStyle(sync.isDegraded ? skeu.critical : skeu.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -209,8 +220,8 @@ struct SkeuSettingsView: View {
                     .font(.system(size: 15, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
-                    .frame(width: G.circle, height: G.circle)
-                    .skeuGlass(Circle(), height: G.circle)
+                    .frame(width: circleSize, height: circleSize)
+                    .skeuGlass(Circle(), height: circleSize)
             }
             .buttonStyle(.plain)
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
@@ -241,7 +252,7 @@ struct SkeuSettingsView: View {
             .padding(G.troughPad)
             .frame(maxWidth: .infinity)
             .skeuTrough(Capsule(),
-                        height: G.pillHeight + G.troughPad * 2)
+                        height: pillH + G.troughPad * 2)
         }
         .padding(G.cardPad)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,15 +297,15 @@ struct SkeuSettingsView: View {
             action()
         } label: {
             Text(title)
-                .font(.system(size: G.label))
+                .font(.system(size: labelSize))
                 .tracking(-0.02 * G.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
                 .padding(.horizontal, G.pillPadH * 0.6)
                 .frame(maxWidth: .infinity)
-                .frame(height: G.pillHeight)
-                .skeuGlass(Capsule(), height: G.pillHeight, prominent: selected)
+                .frame(height: pillH)
+                .skeuGlass(Capsule(), height: pillH, prominent: selected)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
@@ -314,8 +325,8 @@ struct SkeuSettingsView: View {
                 .overlay { Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1) }
                 .frame(width: G.icon, height: G.icon)
                 .frame(maxWidth: .infinity)
-                .frame(height: G.pillHeight)
-                .skeuGlass(Capsule(), height: G.pillHeight, prominent: selected)
+                .frame(height: pillH)
+                .skeuGlass(Capsule(), height: pillH, prominent: selected)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(theme.name) theme")
@@ -369,7 +380,7 @@ struct SkeuSettingsView: View {
         HStack(spacing: SkeuSpace.sm) {
             TextField("", text: text,
                       prompt: Text(prompt).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: G.label))
+                .font(.system(size: labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused(focused)
                 .submitLabel(.done)
@@ -378,19 +389,19 @@ struct SkeuSettingsView: View {
         }
         .padding(.leading, SkeuSpace.lg)
         .padding(.trailing, SkeuSpace.sm)
-        .frame(height: G.fieldHeight)
-        .skeuTrough(Capsule(), height: G.fieldHeight)
+        .frame(height: fieldH)
+        .skeuTrough(Capsule(), height: fieldH)
     }
 
     /// A small glass pill sitting inside a field's trough.
     private func trailingPill(_ title: String, action: @escaping () -> Void) -> some View {
         Text(title)
-            .font(.system(size: G.label * 0.9, weight: .medium))
+            .font(.system(size: labelSize * 0.9, weight: .medium))
             .foregroundStyle(skeu.ink)
             .lineLimit(1)
             .padding(.horizontal, SkeuSpace.md)
-            .frame(height: G.pillSmall)
-            .skeuGlass(Capsule(), height: G.pillSmall)
+            .frame(height: pillSmallH)
+            .skeuGlass(Capsule(), height: pillSmallH)
             .contentShape(Capsule())
             .onTapGesture {
                 SkeuHaptic.press()
@@ -402,11 +413,11 @@ struct SkeuSettingsView: View {
     /// A standalone action pill — no trough behind it, it IS the control.
     private func actionPill(_ title: String, action: @escaping () -> Void) -> some View {
         Text(title)
-            .font(.system(size: G.label, weight: .medium))
+            .font(.system(size: labelSize, weight: .medium))
             .foregroundStyle(skeu.ink)
             .padding(.horizontal, G.pillPadH)
-            .frame(height: G.pillHeight)
-            .skeuGlass(Capsule(), height: G.pillHeight)
+            .frame(height: pillH)
+            .skeuGlass(Capsule(), height: pillH)
             .contentShape(Capsule())
             .onTapGesture {
                 SkeuHaptic.press()
@@ -424,6 +435,17 @@ struct SkeuSettingsView: View {
 
 /// Its own view so the draft state belongs to the row, not the whole screen.
 private struct SkeuNameField: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015): text on the full curve, chrome at half. Without
+    // this the eyebrow headings scaled (they use SkeuFont tokens) while every
+    // field label stayed fixed — giant titles over tiny controls.
+    private var labelSize: CGFloat { G.label * textScale }
+    private var fieldH: CGFloat { G.fieldHeight * chromeScale }
+    private var pillH: CGFloat { G.pillHeight * chromeScale }
+    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
+    private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(AppSettings.self) private var settings
     let bucket: Bucket
@@ -441,7 +463,7 @@ private struct SkeuNameField: View {
             // a greyed placeholder reads as empty.
             TextField("", text: $draft,
                       prompt: Text(bucket.displayName).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: G.label))
+                .font(.system(size: labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($focused)
                 .submitLabel(.done)
@@ -451,12 +473,12 @@ private struct SkeuNameField: View {
                 }
 
             Text("Default")
-                .font(.system(size: G.label * 0.9, weight: .medium))
+                .font(.system(size: labelSize * 0.9, weight: .medium))
                 .foregroundStyle(skeu.ink)
                 .lineLimit(1)
                 .padding(.horizontal, SkeuSpace.md)
-                .frame(height: G.pillSmall)
-                .skeuGlass(Capsule(), height: G.pillSmall, prominent: !isDefault)
+                .frame(height: pillSmallH)
+                .skeuGlass(Capsule(), height: pillSmallH, prominent: !isDefault)
                 .contentShape(Capsule())
                 .onTapGesture {
                     guard !isDefault else { return }
@@ -471,8 +493,8 @@ private struct SkeuNameField: View {
         }
         .padding(.leading, SkeuSpace.lg)
         .padding(.trailing, SkeuSpace.sm)
-        .frame(height: G.fieldHeight)
-        .skeuTrough(Capsule(), height: G.fieldHeight)
+        .frame(height: fieldH)
+        .skeuTrough(Capsule(), height: fieldH)
         .task { draft = settings.name(for: bucket) }
     }
 
@@ -485,6 +507,17 @@ private struct SkeuNameField: View {
 // MARK: - Workspace row
 
 private struct SkeuWorkspaceRow: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015): text on the full curve, chrome at half. Without
+    // this the eyebrow headings scaled (they use SkeuFont tokens) while every
+    // field label stayed fixed — giant titles over tiny controls.
+    private var labelSize: CGFloat { G.label * textScale }
+    private var fieldH: CGFloat { G.fieldHeight * chromeScale }
+    private var pillH: CGFloat { G.pillHeight * chromeScale }
+    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
+    private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(TaskStore.self) private var store
     let workspace: Workspace
@@ -497,7 +530,7 @@ private struct SkeuWorkspaceRow: View {
         HStack(spacing: SkeuSpace.sm) {
             TextField("", text: $draft,
                       prompt: Text(workspace.name).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: G.label))
+                .font(.system(size: labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($focused)
                 .submitLabel(.done)
@@ -510,12 +543,12 @@ private struct SkeuWorkspaceRow: View {
             // somewhere for tasks to live.
             if !workspace.isDefault {
                 Text("Delete")
-                    .font(.system(size: G.label * 0.9, weight: .medium))
+                    .font(.system(size: labelSize * 0.9, weight: .medium))
                     .foregroundStyle(skeu.critical)
                     .lineLimit(1)
                     .padding(.horizontal, SkeuSpace.md)
-                    .frame(height: G.pillSmall)
-                    .skeuGlass(Capsule(), height: G.pillSmall)
+                    .frame(height: pillSmallH)
+                    .skeuGlass(Capsule(), height: pillSmallH)
                     .contentShape(Capsule())
                     .onTapGesture {
                         SkeuHaptic.warning()
@@ -526,8 +559,8 @@ private struct SkeuWorkspaceRow: View {
         }
         .padding(.leading, SkeuSpace.lg)
         .padding(.trailing, SkeuSpace.sm)
-        .frame(height: G.fieldHeight)
-        .skeuTrough(Capsule(), height: G.fieldHeight)
+        .frame(height: fieldH)
+        .skeuTrough(Capsule(), height: fieldH)
         .task { draft = workspace.name }
     }
 
