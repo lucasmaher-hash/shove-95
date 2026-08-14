@@ -293,6 +293,18 @@ struct SkeuRootView: View {
             }
             .padding(.vertical, SkeuSpace.lg)
         }
+        // Follow the add row down as the list grows. Committing a task inserts
+        // it exactly where the add row was standing, which pushes the add row
+        // below the fold — the task lands, the keyboard drops, and there is
+        // suddenly nowhere to type the next one (founder bug report
+        // 2026-08-14). Keyed on the count rather than `store.revision` so that
+        // ticking, renaming or moving a task doesn't yank the list downward.
+        .onChange(of: active.count + completed.count) { old, new in
+            guard new > old else { return } // only on ADD, never on delete
+            withAnimation(SkeuMotion.layout) {
+                proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
+            }
+        }
         .onChange(of: editing.focused) { _, _ in
             // A beat for the inset to land, then lift the field if it needs it.
             Task { @MainActor in
