@@ -60,13 +60,20 @@ struct AddRowView: View {
     ///
     /// `commit()` guards against running twice, so a build where BOTH fire is
     /// harmless.
+    ///
+    /// The title travels as an ARGUMENT, never by reading `text` back. The
+    /// field's own buffer outlives this setter: after the commit clears
+    /// `text`, UIKit writes its copy of the string back through this same
+    /// binding, with no newline in it, and the branch below would happily
+    /// restore the draft the commit had just cleared. That left the typed
+    /// string sitting in the add row afterwards, where it draws as an
+    /// ordinary task in every tab (audit round 5).
     private var returnCommitting: Binding<String> {
         Binding(
             get: { text },
             set: { new in
                 guard new.contains("\n") else { text = new; return }
-                text = new.replacingOccurrences(of: "\n", with: "")
-                commit()
+                commit(title: new.replacingOccurrences(of: "\n", with: ""))
             }
         )
     }
@@ -74,9 +81,9 @@ struct AddRowView: View {
     /// Creates the task and clears the row. Safe to call from a binding setter:
     /// the store write and the focus change are deferred a runloop turn, since
     /// both land mid-update otherwise and SwiftUI drops them.
-    private func commit() {
+    private func commit(title raw: String) {
         guard !committing else { return } // second call for one Return
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             // Nothing typed — Return just closes the row rather than sitting
             // there looking broken.
@@ -98,6 +105,11 @@ struct AddRowView: View {
             // Keyboard DISMISSES on commit (2026-08-04): a field that stays
             // open reads as "still typing" and hides the list you just added to.
             focused = false
+            // Cleared a SECOND time, deliberately: by now UIKit has had its
+            // runloop turn to write its own buffer back through the binding.
+            // Focus is already gone, so there is nothing a user could have
+            // typed in between for this to swallow.
+            text = ""
             committing = false
         }
     }
@@ -130,7 +142,7 @@ struct AddRowView: View {
                 .focused($focused)
                 .submitLabel(.done)
                 // The other half of the Return story — see `returnCommitting`.
-                .onSubmit { commit() }
+                .onSubmit { commit(title: text) }
                 .onChange(of: focused) { _, isFocused in
                     if isFocused {
                         editing.begin(EditingCoordinator.addRowID, bottom: frame.maxY)

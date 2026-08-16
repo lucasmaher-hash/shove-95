@@ -436,7 +436,7 @@ struct SkeuRootView: View {
                 .submitLabel(.done)
                 // BOTH Return paths — see AddRowView.returnCommitting for why
                 // intercepting only one of them fails on device.
-                .onSubmit(commitAdd)
+                .onSubmit { commitAdd(title: draft) }
                 .onChange(of: addFocused) { _, isFocused in
                     if isFocused {
                         editing.begin(EditingCoordinator.addRowID, bottom: addRowFrame.maxY)
@@ -545,15 +545,14 @@ struct SkeuRootView: View {
             get: { draft },
             set: { new in
                 guard new.contains("\n") else { draft = new; return }
-                draft = new.replacingOccurrences(of: "\n", with: "")
-                commitAdd()
+                commitAdd(title: new.replacingOccurrences(of: "\n", with: ""))
             }
         )
     }
 
-    private func commitAdd() {
+    private func commitAdd(title raw: String) {
         guard !committingAdd else { return } // second call for one Return
-        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             draft = ""
             pendingPin = false
@@ -581,6 +580,9 @@ struct SkeuRootView: View {
             // Keyboard dismisses on commit: a field that stays open reads as
             // "still typing" and hides the list you just added to.
             addFocused = false
+            // Second clear — UIKit writes its own buffer back after the
+            // setter returns. See AddRowView.returnCommitting.
+            draft = ""
             committingAdd = false
         }
     }

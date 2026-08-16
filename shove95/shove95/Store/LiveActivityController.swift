@@ -41,6 +41,17 @@ final class LiveActivityController {
 
     private var current: Activity<PinnedTaskAttributes>?
 
+    /// True while a card is being retired and its replacement requested. The
+    /// two halves straddle an `await`, and `current` is nil in between, so
+    /// reconciles arriving in that window have to wait rather than act on
+    /// what looks like an empty Lock Screen.
+    private var swapping = false
+    /// The most recent reconcile that arrived during a swap, replayed when
+    /// the swap lands. Only the last one is kept — they are all asking the
+    /// same question, "match the store", and the newest inputs are the ones
+    /// worth answering.
+    private var missedPass: (store: TaskStore, settings: AppSettings, isDark: Bool)?
+
     /// Makes the Lock Screen match the store. Safe to call as often as you
     /// like — it is a no-op when nothing has changed.
     func reconcile(store: TaskStore, settings: AppSettings, isDark: Bool) {
@@ -53,11 +64,30 @@ final class LiveActivityController {
             return
         }
 
+        // A swap is mid-flight. Requesting now is exactly how two cards for
+        // the SAME task end up on the Lock Screen: `current` was cleared
+        // synchronously, so this pass would see nothing running, fall through
+        // to the swap branch and request a second one — and only the later
+        // handle survives, leaving the first card unendable until iOS's
+        // eight-hour ceiling. Remember the pass and let the swap replay it.
+        guard !swapping else {
+            missedPass = (store, settings, isDark)
+            return
+        }
+
         // Adopt anything already running — after a cold launch this process
         // has no handle on the activity from the last one, and requesting a
         // second would leave two cards on the Lock Screen.
         if current == nil {
-            current = Activity<PinnedTaskAttributes>.activities.first
+            let running = Activity<PinnedTaskAttributes>.activities
+            current = running.first
+            // Retire any extras a previous run left behind. Without this a
+            // ghost from a crashed session is invisible to every code path
+            // here — `endAll` only runs when permission is revoked.
+            if running.count > 1 {
+                let extras = running.dropFirst()
+                Task { for activity in extras { await activity.end(nil, dismissalPolicy: .immediate) } }
+            }
         }
 
         guard let task = store.pinnedTask(), !task.isCompleted else {
@@ -79,11 +109,19 @@ final class LiveActivityController {
         // requested rather than mutated.
         let outgoing = current
         current = nil
+        swapping = true
         Task {
             await outgoing?.end(nil, dismissalPolicy: .immediate)
             current = try? Activity.request(
                 attributes: PinnedTaskAttributes(taskID: task.id),
                 content: ActivityContent(state: state, staleDate: nil))
+            swapping = false
+            // Anything that arrived while the swap was in flight is replayed
+            // now, against the handle that actually exists.
+            if let missed = missedPass {
+                missedPass = nil
+                reconcile(store: missed.store, settings: missed.settings, isDark: missed.isDark)
+            }
         }
     }
 

@@ -207,7 +207,9 @@ struct SkeuSettingsView: View {
     }
 
     private func addWorkspace() {
-        store.addWorkspace(named: newWorkspace)
+        // See SettingsView.add(): a refused name keeps its text and its
+        // focus rather than being silently swallowed.
+        guard store.addWorkspace(named: newWorkspace) != nil else { return }
         newWorkspace = ""
         addWorkspaceFocused = false
     }

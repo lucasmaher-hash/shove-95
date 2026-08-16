@@ -274,11 +274,25 @@ Things that would break the system, listed so they don't get reintroduced by hab
 - Corner radii, drop shadows, blur, translucency, SF Symbols, system tint colours
 - Any gradient other than the title bar
 - Any red that isn't Important
-- Fade, scale, dissolve, or cross-fade transitions of any kind
 - Continuous (non-stepped) Dynamic Type
 - Microsoft's icon artwork, the Windows logo, the Start button, or the word "Windows" in any user-facing string
 
 ("Dark mode" was on this prohibited list until 2026-08-14. It now ships — see §1 for the structural rules it has to obey. The prohibition on *inverting the bevel ramp* is what actually mattered, and that still stands.)
+
+**Transitions came off this list on 2026-08-16.** It read "Fade, scale,
+dissolve, or cross-fade transitions of any kind", and it was wrong about what
+this design is. The vintage lives in the SURFACES — the bevel ramp, the pixel
+grid, the two-tone chrome, the absence of a radius. It was never supposed to
+live in the movement. A 1995 machine drew a menu in one frame because it could
+not afford to draw it in twelve, not because instant was the intent; holding
+the app to that limit costs the feel and buys nothing back.
+
+So: **animate freely, in both looks.** Motion is a shared modern layer over
+two different surface treatments, not a third thing the looks disagree about.
+The constraints that remain are the ones about substance, not speed — a
+transition may not introduce a radius, a blur, a translucency or a system tint
+that the static design forbids, and position still lands on the pixel grid so
+nothing comes to rest half a pixel off.
 
 
 ---

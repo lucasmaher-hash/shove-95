@@ -190,21 +190,50 @@ final class TaskStore {
         commit()
     }
 
+    /// The key `workspaces()` dedupes on. Anything that WRITES a name has to
+    /// ask this first, or it writes a record the list will then hide —
+    /// which is how Add came to look like a dead button and Rename came to
+    /// look like a delete (founder decision 2026-08-16: forbid duplicates
+    /// outright rather than hide them).
+    private func nameKey(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// True when some OTHER workspace already answers to this name.
+    ///
+    /// Checked against every record, not just the deduped list: a legacy
+    /// twin that dedup is currently hiding still owns its name, and letting
+    /// a third record land on it would only deepen the pile.
+    func workspaceNameIsTaken(_ raw: String, excluding workspace: Workspace? = nil) -> Bool {
+        let key = nameKey(raw)
+        guard !key.isEmpty else { return false }
+        let all = (try? context.fetch(FetchDescriptor<Workspace>())) ?? []
+        return all.contains { nameKey($0.name) == key && $0.id != workspace?.id }
+    }
+
+    /// Returns nil when the name is empty or already taken — the caller is
+    /// expected to leave the typed text in place rather than clear a field
+    /// whose contents were never accepted.
     @discardableResult
     func addWorkspace(named raw: String) -> Workspace? {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return nil }
+        guard !name.isEmpty, !workspaceNameIsTaken(name) else { return nil }
         let workspace = Workspace(id: UUID().uuidString, name: name)
         context.insert(workspace)
         commit()
         return workspace
     }
 
-    func renameWorkspace(_ workspace: Workspace, to raw: String) {
+    /// False when the rename was refused, so the caller can put the field
+    /// back to the name that is still in force.
+    @discardableResult
+    func renameWorkspace(_ workspace: Workspace, to raw: String) -> Bool {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, name != workspace.name else { return }
+        guard !name.isEmpty, name != workspace.name else { return false }
+        guard !workspaceNameIsTaken(name, excluding: workspace) else { return false }
         workspace.name = name
         commit()
+        return true
     }
 
     /// The default is undeletable; a deleted workspace's tasks fold back into
@@ -256,6 +285,22 @@ final class TaskStore {
     /// id rather than a model reference so it can't go stale.
     func task(withID id: UUID) -> TaskItem? {
         allTasksSorted().first { $0.id == id }
+    }
+
+    /// The same lookup, unscoped: across every workspace, pinned or not.
+    ///
+    /// The Lock Screen's tick button carries the id of the task ITS CARD was
+    /// drawn for. Resolving that through `pinnedTask()` and comparing ids
+    /// looked equivalent and is not: a card outlives the state it was drawn
+    /// from, so pinning something else on another device — or two devices
+    /// each pinning offline, where the fetch returns an arbitrary one of the
+    /// two — made the guard fall through and the tap vanish with no signal.
+    /// The card names its own task; honour that.
+    func anyTask(withID id: UUID) -> TaskItem? {
+        _ = revision // observation hook
+        var descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
     }
 
     /// A tab's visible tasks: active (by sortOrder) and completed-not-archived

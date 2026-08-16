@@ -412,7 +412,10 @@ private struct WorkspacesSection: View {
     }
 
     private func add() {
-        store.addWorkspace(named: newName)
+        // Refused (empty, or the name is already taken): the typed text and
+        // the focus STAY, so the field visibly did not accept it. Clearing
+        // both is what made a duplicate name look like a dead button.
+        guard store.addWorkspace(named: newName) != nil else { return }
         newName = ""
         addFocused = false
     }

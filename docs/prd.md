@@ -405,8 +405,8 @@ Single-level `LastAction` for moves and deletes, surfaced in the status bar. **R
 **FR-010: Win95 visual system** — P0
 Implement every component in design.md § Components with tokens from §§ 2–4: window + title bar (`{Tab} - shove.95`, gear control), sunken list well, task rows (checkbox, single-size text, red Important, trailing chip column, strikethrough+grey completed, navy drag state), status bar, taskbar (four text buttons, pressed active state, clock/date well, safe-area fill), photo viewer window, `(empty)` states. Prohibited-list (design.md §9) violations are bugs. Related: all.
 
-**FR-011: Motion rules** — P0
-Position animates (snapped to pixel grid); appearance is instant. Photo viewer + tab switches: no transition. Haptics: light impact on swipe commit and rubber-band; selection feedback on drag pickup/drop. Related: US-003, US-011.
+**FR-011: Motion rules** — P0 *(rewritten 2026-08-16)*
+Motion is a SHARED layer across both looks and is modern in both: the vintage is in the surfaces, not in the movement (founder direction 2026-08-16). Animate position, appearance and dismissal wherever it helps the reader follow what changed — menus, sheets, the tab switch, the undo bar, the photo viewer. Position lands on the pixel grid so nothing rests half a pixel off, and a transition may not introduce a radius, blur, translucency or system tint that the static design forbids. Haptics: light impact on swipe commit and rubber-band; selection feedback on drag pickup/drop. Supersedes the original "appearance is instant / no transition" rule, which described a 1995 hardware limit rather than an intent. Related: US-003, US-011.
 
 **FR-012: Photos** — P1
 MANY photos per task, each its own `TaskPhoto` record (revised for CloudKit: an array of blobs serialises into one field and CKRecord caps non-asset payload at 1MB, so a second photo would have failed to sync silently). Added via PhotosPicker + camera; downscale ≤2048px JPEG q0.8 on import; `@Attribute(.externalStorage)`; 64pt thumbnail; instant viewer. Related: US-011.

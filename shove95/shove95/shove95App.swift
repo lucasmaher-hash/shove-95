@@ -36,11 +36,12 @@ struct shove95App: App {
         // Installed in `init` rather than a `.task`: on that background launch
         // no scene is ever shown, so nothing in `body` is guaranteed to run
         // before the intent performs. `init` always does.
-        // Found through `pinnedTask()`, not `task(withID:)`: the latter is
-        // workspace-scoped, and the pin is app-wide — a task pinned in Work
-        // would not be found while Personal was the last workspace open.
+        // Found through `anyTask(withID:)`: unscoped, so a task pinned in Work
+        // is still found while Personal is open, and resolved BY THE ID THE
+        // CARD CARRIES rather than by whatever currently holds the pin — see
+        // that method for why the difference is not academic.
         PinnedTaskActions.complete = { @MainActor id in
-            guard let task = store.pinnedTask(), task.id == id, !task.isCompleted else { return }
+            guard let task = store.anyTask(withID: id), !task.isCompleted else { return }
             store.toggleCompleted(task) // also releases the pin
         }
     }
