@@ -32,6 +32,11 @@ enum SkeuToggle {
     static let troughPad: CGFloat = 15.8
     static let bloomOverhang: CGFloat = 5.3
     static let bloomBlur: CGFloat = 1.85
+    /// Between segments. Invisible on a row of labels, where only one segment
+    /// is ever drawn — it earns its keep on the theme row, where all five
+    /// carry a colour and butted-up capsules read as one striped bar rather
+    /// than five pills.
+    static let gap: CGFloat = 3
 }
 
 // MARK: - The trough
@@ -45,7 +50,7 @@ struct SkeuSegmentedTrough<Content: View>: View {
     var body: some View {
         let height = SkeuToggle.height * chromeScale
 
-        HStack(spacing: 0) {
+        HStack(spacing: SkeuToggle.gap * chromeScale) {
             content
         }
         .padding(.horizontal, SkeuToggle.troughPad * chromeScale)
@@ -83,6 +88,10 @@ struct SkeuSegment<Content: View>: View {
     /// one namespace and one id.
     var namespace: Namespace.ID
     var geometryID: String
+    /// Paints the whole pill, under the glass. Used by the theme row, where
+    /// the choice IS a colour and so has to fill the pill rather than sit in
+    /// it as a dot (founder direction 2026-08-16).
+    var fill: Color?
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -94,10 +103,18 @@ struct SkeuSegment<Content: View>: View {
             .padding(.vertical, SkeuToggle.padV * chromeScale)
             .frame(maxWidth: .infinity)
             .background {
-                if isSelected {
-                    Color.clear
-                        .skeuGlass(Capsule(), height: pill)
-                        .matchedGeometryEffect(id: geometryID, in: namespace)
+                ZStack {
+                    if let fill {
+                        Capsule().fill(fill)
+                    }
+                    // The glass is a lens with no fill, so it goes OVER the
+                    // colour — as a background layer its rim would be hidden
+                    // behind it.
+                    if isSelected {
+                        Color.clear
+                            .skeuGlass(Capsule(), height: pill)
+                            .matchedGeometryEffect(id: geometryID, in: namespace)
+                    }
                 }
             }
             .contentShape(Rectangle())

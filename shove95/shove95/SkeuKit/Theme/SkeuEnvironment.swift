@@ -19,6 +19,18 @@ import SwiftUI
 extension EnvironmentValues {
     /// The active palette. Default is the shipping theme (§2.4).
     @Entry var skeu: SkeuPalette = .cream
+
+    /// The active typeface — the one thing SkeuKit still reads from a static
+    /// (`SkeuFont.face`), because `SkeuFont.at(_:)` is a free function that
+    /// cannot reach the environment.
+    ///
+    /// This value carries no information a view uses directly. It exists so a
+    /// view can DECLARE the dependency SwiftUI cannot infer: read it, and the
+    /// body re-runs on a face change, picking up the new static. The
+    /// alternative was `.id(face)` on the whole screen, which rebuilds the
+    /// subtree and so kills any animation in flight — including the gliding
+    /// pill of the very toggle you just used (founder bug report 2026-08-16).
+    @Entry var skeuFace: AppFace = .system
 }
 
 extension View {

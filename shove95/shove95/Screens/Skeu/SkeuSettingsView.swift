@@ -79,6 +79,9 @@ struct SkeuSettingsView: View {
     private var pillH: CGFloat { G.pillHeight * chromeScale }
     private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
     private var circleSize: CGFloat { G.circle * chromeScale }
+    // No `\.skeuFace` here: this view observes AppSettings, so a face change
+    // already re-runs its body. Only the leaf views below, which don't, need
+    // to declare that dependency.
     @Environment(\.skeu) private var skeu
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
@@ -315,17 +318,20 @@ struct SkeuSettingsView: View {
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// The theme row's segment — a colour dot instead of a name, because five
-    /// have to share one trough. Same segment, different content.
+    /// The theme row's segment. The colour FILLS the pill (founder direction
+    /// 2026-08-16) — a dot floating in a segment made the choice look like an
+    /// icon beside an absent label, when the colour is the whole answer.
+    ///
+    /// The content is a blank line of the same type the other rows set, so a
+    /// colour pill comes out exactly the size of a label pill and the theme
+    /// row lines up with Typeface, Design and Light & dark above it.
     private func swatchOption(_ theme: SkeuTheme,
                               selected: Bool,
                               in group: Namespace.ID,
                               action: @escaping () -> Void) -> some View {
-        SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill") {
-            Circle()
-                .fill(theme.light.material)
-                .overlay { Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1) }
-                .frame(width: G.icon * chromeScale, height: G.icon * chromeScale)
+        SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill",
+                    fill: theme.light.material) {
+            Text(" ").skeuSegmentLabel(textScale)
         }
         .onTapGesture {
             SkeuHaptic.selection()
@@ -406,6 +412,8 @@ private struct SkeuRowButton: View {
     @Environment(\.skeu) private var skeu
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
+    /// Read only to re-render on a typeface change — see `\.skeuFace`.
+    @Environment(\.skeuFace) private var face
     let title: String
     /// Colour comes from the caller — Delete is the one destructive word on
     /// this screen and says so.
@@ -447,6 +455,8 @@ private struct SkeuNameField: View {
     private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
     private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
+    /// Read only to re-render on a typeface change — see `\.skeuFace`.
+    @Environment(\.skeuFace) private var face
     @Environment(AppSettings.self) private var settings
     let bucket: Bucket
 
@@ -512,6 +522,8 @@ private struct SkeuWorkspaceRow: View {
     private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
     private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
+    /// Read only to re-render on a typeface change — see `\.skeuFace`.
+    @Environment(\.skeuFace) private var face
     @Environment(TaskStore.self) private var store
     let workspace: Workspace
     var onDelete: () -> Void

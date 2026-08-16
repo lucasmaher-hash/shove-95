@@ -97,8 +97,14 @@ struct AppShell: View {
                 .id(settings.face.rawValue + settings.scheme.id + (isDark ? "d" : "l"))
                 .preferredColorScheme(settings.appearance.preferred)
         case .skeu:
+            // NO `.id(face)` here, unlike the root above. Rebuilding this
+            // sheet on a typeface change tore down the toggle mid-glide, so
+            // the Typeface switch was the one switch on the screen that
+            // snapped instead of sliding. The face rides the environment
+            // instead; the few leaf views that don't otherwise observe
+            // AppSettings read it to declare the dependency.
             SkeuSettingsView { showSettings = false }
-                .id(settings.skeuFace.rawValue)
+                .environment(\.skeuFace, settings.skeuFace)
                 .skeuTypeScaling()
                 .skeuTheme(settings.skeuTheme.palette(dark: isDark))
                 .preferredColorScheme(settings.appearance.preferred)
