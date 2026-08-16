@@ -224,12 +224,27 @@ struct SettingsView: View {
     private var buttonColumn: CGFloat { Win95.Px.grid * 12 * pixel }
 
     /// A heading and the controls it labels, as one block.
+    ///
+    /// The heading is an EYEBROW, matching the skeu sheet's: small, upper
+    /// case, tracked, in the muted ink. It was set at standard body size,
+    /// which stood about 9pt taller than its twin — and since a settings
+    /// screen is a column of these, that difference accumulated all the way
+    /// down until the last section sat 37pt lower than the same section in
+    /// the other look. The gaps were already identical by then; the type was
+    /// what was left (founder decision 2026-08-16: shrink this one rather
+    /// than add air to the skeu rhythm).
+    ///
+    /// `fontSmall` at the same tracking is the closest this look's own scale
+    /// gets to `SkeuFont.eyebrow`, and it stays on the pixel unit, so the
+    /// heading still lands on whole pixels at every Dynamic Type step.
     private func section<C: View>(_ title: String,
                                   @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: headingGap) {
             Text(title)
-                .font(W95Font.standard(pixel))
-                .foregroundStyle(Win95.text)
+                .font(W95Font.small(pixel))
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .foregroundStyle(Win95.textMuted)
 
             content()
         }
