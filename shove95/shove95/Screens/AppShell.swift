@@ -172,7 +172,14 @@ struct AppShell: View {
         case .win95:
             SettingsView { showSettings = false }
                 .environment(\.win95Scheme, settings.scheme.resolved(dark: isDark))
-                .id(settings.face.rawValue + settings.scheme.id + (isDark ? "d" : "l"))
+                // NO face in the `.id`, for the reason the skeu sheet has none
+                // either: rebuilding on a face change is a brand-new tree, and
+                // TypedText never animates a first appearance, so this look
+                // had the setting and none of the typing. The face rides the
+                // environment instead and the few leaves that don't observe
+                // AppSettings read it to declare the dependency.
+                .environment(\.appFace, settings.face)
+                .id(settings.scheme.id + (isDark ? "d" : "l"))
                 .preferredColorScheme(settings.appearance.preferred)
                 .transition(.opacity)
         case .skeu:

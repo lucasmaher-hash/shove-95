@@ -291,7 +291,7 @@ struct SkeuSettingsView: View {
             // CHROME, and typed out with the rest: the screen's own name is a
             // heading like the section eyebrows are, so it keeps the pixel
             // face under Blend (founder direction 2026-08-16).
-            TypedText(text: "Settings", trigger: settings.skeuFace)
+            TypedText(text: "Settings", face: settings.skeuFace, role: .chrome)
                 .font(SkeuFont.title3Chrome)
                 .foregroundStyle(skeu.ink)
 
@@ -330,7 +330,7 @@ struct SkeuSettingsView: View {
     private func panel<C: View>(_ title: String,
                                 @ViewBuilder options: () -> C) -> some View {
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            TypedText(text: title.uppercased(), trigger: settings.skeuFace)
+            TypedText(text: title.uppercased(), face: settings.skeuFace, role: .chrome)
                 .font(SkeuFont.eyebrow)
                 .tracking(0.8)
                 .foregroundStyle(skeu.inkFaint)
@@ -356,7 +356,7 @@ struct SkeuSettingsView: View {
             // round and the founder reversed it (2026-08-16): in settings only
             // the HEADINGS carry the face, so the options read as a row of
             // equals and the choice is marked by the glass, not by the type.
-            TypedText(text: title, trigger: settings.skeuFace)
+            TypedText(text: title, face: settings.skeuFace, role: .content)
                 .skeuSegmentLabel(textScale, role: .content)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
         }
@@ -396,7 +396,7 @@ struct SkeuSettingsView: View {
     private func card<C: View>(_ title: String,
                                @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            TypedText(text: title.uppercased(), trigger: settings.skeuFace)
+            TypedText(text: title.uppercased(), face: settings.skeuFace, role: .chrome)
                 .font(SkeuFont.eyebrow)
                 .tracking(0.8)
                 .foregroundStyle(skeu.inkFaint)

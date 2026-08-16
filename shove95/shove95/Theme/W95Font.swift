@@ -85,3 +85,19 @@ enum W95Font {
             : .system(size: size * 0.82, weight: .regular)
     }
 }
+
+// MARK: - Environment
+
+extension EnvironmentValues {
+    /// The active Win95-side face, as an OBSERVABLE value.
+    ///
+    /// `W95Font.face` is a static, which SwiftUI cannot watch, so the settings
+    /// sheet used to be rebuilt wholesale on every face change via `.id`. That
+    /// worked and cost the typewriter: a rebuilt view is a brand-new one, and
+    /// `TypedText` deliberately never animates its first appearance, so the
+    /// Win95 headings switched between two frames while the skeu ones typed.
+    ///
+    /// Reading this instead declares the dependency without destroying the
+    /// tree — the same move the skeu sheet already makes with `\.skeuFace`.
+    @Entry var appFace: AppFace = .w95
+}

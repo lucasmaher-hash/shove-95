@@ -27,9 +27,19 @@ import SwiftUI
 
 struct TypedText: View {
     let text: String
-    /// Anything that changes when the face does. Character count is not
-    /// enough — "Today" set in two faces is the same length.
-    let trigger: AnyHashable
+    /// The chosen face, and what THIS text is. Together they answer the only
+    /// question that matters: is this particular string about to be set
+    /// differently?
+    ///
+    /// Watching the face alone was wrong, and obviously so once Blend existed:
+    /// going W95FA → Blend leaves every heading exactly as it was, and they
+    /// all typed themselves out anyway for no visible reason (founder bug
+    /// report 2026-08-16). Watching the RESOLVED face — pixel or not, for this
+    /// role — means only the text that actually changes announces it.
+    let face: AppFace
+    let role: TextRole
+
+    private var trigger: Bool { face.isPixel(role) }
 
     /// The whole run, not per character: a long label would otherwise take
     /// noticeably longer than a short one sitting beside it, and the two are
@@ -37,7 +47,7 @@ struct TypedText: View {
     private static let duration: Double = 0.42
 
     @State private var revealed: Int?
-    @State private var seen: AnyHashable?
+    @State private var seen: Bool?
 
     var body: some View {
         // The FULL string, hidden, holds the final size — and the growing

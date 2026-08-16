@@ -249,7 +249,7 @@ struct SettingsView: View {
             // (founder bug report 2026-08-16). `.uppercased()` rather than
             // `.textCase`, since TypedText slices the string itself and has to
             // slice the string that is actually shown.
-            TypedText(text: title.uppercased(), trigger: settings.face)
+            TypedText(text: title.uppercased(), face: settings.face, role: .chrome)
                 .font(W95Font.small(pixel, role: .chrome))
                 .tracking(0.8)
                 .foregroundStyle(Win95.textMuted)
@@ -284,6 +284,9 @@ struct SettingsView: View {
 /// down and right one pixel.
 private struct SchemeSwatch: View {
     @Environment(\.pixel) private var pixel
+    /// Read only to re-render on a typeface change — the face is a
+    /// static this view cannot otherwise see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     let scheme: Win95Scheme
     let isSelected: Bool
     var action: () -> Void
@@ -311,6 +314,9 @@ private struct SchemeSwatch: View {
 /// same idiom the scheme swatches use, so the three switches read as one family.
 private struct SegmentedChoice: View {
     @Environment(\.pixel) private var pixel
+    /// Read only to re-render on a typeface change — the face is a
+    /// static this view cannot otherwise see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     let label: String
     let font: Font
     let isSelected: Bool
@@ -587,6 +593,9 @@ private struct WorkspacesSection: View {
 
 private struct WorkspaceRow: View {
     @Environment(\.pixel) private var pixel
+    /// Read only to re-render on a typeface change — the face is a
+    /// static this view cannot otherwise see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     @Environment(TaskStore.self) private var store
     let workspace: Workspace
     let buttonColumn: CGFloat
