@@ -67,38 +67,23 @@ struct SkeuMenu: View {
         }
         .padding(M.padding)
         .frame(width: M.width, alignment: .leading)
-        // FROSTED, like the photo viewer's controls (founder direction
-        // 2026-08-16). This panel floats over the task list, and a flat
-        // gradient fill made it a solid card sitting on the app rather than a
-        // piece of glass lying over it. The blur reads through, the tint
-        // keeps the hue, and the gradient stays on top so the panel is still
-        // lit from above like every other raised object.
+        // THE SAME GLASS every other floating piece wears, frosted (founder
+        // direction 2026-08-16). It used to be a flat gradient fill under a
+        // contour stroke — a solid card sitting ON the app. `skeuGlass` gives
+        // it the real construction: the five-layer lens, the rim, the glow,
+        // the paired shadows. Frosting only stops the list beneath from
+        // reading through the labels.
         //
-        // Opaque enough that the rows underneath cannot compete with the menu
-        // labels — the whole point of frosting rather than simply going
-        // clear.
-        .background {
-            ZStack {
-                shape.fill(.ultraThinMaterial)
-                shape.fill(
-                    LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                        .opacity(skeu.isDark ? 0.86 : 0.80)
-                )
-            }
-        }
-        // The raised contour — light on top, falling into shade, the same
-        // stroke the settings cards wear.
-        .overlay {
-            shape.strokeBorder(
-                LinearGradient(
-                    stops: [.init(color: skeu.outlineBottom, location: 0.0),
-                            .init(color: skeu.outline, location: 0.55),
-                            .init(color: skeu.outline, location: 1.0)],
-                    startPoint: .top, endPoint: .bottom),
-                lineWidth: 3.1)
-        }
-        // Floating depth: this panel hovers over the list.
+        // HEIGHT IS NOT THE PANEL'S HEIGHT. `skeuGlass` is parameterised on a
+        // PILL height — every inset, the rim width and all three shadows
+        // scale off it — so handing it ~200pt would have blown the lens stack
+        // and the shadows up by 2x. 110 reproduces the 3.1 rim this panel
+        // already wore (2.971 x 110/104.54), which is the figure the settings
+        // cards use too.
+        .skeuGlass(shape, height: 110, frosted: true)
+        // Floating depth on top of the glass's own contact shadows: this
+        // panel hovers over the list, further from the page than a pill lying
+        // on it.
         .shadow(color: drop(0.22), radius: 20, x: -4, y: 10)
         .shadow(color: drop(0.16), radius: 40, x: -12, y: 26)
     }
