@@ -611,7 +611,10 @@ struct SkeuRootView: View {
                     .padding(.horizontal, F.glassPadH)
                     .frame(height: 30)
                     .background(Capsule().fill(skeu.material))
-                    .contentShape(Capsule())
+                    // The pill reads 30 so it sits quietly in the 46pt bar;
+                    // the target is 44 and reaches nearly the bar's full height.
+                    .frame(height: SkeuControl.minTouch)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         SkeuHaptic.press()
                         withAnimation(SkeuMotion.layout) { store.undoLastAction() }
@@ -1412,6 +1415,9 @@ private struct SkeuPhotoViewer: View {
                 .skeuGlass(Circle(), height: 37, frosted: true)
         }
         .buttonStyle(.plain)
+        // The glass circle stays 37 — that is the rim SkeuMenu is matched to.
+        // The TARGET is 44, same as the settings gear it shares a shape with.
+        .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
         .accessibilityLabel(label)
     }
 }

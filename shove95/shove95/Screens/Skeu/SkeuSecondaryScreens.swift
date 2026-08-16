@@ -266,7 +266,9 @@ struct SkeuAboutView: View {
                             .padding(.horizontal, SkeuSpace.lg)
                             .frame(height: 38)
                             .skeuGlass(Capsule(), height: 38)
-                            .contentShape(Capsule())
+                            // Glass pill stays 38; the target is 44.
+                            .frame(minHeight: SkeuControl.minTouch)
+                            .contentShape(Rectangle())
                             .onTapGesture {
                                 SkeuHaptic.press()
                                 openURL(Self.privacyPolicyURL)

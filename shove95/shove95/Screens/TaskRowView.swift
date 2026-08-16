@@ -154,7 +154,9 @@ struct TaskRowView: View {
                         withTransaction(t) { viewerIndex = nil }
                     }
                 )
-                .presentationBackground(Color.black.opacity(0.55))
+                // Same fix as the pin dialog's scrim: a scheme whose darkest
+                // tone is not black must not veil itself in black.
+                .presentationBackground(Win95.darkShadow.opacity(0.55))
             }
         }
     }
