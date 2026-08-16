@@ -69,7 +69,6 @@ struct SettingsView: View {
                     // both looks. `contentTopInset` carries the difference in
                     // chrome height between a title bar and a text header.
                     .padding(.top, contentTopInset)
-                    .padding(.bottom, sectionGap)
                     // Clears the home indicator, since the well itself now
                     // runs to the physical bottom edge.
                     .padding(.bottom, Win95.Px.grid * 8 * pixel)
@@ -138,11 +137,13 @@ struct SettingsView: View {
         HStack(spacing: Win95.Px.grid * pixel) {
             ForEach(AppFace.allCases, id: \.self) { face in
                 // Each option is set in the face it selects — the label is the
-                // preview.
+                // preview. Asked as "how would this face set a CHROME label",
+                // which is what these are, so Blend previews itself as pixel
+                // rather than looking identical to System.
                 SegmentedChoice(
                     label: face.label,
-                    font: face == .w95 ? W95Font.standard(pixel)
-                                       : .system(size: Win95.Px.fontStandard * pixel * 0.82),
+                    font: face.isPixel(.chrome) ? W95Font.standard(pixel, role: .chrome)
+                                                : .system(size: Win95.Px.fontStandard * pixel * 0.82),
                     // Binds to whichever look is active — each keeps its own
                     // choice, so switching design doesn't drag a face along.
                     isSelected: settings.activeFace == face,
@@ -244,7 +245,7 @@ struct SettingsView: View {
                                   @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: headingGap) {
             Text(title)
-                .font(W95Font.small(pixel))
+                .font(W95Font.small(pixel, role: .chrome))
                 .textCase(.uppercase)
                 .tracking(0.8)
                 .foregroundStyle(Win95.textMuted)

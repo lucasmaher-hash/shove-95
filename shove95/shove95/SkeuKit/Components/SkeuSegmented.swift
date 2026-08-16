@@ -134,9 +134,14 @@ extension View {
     /// layout off both edges. The scale floor is the last resort for
     /// accessibility sizes; at normal sizes `SkeuToggle.label` is chosen so
     /// nothing shrinks at all.
-    func skeuSegmentLabel(_ textScale: CGFloat) -> some View {
+    /// `role` differs by WHERE the segment is. The tab bar is furniture, so
+    /// all four labels stay pixel under Blend; a settings toggle is only
+    /// furniture where it is switched on, so the caller passes `.chrome` for
+    /// the active option and `.content` for the rest (founder direction
+    /// 2026-08-16, which names "the currently pressed/activated toggle").
+    func skeuSegmentLabel(_ textScale: CGFloat, role: TextRole = .chrome) -> some View {
         self
-            .font(SkeuFont.at(SkeuToggle.label * textScale))
+            .font(SkeuFont.at(SkeuToggle.label * textScale, role: role))
             .tracking(-0.02 * SkeuToggle.label)
             .lineLimit(1)
             .minimumScaleFactor(0.5)

@@ -287,7 +287,9 @@ private struct TaskbarButton: View {
 
     var body: some View {
         Text(label)
-            .font(W95Font.small(pixel))
+            // CHROME: the bottom row, which the founder names as staying
+            // pixel under Blend — see TextRole.
+            .font(W95Font.small(pixel, role: .chrome))
             .foregroundStyle(Color(hex: scheme.text))
             .lineLimit(1)
             .minimumScaleFactor(0.7)

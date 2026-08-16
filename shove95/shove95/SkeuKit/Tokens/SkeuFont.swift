@@ -37,10 +37,11 @@ enum SkeuFont {
     /// The wordmark. New York, italic — the reference uses a high-contrast
     /// serif here, and New York is the system serif, so nothing gets bundled.
     static var display: Font {
-        switch SkeuFont.face {
-        case .w95:    .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
-        case .system: .system(.largeTitle, design: .serif).italic()
-        }
+        // Asked by ROLE, not by case, so Blend resolves like every other
+        // token instead of needing its own branch here.
+        SkeuFont.face.isPixel(.content)
+            ? .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+            : .system(.largeTitle, design: .serif).italic()
     }
 
     // MARK: Titles
@@ -58,17 +59,18 @@ enum SkeuFont {
 
     /// Section eyebrows. Pair with `.textCase(.uppercase)`, `.tracking(0.8)`
     /// and `inkFaint` — always as the top line of a two-line stack.
-    static var eyebrow: Font { styled(.caption2, weight: .semibold, w95: 13) }
+    /// CHROME: a settings heading is the app labelling itself, and the founder
+    /// names it as one of the parts that stays pixel under Blend.
+    static var eyebrow: Font { styled(.caption2, weight: .semibold, w95: 13, role: .chrome) }
 
     // MARK: Numerals
 
     /// Counters and balances. Monospaced digits so a changing number does not
     /// shuffle the layout around it.
     static var numeral: Font {
-        switch SkeuFont.face {
-        case .w95:    .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
-        case .system: .system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit()
-        }
+        SkeuFont.face.isPixel(.content)
+            ? .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+            : .system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit()
     }
 
     /// A RAW point size in the active face.
@@ -81,21 +83,25 @@ enum SkeuFont {
     ///
     /// W95FA is set 1.22× the system size: the inverse of the 0.82 factor
     /// `W95Font` uses to keep the two faces optically level.
-    static func at(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        switch face {
-        case .w95:    .custom(W95Font.postScriptName, fixedSize: size * 1.22)
-        case .system: .system(size: size, weight: weight)
-        }
+    /// `role` is what lets the Blend face tell furniture from the user's own
+    /// words — see `TextRole`. It defaults to `.content`, so a site that says
+    /// nothing gets the readable face and only the marked ones stay pixel.
+    static func at(_ size: CGFloat,
+                   weight: Font.Weight = .regular,
+                   role: TextRole = .content) -> Font {
+        face.isPixel(role)
+            ? .custom(W95Font.postScriptName, fixedSize: size * 1.22)
+            : .system(size: size, weight: weight)
     }
 
     /// Maps a token onto a system text style, or onto W95FA at the equivalent
     /// optical size when the bitmap face is selected.
     private static func styled(_ style: Font.TextStyle,
                                weight: Font.Weight,
-                               w95 size: CGFloat) -> Font {
-        switch SkeuFont.face {
-        case .w95:    .custom(W95Font.postScriptName, size: size, relativeTo: style)
-        case .system: .system(style).weight(weight)
-        }
+                               w95 size: CGFloat,
+                               role: TextRole = .content) -> Font {
+        SkeuFont.face.isPixel(role)
+            ? .custom(W95Font.postScriptName, size: size, relativeTo: style)
+            : .system(style).weight(weight)
     }
 }

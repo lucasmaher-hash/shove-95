@@ -350,7 +350,7 @@ struct SkeuSettingsView: View {
             // the labels most obviously "set" in the chosen face, since one of
             // them names it.
             TypedText(text: title, trigger: settings.skeuFace)
-                .skeuSegmentLabel(textScale)
+                .skeuSegmentLabel(textScale, role: selected ? .chrome : .content)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
         }
         .onTapGesture {

@@ -783,8 +783,10 @@ private struct SkeuWorkspacePill: View {
                 withAnimation(SkeuMotion.layout) { isOpen.toggle() }
             } label: {
                 HStack(spacing: F.glassGap * scale) {
+                    // CHROME: the workspace name is the app naming where you
+                    // are, not something you are reading — see TextRole.
                     Text(current?.name ?? "")
-                        .font(SkeuFont.at(label))
+                        .font(SkeuFont.at(label, role: .chrome))
                         .tracking(-0.02 * label)
                         .lineLimit(1)
                         // Shrink rather than pin: a long workspace name at
@@ -812,7 +814,7 @@ private struct SkeuWorkspacePill: View {
             if isOpen {
                 ForEach(others, id: \.id) { workspace in
                     Text(workspace.name)
-                        .font(SkeuFont.at(label))
+                        .font(SkeuFont.at(label, role: .chrome))
                         .tracking(-0.02 * label)
                         .foregroundStyle(skeu.inkMuted)
                         .lineLimit(1)

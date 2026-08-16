@@ -55,20 +55,27 @@ struct TypedText: View {
                 seen = trigger
                 await type()
             }
+            // A half-typed label must never be what survives. The run is
+            // async, so anything that interrupts it — the sheet being
+            // dismissed, the view scrolling away, another face change landing
+            // mid-run — can strand `revealed` partway, and a heading reading
+            // "TYPEF" is worse than one that never animated at all (caught in
+            // the simulator 2026-08-16, on the ✕ tap that closed the sheet).
+            .onDisappear { revealed = nil }
     }
 
     private func type() async {
         let count = text.count
         guard count > 0 else { return }
+        // Whatever happens below — return, cancellation, the task being torn
+        // down — the text ends up whole.
+        defer { revealed = nil }
         let step = UInt64(Self.duration / Double(count) * 1_000_000_000)
         revealed = 0
         for n in 1...count {
             try? await Task.sleep(nanoseconds: step)
-            // Cancelled mid-run — another face change, or the view went away.
-            // Snap to whole rather than freezing half-typed.
-            if Task.isCancelled { revealed = nil; return }
+            if Task.isCancelled { return }
             revealed = n
         }
-        revealed = nil
     }
 }
