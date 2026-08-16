@@ -115,7 +115,7 @@ struct SettingsView: View {
 
             Text(sync.summary)
                 .font(W95Font.small(pixel))
-                .foregroundStyle(sync.isDegraded ? Win95.important : Win95.shadow)
+                .foregroundStyle(sync.isDegraded ? Win95.important : Win95.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

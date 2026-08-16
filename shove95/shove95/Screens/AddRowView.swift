@@ -159,7 +159,11 @@ struct AddRowView: View {
             // yet, so it cannot already hold the pin.
             if focused {
                 PinGlyph(isPinned: pendingPin)
-                    .fill(pendingPin ? Win95.accent : Win95.shadow)
+                    // This row is only ever shown while composing, so it takes
+                    // the editing treatment unconditionally — plain text
+                    // colour either way, state carried by the shape. See
+                    // TaskRowView.trailingColumn.
+                    .fill(Win95.text)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())

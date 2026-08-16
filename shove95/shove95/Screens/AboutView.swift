@@ -30,11 +30,11 @@ struct AboutView: View {
 
                         Text("Version \(version) (\(build))")
                             .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
 
                         Text("Four tabs. One swipe moves a task between them.")
                             .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Win95.Px.grid * pixel)
 
@@ -43,12 +43,12 @@ struct AboutView: View {
                         // Both credits are licence conditions, not courtesies.
                         Text("Typeface: W95FA by Alina Sava (SIL OFL)")
                             .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Not affiliated with Microsoft. Windows 95 is a trademark of Microsoft Corporation.")
                             .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Win95Button(action: { openURL(Self.privacyPolicyURL) }, compact: true) {
@@ -61,7 +61,7 @@ struct AboutView: View {
 
                         Text("© \(year) Lucas Maher")
                             .font(W95Font.small(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
                             .padding(.top, Win95.Px.grid * 2 * pixel)
                     }
                     .padding(Win95.Px.grid * 2 * pixel)

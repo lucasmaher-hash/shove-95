@@ -29,7 +29,7 @@ struct ArchiveView: View {
                     if days.isEmpty {
                         Text("(empty)")
                             .font(W95Font.standard(pixel))
-                            .foregroundStyle(Win95.shadow)
+                            .foregroundStyle(Win95.textMuted)
                             .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel) * 3)
                     } else {
                         LazyVStack(alignment: .leading, spacing: 0) {
@@ -71,7 +71,7 @@ struct ArchiveView: View {
             Text(task.title)
                 .font(W95Font.standard(pixel))
                 .strikethrough()
-                .foregroundStyle(Win95.shadow)
+                .foregroundStyle(Win95.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 

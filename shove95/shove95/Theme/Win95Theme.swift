@@ -64,6 +64,19 @@ enum Win95 {
     static var shadow: Color      { Color(hex: scheme.shadow) }
     static var darkShadow: Color  { Color(hex: scheme.darkShadow) }
     static var text: Color        { Color(hex: scheme.text) }
+    /// Text that has been set aside — a completed task's title.
+    ///
+    /// It used to reach for `shadow`, which is right by accident in the light
+    /// schemes (0x808080 grey on a pale surface) and wrong in every dark one:
+    /// `shadow` is a BEVEL tone, darker than its surface, so a completed
+    /// title came out near-black on a dark well and could not be read at all
+    /// (founder bug report 2026-08-16). Muted toward the SURFACE instead,
+    /// which is the same gesture in both directions — and in the classic
+    /// scheme it lands on 0x808080, exactly the grey this replaces, so no
+    /// light theme changes appearance.
+    static var textMuted: Color {
+        Color(hex: scheme.text.blended(toward: scheme.surface, by: 0.55))
+    }
     /// The list well behind the tasks.
     static var well: Color        { Color(hex: scheme.well) }
 
@@ -140,6 +153,22 @@ extension UInt32 {
         let r = Double((self >> 16) & 0xFF), g = Double((self >> 8) & 0xFF), b = Double(self & 0xFF)
         func mix(_ c: Double) -> UInt32 { UInt32(Swift.min(255, c + (255 - c) * amount)) }
         return (mix(r) << 16) | (mix(g) << 8) | mix(b)
+    }
+
+    /// Blends this hex colour toward `other` by `amount` (0...1).
+    ///
+    /// Muting a foreground has to be done RELATIVE to its ground, not by
+    /// darkening: a light scheme mutes toward its pale surface, a dark one
+    /// mutes toward its dark surface, and the same call gives the right
+    /// direction in both. Reaching for a fixed grey is what put black text
+    /// on a dark well.
+    func blended(toward other: UInt32, by amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let a = Double((self >> shift) & 0xFF)
+            let b = Double((other >> shift) & 0xFF)
+            return UInt32(Swift.max(0, Swift.min(255, a + (b - a) * amount)))
+        }
+        return (channel(16) << 16) | (channel(8) << 8) | channel(0)
     }
 }
 
