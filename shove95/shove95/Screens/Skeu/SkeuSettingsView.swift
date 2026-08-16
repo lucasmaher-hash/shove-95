@@ -59,6 +59,10 @@ private enum G {
     /// the home screen's bars — see `F.edgeFade` there.
     static let edgeFade: CGFloat = 28
 
+    /// Room under the last panel for the home indicator, now that the scroll
+    /// view runs past the safe area to the physical bottom edge.
+    static let bottomClearance: CGFloat = 34
+
     /// The open language list. Tall enough to show several choices at once,
     /// short enough that the sheet underneath is still reachable — an
     /// unbounded list would push Data off the bottom and eat the outer scroll.
@@ -174,13 +178,22 @@ struct SkeuSettingsView: View {
                     dataPanel
                 }
                 .padding(.horizontal, SkeuTopBar.margin) // the root's screen margin
-                .padding(.vertical, SkeuSpace.md)
+                .padding(.top, SkeuSpace.md)
+                // Clears the home indicator by PADDING rather than by stopping
+                // the scroll view short — see the `ignoresSafeArea` below.
+                .padding(.bottom, SkeuSpace.md + G.bottomClearance)
                 }
                 .scrollIndicators(.hidden)
                 // The header is docked and the panels run under it, so they
                 // dissolve on the way rather than being cut — and only once
                 // something has scrolled past. See SkeuEdgeFade.
                 .skeuScrollEdgeFade(G.edgeFade * chromeScale, edges: .top)
+                // Runs to the BOTTOM OF THE SCREEN. Stopping at the safe area
+                // left a dead band under the last panel that read as a bar —
+                // the same thing the Win95 well was fixed for on 2026-08-04.
+                // Content travels through it; the padding above is what keeps
+                // the last row reachable above the home indicator.
+                .ignoresSafeArea(.container, edges: .bottom)
             }
         }
         .fullScreenCover(isPresented: $showArchive) {
