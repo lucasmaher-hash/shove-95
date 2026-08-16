@@ -147,7 +147,8 @@ struct SkeuRootView: View {
     @Environment(SyncStatus.self) private var sync
     @Environment(TaskStore.self) private var store
 
-    @State private var showSettings = false
+    /// Owned by AppShell — see that file for why the sheet cannot live here.
+    @Binding var showSettings: Bool
     @State private var bucket: Bucket = .today
     /// Which way the last tab change travelled — decided BEFORE `bucket`
     /// moves, so both halves of the transition agree on a direction. Same
@@ -259,12 +260,6 @@ struct SkeuRootView: View {
             for: UIApplication.significantTimeChangeNotification)) { _ in
             store.runDayRolloverPassIfNeeded()
         }
-        .fullScreenCover(isPresented: $showSettings) {
-            // Switching design to Windows 95 in there removes THIS view from
-            // AppShell, which tears the cover down and lands on the Win95
-            // root — exactly the right behaviour, free of charge.
-            SkeuSettingsView { showSettings = false }
-        }
     }
 
     // MARK: Workspace bar — node 2:654
@@ -281,7 +276,7 @@ struct SkeuRootView: View {
                 // Shared with the ✕ that closes every sheet — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
                 Image(systemName: "gearshape")
-                    .font(.system(size: SkeuTopBar.icon * chromeScale, weight: .medium))
+                    .font(SkeuFont.at(SkeuTopBar.icon * chromeScale, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: size, height: size)
@@ -419,7 +414,7 @@ struct SkeuRootView: View {
                       prompt: Text("add").foregroundStyle(skeu.inkFaint),
                       axis: .vertical)
                 .lineLimit(1...4)
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($addFocused)
                 .submitLabel(.done)
@@ -458,7 +453,7 @@ struct SkeuRootView: View {
                     // direction 2026-08-14). It keeps the full-size frame so
                     // the tap target stays honest; only the surface is gone.
                     Image(systemName: "camera")
-                        .font(.system(size: glyphSize, weight: .medium))
+                        .font(SkeuFont.at(glyphSize, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(skeu.ink)
                         .frame(width: glyphBox, height: glyphBox)
@@ -559,14 +554,14 @@ struct SkeuRootView: View {
         if let action = store.lastAction {
             HStack(spacing: F.glassGap) {
                 Text(action.statusText(name: settings.name))
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text("Undo")
-                    .font(.system(size: labelSize, weight: .medium))
+                    .font(SkeuFont.at(labelSize, weight: .medium))
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     .padding(.horizontal, F.glassPadH)
@@ -626,7 +621,7 @@ struct SkeuRootView: View {
             let pillHeight = bottomBarHeight - F.glassPadV * 2
             ForEach(Bucket.line, id: \.self) { line in
                 Text(settings.name(for: line))
-                    .font(.system(size: F.tabLabel * textScale))
+                    .font(SkeuFont.at(F.tabLabel * textScale))
                     .tracking(-0.02 * F.tabLabel)
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
@@ -756,7 +751,7 @@ private struct SkeuWorkspacePill: View {
             } label: {
                 HStack(spacing: F.glassGap * scale) {
                     Text(current?.name ?? "")
-                        .font(.system(size: label))
+                        .font(SkeuFont.at(label))
                         .tracking(-0.02 * label)
                         .lineLimit(1)
                         // Shrink rather than pin: a long workspace name at
@@ -784,7 +779,7 @@ private struct SkeuWorkspacePill: View {
             if isOpen {
                 ForEach(others, id: \.id) { workspace in
                     Text(workspace.name)
-                        .font(.system(size: label))
+                        .font(SkeuFont.at(label))
                         .tracking(-0.02 * label)
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)
@@ -1173,7 +1168,7 @@ private struct SkeuTaskRow: View {
             ZStack {
                 if task.isCompleted {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(SkeuFont.at(11, weight: .semibold))
                         .foregroundStyle(skeu.ink)
                 }
             }
@@ -1193,7 +1188,7 @@ private struct SkeuTaskRow: View {
                 // Wraps by itself as the text grows — the only way a task
                 // gains a line. Return commits (intercepted in the binding).
                 TextField("", text: returnCommitting, axis: .vertical)
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .tracking(-0.02 * F.label)
                     // Important stays red while you edit it — the flag doesn't
                     // pause because the caret is in the field.
@@ -1212,7 +1207,7 @@ private struct SkeuTaskRow: View {
                     .frame(minHeight: rowH)
             } else {
                 Text(task.title)
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .tracking(-0.02 * F.label)
                     // Important stays red in EVERY look — colour carries
                     // exactly one meaning, the rule the Win95 side enforces.
@@ -1232,7 +1227,7 @@ private struct SkeuTaskRow: View {
                 // One photo per session, matching the Win95 row.
                 // Bare glyph, no glass circle — see the add row's camera.
                 Image(systemName: "camera")
-                    .font(.system(size: glyphSize, weight: .medium))
+                    .font(SkeuFont.at(glyphSize, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: glyphBox, height: glyphBox)
@@ -1250,7 +1245,7 @@ private struct SkeuTaskRow: View {
                 // Hit-transparent like the title and the thumbnails — the row
                 // owns the touch.
                 Text(chip)
-                    .font(.system(size: labelSize * 0.85, weight: .medium))
+                    .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
                     .foregroundStyle(skeu.inkMuted)
                     .padding(.horizontal, SkeuSpace.sm)
                     .frame(height: rowH)
@@ -1336,7 +1331,7 @@ private struct SkeuPhotoViewer: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(SkeuFont.at(15, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: 37, height: 37)

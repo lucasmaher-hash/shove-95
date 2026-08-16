@@ -92,7 +92,7 @@ struct SkeuMenu: View {
     private func item(_ label: String, destructive: Bool = false,
                       action: @escaping () -> Void) -> some View {
         Text(label)
-            .font(.system(size: M.label))
+            .font(SkeuFont.at(M.label))
             .tracking(-0.02 * M.label)
             .foregroundStyle(destructive ? skeu.critical : skeu.ink)
             .lineLimit(1)

@@ -14,7 +14,8 @@ import Shove95Kit
 
 struct RootView: View {
     @State private var selected: Bucket = .today
-    @State private var showSettings = false
+    /// Owned by AppShell — see that file for why the sheet cannot live here.
+    @Binding var showSettings: Bool
     @State private var showWorkspaceMenu = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
@@ -154,24 +155,10 @@ struct RootView: View {
         .onChange(of: showSettings) { _, open in
             if open { closeWorkspaceMenu() }
         }
-        // Full-screen, not a sheet: sheets bring rounded corners and a drag
-        // indicator, both prohibited (design.md §9).
-        .fullScreenCover(isPresented: $showSettings) {
-            SettingsView { showSettings = false }
-                .environment(settings)
-                .environment(sync)
-                .environment(store)
-                .environment(\.pixel, pixel)
-                // Presented content doesn't sit under RootView's `.id` rebuild,
-                // so the scheme has to reach it explicitly.
-                .environment(\.win95Scheme, settings.scheme)
-                // ...and the typeface has to rebuild it, because fonts are read
-                // through a static that SwiftUI cannot see. Without this the
-                // face changed everywhere EXCEPT the screen you changed it on
-                // (founder report 2026-08-04). Transient state resets, which is
-                // fine: the fields reload from the same settings.
-                .id(settings.face.rawValue + settings.scheme.id)
-        }
+        // The settings sheet itself is presented by AppShell — full-screen,
+        // never a sheet, since sheets bring rounded corners and a drag
+        // indicator (design.md §9). It moved up there so that flipping the
+        // Design switch inside it does not tear down its own presenter.
     }
 
     /// The colour scheme follows the ACCOUNT. A scheme picked on another

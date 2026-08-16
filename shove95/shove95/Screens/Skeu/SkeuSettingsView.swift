@@ -97,24 +97,11 @@ struct SkeuSettingsView: View {
                         // Lands the ✕ on exactly the gear's y — see SkeuTopBar.
                         .padding(.top, SkeuTopBar.inset)
 
-                    panel("Design") {
-                        ForEach(DesignMode.allCases, id: \.self) { mode in
-                            option(mode.label,
-                                   selected: settings.design == mode) {
-                                settings.design = mode
-                            }
-                        }
-                    }
-
-                    panel("Light & dark") {
-                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                            option(mode.label,
-                                   selected: settings.appearance == mode) {
-                                settings.appearance = mode
-                            }
-                        }
-                    }
-
+                    // Section order MATCHES the Win95 settings exactly — the
+                    // two are the same screen in two looks, and a reader who
+                    // switches design should find the same control in the same
+                    // place (founder bug report 2026-08-14). Win95's
+                    // "Appearance" swatch row is this "Theme" row.
                     panel("Theme") {
                         ForEach(SkeuTheme.all) { theme in
                             swatchOption(theme,
@@ -129,6 +116,24 @@ struct SkeuSettingsView: View {
                             option(face.label,
                                    selected: settings.skeuFace == face) {
                                 settings.skeuFace = face
+                            }
+                        }
+                    }
+
+                    panel("Design") {
+                        ForEach(DesignMode.allCases, id: \.self) { mode in
+                            option(mode.label,
+                                   selected: settings.design == mode) {
+                                settings.design = mode
+                            }
+                        }
+                    }
+
+                    panel("Light & dark") {
+                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                            option(mode.label,
+                                   selected: settings.appearance == mode) {
+                                settings.appearance = mode
                             }
                         }
                     }
@@ -207,7 +212,7 @@ struct SkeuSettingsView: View {
                 }
 
                 Text(sync.summary)
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .foregroundStyle(sync.isDegraded ? skeu.critical : skeu.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -230,7 +235,7 @@ struct SkeuSettingsView: View {
                 // this sheet opened from — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
                 Image(systemName: "xmark")
-                    .font(.system(size: SkeuTopBar.icon * chromeScale, weight: .medium))
+                    .font(SkeuFont.at(SkeuTopBar.icon * chromeScale, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(skeu.ink)
                     .frame(width: size, height: size)
@@ -316,7 +321,7 @@ struct SkeuSettingsView: View {
             action()
         } label: {
             Text(title)
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .tracking(-0.02 * G.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -413,7 +418,7 @@ struct SkeuSettingsView: View {
         HStack(spacing: SkeuSpace.sm) {
             TextField("", text: text,
                       prompt: Text(prompt).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused(focused)
                 .submitLabel(.done)
@@ -429,7 +434,7 @@ struct SkeuSettingsView: View {
     /// A small glass pill sitting inside a field's trough.
     private func trailingPill(_ title: String, action: @escaping () -> Void) -> some View {
         Text(title)
-            .font(.system(size: labelSize * 0.9, weight: .medium))
+            .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
             .foregroundStyle(skeu.ink)
             .lineLimit(1)
             .padding(.horizontal, SkeuSpace.md)
@@ -446,7 +451,7 @@ struct SkeuSettingsView: View {
     /// A standalone action pill — no trough behind it, it IS the control.
     private func actionPill(_ title: String, action: @escaping () -> Void) -> some View {
         Text(title)
-            .font(.system(size: labelSize, weight: .medium))
+            .font(SkeuFont.at(labelSize, weight: .medium))
             .foregroundStyle(skeu.ink)
             .padding(.horizontal, G.pillPadH)
             .frame(height: pillH)
@@ -496,7 +501,7 @@ private struct SkeuNameField: View {
             // a greyed placeholder reads as empty.
             TextField("", text: $draft,
                       prompt: Text(bucket.displayName).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($focused)
                 .submitLabel(.done)
@@ -506,7 +511,7 @@ private struct SkeuNameField: View {
                 }
 
             Text("Default")
-                .font(.system(size: labelSize * 0.9, weight: .medium))
+                .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
                 .foregroundStyle(skeu.ink)
                 .lineLimit(1)
                 .padding(.horizontal, SkeuSpace.md)
@@ -563,7 +568,7 @@ private struct SkeuWorkspaceRow: View {
         HStack(spacing: SkeuSpace.sm) {
             TextField("", text: $draft,
                       prompt: Text(workspace.name).foregroundStyle(skeu.inkFaint))
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)
                 .focused($focused)
                 .submitLabel(.done)
@@ -576,7 +581,7 @@ private struct SkeuWorkspaceRow: View {
             // somewhere for tasks to live.
             if !workspace.isDefault {
                 Text("Delete")
-                    .font(.system(size: labelSize * 0.9, weight: .medium))
+                    .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
                     .foregroundStyle(skeu.critical)
                     .lineLimit(1)
                     .padding(.horizontal, SkeuSpace.md)

@@ -60,7 +60,7 @@ private struct SkeuSheet<Content: View>: View {
                         onClose()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(SkeuFont.at(15, weight: .medium))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(skeu.ink)
                             .frame(width: closeSize, height: closeSize)
@@ -158,7 +158,7 @@ struct SkeuArchiveView: View {
 
             if days.isEmpty {
                 Text("(empty)")
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .foregroundStyle(skeu.inkFaint)
                     .frame(maxWidth: .infinity, minHeight: 160)
             } else {
@@ -184,14 +184,14 @@ struct SkeuArchiveView: View {
             // Struck through and muted, exactly as it looked the moment it
             // left the list — no live checkbox, nothing here is actionable.
             Text(task.title)
-                .font(.system(size: labelSize))
+                .font(SkeuFont.at(labelSize))
                 .strikethrough(color: skeu.inkFaint)
                 .foregroundStyle(skeu.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("Delete")
-                .font(.system(size: labelSize * 0.9, weight: .medium))
+                .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
                 .foregroundStyle(skeu.critical)
                 .lineLimit(1)
                 .padding(.horizontal, SkeuSpace.md)
@@ -236,11 +236,11 @@ struct SkeuAboutView: View {
                             .foregroundStyle(skeu.ink)
 
                         Text("Version \(version) (\(build))")
-                            .font(.system(size: labelSize))
+                            .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
 
                         Text("Four tabs. One swipe moves a task between them.")
-                            .font(.system(size: labelSize))
+                            .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, SkeuSpace.xs)
@@ -251,17 +251,17 @@ struct SkeuAboutView: View {
                     VStack(alignment: .leading, spacing: SkeuSpace.md) {
                         // Both credits are licence conditions, not courtesies.
                         Text("Typeface: W95FA by Alina Sava (SIL OFL)")
-                            .font(.system(size: labelSize))
+                            .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Not affiliated with Microsoft. Windows 95 is a trademark of Microsoft Corporation.")
-                            .font(.system(size: labelSize))
+                            .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Privacy policy")
-                            .font(.system(size: labelSize, weight: .medium))
+                            .font(SkeuFont.at(labelSize, weight: .medium))
                             .foregroundStyle(skeu.ink)
                             .padding(.horizontal, SkeuSpace.lg)
                             .frame(height: 38)
@@ -277,7 +277,7 @@ struct SkeuAboutView: View {
                 }
 
                 Text("© \(year) Lucas Maher")
-                    .font(.system(size: labelSize))
+                    .font(SkeuFont.at(labelSize))
                     .foregroundStyle(skeu.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

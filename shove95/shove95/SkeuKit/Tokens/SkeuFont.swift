@@ -71,6 +71,23 @@ enum SkeuFont {
         }
     }
 
+    /// A RAW point size in the active face.
+    ///
+    /// The skeu screens size their text from transcribed Figma values, not
+    /// from text styles, so they cannot use the tokens above — but they still
+    /// have to honour the typeface switch. Every `.font(.system(size:))` in
+    /// those screens went through SF Pro regardless of the setting, which is
+    /// why picking W95FA did nothing there (founder bug report 2026-08-14).
+    ///
+    /// W95FA is set 1.22× the system size: the inverse of the 0.82 factor
+    /// `W95Font` uses to keep the two faces optically level.
+    static func at(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        switch face {
+        case .w95:    .custom(W95Font.postScriptName, fixedSize: size * 1.22)
+        case .system: .system(size: size, weight: weight)
+        }
+    }
+
     /// Maps a token onto a system text style, or onto W95FA at the equivalent
     /// optical size when the bitmap face is selected.
     private static func styled(_ style: Font.TextStyle,
