@@ -139,14 +139,15 @@ struct SettingsView: View {
     private var faceRow: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
             ForEach(AppFace.allCases, id: \.self) { face in
-                // Each option is set in the face it selects — the label is the
-                // preview. Asked as "how would this face set a CHROME label",
-                // which is what these are, so Blend previews itself as pixel
-                // rather than looking identical to System.
+                // Set in the ACTIVE face, like every other label on the
+                // screen. Each option used to preview the face it selects,
+                // which meant Retro and Blend stayed pixel even with System
+                // chosen — three different faces in one row, and two of them
+                // contradicting the setting they sit under (founder direction
+                // 2026-08-16).
                 SegmentedChoice(
                     label: face.label,
-                    font: face.isPixel(.chrome) ? W95Font.standard(pixel, role: .chrome)
-                                                : .system(size: Win95.Px.fontStandard * pixel * 0.82),
+                    font: W95Font.standard(pixel),
                     // Binds to whichever look is active — each keeps its own
                     // choice, so switching design doesn't drag a face along.
                     isSelected: settings.activeFace == face,

@@ -41,7 +41,10 @@ enum AppFace: String, CaseIterable, Sendable {
 
     var label: String {
         switch self {
-        case .w95:    "W95FA"
+        // "Retro", not "W95FA" (founder direction 2026-08-16): the file name
+        // of a typeface is not what the setting is offering. The credit for
+        // the face itself stays in About, where it belongs.
+        case .w95:    "Retro"
         case .blend:  "Blend"
         case .system: "System"
         }
