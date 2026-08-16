@@ -55,6 +55,10 @@ private enum G {
     /// Sized for "Default", the longest of the three.
     static let rowButtonW: CGFloat = 88
 
+    /// How far a panel dissolves as it passes under the docked header. Matches
+    /// the home screen's bars — see `F.edgeFade` there.
+    static let edgeFade: CGFloat = 28
+
     /// The open language list. Tall enough to show several choices at once,
     /// short enough that the sheet underneath is still reachable — an
     /// unbounded list would push Data off the bottom and eat the outer scroll.
@@ -173,6 +177,10 @@ struct SkeuSettingsView: View {
                 .padding(.vertical, SkeuSpace.md)
                 }
                 .scrollIndicators(.hidden)
+                // The header is docked and the panels run under it, so they
+                // dissolve on the way rather than being cut — and only once
+                // something has scrolled past. See SkeuEdgeFade.
+                .skeuScrollEdgeFade(G.edgeFade * chromeScale, edges: .top)
             }
         }
         .fullScreenCover(isPresented: $showArchive) {

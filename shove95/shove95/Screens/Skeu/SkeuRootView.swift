@@ -82,6 +82,11 @@ private enum F {
     /// just below the safe area instead.
     static let marginTopLift = 6.0
 
+    /// How far a row dissolves as it passes under a docked bar. About half a
+    /// row: long enough to read as a fade rather than a flicker, short enough
+    /// that the row under the bar is still legible on its way out.
+    static let edgeFade = 28.0
+
     // Workspace bar — node 2:655, positioned by 2:654
     static let topHeight = 145.8 * s * scaleUp        // 39.2 → 50.2
     static let gapTop = 54 * s * scaleUp              // 14.5 → 18.5
@@ -385,6 +390,10 @@ struct SkeuRootView: View {
                 keyboardOverlap = max(0, covered - chrome)
             }
         }
+        // Both bars are docked and the list runs out under them, so each edge
+        // dissolves rather than cutting — and only once there is something
+        // past it to dissolve. See SkeuEdgeFade.
+        .skeuScrollEdgeFade(F.edgeFade * chromeScale)
         } // ScrollViewReader
     }
 
