@@ -50,6 +50,11 @@ struct TitleBar: View {
                     DownArrowGlyph()
                         .fill(Color(hex: scheme.selectionText))
                         .frame(width: 7 * pixel, height: 4 * pixel)
+                        // Turns over while the menu is open, matching the skeu
+                        // pill (founder direction 2026-08-17). The arrow points
+                        // at what it will do next, in both looks.
+                        .rotationEffect(.degrees(workspaceMenuOpen ? 180 : 0))
+                        .animation(.spring(duration: 0.28), value: workspaceMenuOpen)
                 }
                 .scaleEffect(workspaceMenuOpen ? 0.92 : 1, anchor: .leading)
                 .animation(.spring(duration: 0.22), value: workspaceMenuOpen)

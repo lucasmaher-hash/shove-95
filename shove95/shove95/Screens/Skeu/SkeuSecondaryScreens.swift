@@ -15,6 +15,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import Shove95Kit
 
 private enum S {
@@ -24,7 +25,11 @@ private enum S {
     static let cardPad: CGFloat = 21.3
     static let margin: CGFloat = 21.5
     static let pillHeight: CGFloat = 30
-    static let closeCircle: CGFloat = 37
+    /// The ✕ on these sheets. One figure for every circular control in the
+    /// look — the settings gear, the sheet ✕, the photo viewer's pair — so
+    /// switching between them is not a size change (founder direction
+    /// 2026-08-17).
+    static let closeCircle: CGFloat = SkeuTopBar.control
 }
 
 // MARK: - Shared chrome
@@ -78,6 +83,11 @@ private struct SkeuSheet<Content: View>: View {
                 ScrollView {
                     content
                         .padding(.horizontal, S.margin)
+                        // Room for the panels' own shadows. They reach about
+                        // 16pt above their frame, and the scroll view clips to
+                        // its bounds — so the first card's top shading was cut
+                        // straight off (founder bug report 2026-08-17).
+                        .padding(.top, SkeuSpace.md)
                         // Clears the home indicator by padding, since the
                         // scroll view now runs past the safe area — the same
                         // fix the settings sheet took (2026-08-16).
@@ -230,6 +240,8 @@ struct SkeuAboutView: View {
     private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     @Environment(\.openURL) private var openURL
+    /// See AboutView: the system prompt, which Apple rate-limits.
+    @Environment(\.requestReview) private var requestReview
     var onClose: () -> Void
 
     /// Published alongside the App Store listing.
@@ -269,6 +281,23 @@ struct SkeuAboutView: View {
                             .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
+
+                        // Same pill as Privacy policy below it — one glass
+                        // control, two errands.
+                        Text("Rate the app")
+                            .font(SkeuFont.at(labelSize, weight: .medium))
+                            .foregroundStyle(skeu.ink)
+                            .padding(.horizontal, SkeuSpace.lg)
+                            .frame(height: 38)
+                            .skeuGlass(Capsule(), height: 38)
+                            .frame(minHeight: SkeuControl.minTouch)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                SkeuHaptic.press()
+                                requestReview()
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            .padding(.top, SkeuSpace.sm)
 
                         Text("Privacy policy")
                             .font(SkeuFont.at(labelSize, weight: .medium))

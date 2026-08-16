@@ -95,6 +95,9 @@ struct SkeuSettingsView: View {
     @State private var showArchive = false
     @State private var showAbout = false
     @State private var showHowTo = false
+    /// The workspace waiting on a yes. Its tasks are not destroyed either way
+    /// — they fold into the default — but the label is gone for good.
+    @State private var pendingDelete: Workspace?
     @State private var newWorkspace = ""
     @FocusState private var addWorkspaceFocused: Bool
     // One namespace per toggle row: the gliding pill must travel WITHIN its
@@ -215,6 +218,27 @@ struct SkeuSettingsView: View {
         .fullScreenCover(isPresented: $showHowTo) {
             SkeuHowToView { showHowTo = false }
         }
+        .overlay {
+            if let workspace = pendingDelete {
+                SkeuPinReplaceDialog(
+                    outgoing: workspace.name,
+                    title: "Delete workspace",
+                    message: "\u{201C}\(workspace.name)\u{201D} goes for good. Its tasks are not deleted — they move to the default workspace.",
+                    confirmLabel: "Delete",
+                    confirmTint: skeu.critical
+                ) {
+                    if settings.currentWorkspaceID == workspace.id {
+                        settings.currentWorkspaceID = Workspace.defaultID
+                    }
+                    store.deleteWorkspace(workspace)
+                    pendingDelete = nil
+                } onCancel: {
+                    pendingDelete = nil
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(SkeuMotion.present, value: pendingDelete?.id)
     }
 
     // MARK: Tab names
@@ -247,10 +271,10 @@ struct SkeuSettingsView: View {
             VStack(spacing: SkeuSpace.sm) {
                 ForEach(store.workspaces(), id: \.id) { workspace in
                     SkeuWorkspaceRow(workspace: workspace) {
-                        if settings.currentWorkspaceID == workspace.id {
-                            settings.currentWorkspaceID = Workspace.defaultID
-                        }
-                        store.deleteWorkspace(workspace) // tasks fold into default
+                        // Asked, not done. Deleting a workspace is the second
+                        // weighty question in the app, so it is put the same
+                        // way the pin swap is (founder direction 2026-08-17).
+                        withAnimation(SkeuMotion.present) { pendingDelete = workspace }
                     }
                 }
 
@@ -602,6 +626,14 @@ private struct SkeuLanguageRow: View {
                     // asking you to press Edit first and then type.
                     .onChange(of: query) { _, new in
                         guard !new.isEmpty, !isOpen else { return }
+                        withAnimation(SkeuMotion.layout) { isOpen = true }
+                    }
+                    // Touching the field is asking for the list. Requiring
+                    // Edit first made the field look like a place to type a
+                    // language name from memory (founder direction
+                    // 2026-08-17).
+                    .onChange(of: focused) { _, isFocused in
+                        guard isFocused, !isOpen else { return }
                         withAnimation(SkeuMotion.layout) { isOpen = true }
                     }
 

@@ -77,11 +77,21 @@ struct Win95PinReplaceDialog: View {
 
 // MARK: - Skeu
 
+/// Also the app's general "are you sure" — the pin swap is simply its first
+/// caller. Deleting a workspace asks through this same dialog, so the two
+/// weighty questions in the app are put the same way (founder direction
+/// 2026-08-17).
 struct SkeuPinReplaceDialog: View {
     @Environment(\.skeu) private var skeu
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
     let outgoing: String
+    var title: String = "Replace pinned task"
+    /// Nil builds the pin wording from `outgoing`.
+    var message: String? = nil
+    var confirmLabel: String = "Replace"
+    /// Destructive questions colour their confirm word.
+    var confirmTint: Color? = nil
     var onReplace: () -> Void
     var onCancel: () -> Void
 
@@ -95,11 +105,11 @@ struct SkeuPinReplaceDialog: View {
                 .onTapGesture(perform: onCancel)
 
             VStack(alignment: .leading, spacing: SkeuSpace.lg) {
-                Text("Replace pinned task")
+                Text(title)
                     .font(SkeuFont.title3)
                     .foregroundStyle(skeu.ink)
 
-                Text("\u{201C}\(outgoing)\u{201D} is pinned to your Lock Screen. Only one task can be pinned.")
+                Text(message ?? "\u{201C}\(outgoing)\u{201D} is pinned to your Lock Screen. Only one task can be pinned.")
                     .font(SkeuFont.callout)
                     .foregroundStyle(skeu.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -109,7 +119,7 @@ struct SkeuPinReplaceDialog: View {
 
                     dialogButton("Cancel", tint: skeu.inkMuted,
                                  height: buttonH * chromeScale, action: onCancel)
-                    dialogButton("Replace", tint: skeu.ink,
+                    dialogButton(confirmLabel, tint: confirmTint ?? skeu.ink,
                                  height: buttonH * chromeScale, action: onReplace)
                 }
             }

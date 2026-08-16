@@ -32,6 +32,9 @@ struct TaskRowView: View {
     @State private var isPressing = false
     @State private var dragOffset: CGFloat = 0      // horizontal, swipe
     @State private var rubberBandBuzzed = false
+    /// True while the swipe is past the point where letting go commits — see
+    /// `swipeChanged`. Kept so the tick fires on the crossing, not every frame.
+    @State private var passedThreshold = false
 
     // Geometry
     @State private var rowFrame: CGRect = .zero
@@ -421,7 +424,7 @@ struct TaskRowView: View {
     /// Global→local conversion happens in MenuOverlay.
     private func handleHold() {
         guard !isEditing else { return }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        SkeuHaptic.press()
         menu.show(task: task, rowFrame: rowFrame)
     }
 
@@ -435,15 +438,28 @@ struct TaskRowView: View {
             dragOffset = snapped(dx * Self.rubberResistance)
             if abs(dx) > 20, !rubberBandBuzzed {
                 rubberBandBuzzed = true
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                SkeuHaptic.press()
             }
         } else {
             dragOffset = snapped(dx)
+            // Passing the bar is the moment worth feeling — after this,
+            // letting go commits. Fires once per crossing, not per frame.
+            //
+            // Measured against the row alone, not the runway `swipeEnded`
+            // uses: the finger's start x is not carried into this handler, and
+            // for a HAPTIC the exact bar matters far less than buzzing once,
+            // near it, in both looks alike.
+            let past = abs(dx) > rowWidth * Self.commitFraction
+            if past != passedThreshold {
+                passedThreshold = past
+                if past { SkeuHaptic.threshold() }
+            }
         }
     }
 
     private func swipeEnded(_ dx: CGFloat, velocity: CGFloat, startX: CGFloat) {
         rubberBandBuzzed = false
+        passedThreshold = false
         guard !task.isCompleted else { return }
 
         let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
@@ -459,7 +475,7 @@ struct TaskRowView: View {
 
         // Commit: slide off the edge, then the model moves and the list
         // closes the gap.
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        SkeuHaptic.press()
         withAnimation(.easeOut(duration: 0.15)) {
             dragOffset = dx < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
         }

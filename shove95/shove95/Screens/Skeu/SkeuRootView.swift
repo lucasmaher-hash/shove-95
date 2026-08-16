@@ -209,6 +209,8 @@ struct SkeuRootView: View {
     @State private var addRowFrame: CGRect = .zero
     /// Guards against a double insert when both Return paths fire.
     @State private var committingAdd = false
+    /// Identity of the list's top, for `scrollTo` on a workspace change.
+    private static let topAnchor = "list.top"
     /// Half-turns the gear has made. See the settings button.
     @State private var gearTurns = 0
 
@@ -333,6 +335,10 @@ struct SkeuRootView: View {
         return ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: F.rowGap) {
+                // Scroll anchor. Switching workspace jumps here rather than
+                // keeping the old list's offset, which left a long list part
+                // way down and mid-animation (founder bug report 2026-08-17).
+                Color.clear.frame(height: 0).id(Self.topAnchor)
                 // No empty-state text: the add row's own "add" placeholder
                 // already says the list is empty and where to start.
                 ForEach(active, id: \.id) { task in
@@ -403,6 +409,12 @@ struct SkeuRootView: View {
         // dissolves rather than cutting — and only once there is something
         // past it to dissolve. See SkeuEdgeFade.
         .skeuScrollEdgeFade(F.edgeFade * chromeScale)
+        .onChange(of: settings.currentWorkspaceID) {
+            // No animation: the two lists share no rows, so anything that
+            // interpolates between them is the stutter itself.
+            var t = Transaction(); t.disablesAnimations = true
+            withTransaction(t) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
+        }
         } // ScrollViewReader
     }
 
@@ -789,6 +801,11 @@ private struct SkeuWorkspacePill: View {
         return VStack(alignment: .leading, spacing: 0) {
             Button {
                 SkeuHaptic.selection()
+                // Nothing to choose from: no chevron turn, no list. The pill
+                // still answers the touch — its press animation runs — so it
+                // reads as a control that is simply already where it can be
+                // (founder direction 2026-08-17).
+                guard !others.isEmpty else { return }
                 withAnimation(SkeuMotion.layout) { isOpen.toggle() }
             } label: {
                 HStack(spacing: F.glassGap * scale) {
@@ -899,6 +916,9 @@ private struct SkeuTaskRow: View {
     @State private var isPressing = false
     @State private var dragOffset: CGFloat = 0
     @State private var rubberBandBuzzed = false
+    /// True while the swipe is past the point where letting go commits — see
+    /// `swipeChanged`. Kept so the tick fires on the crossing, not every frame.
+    @State private var passedThreshold = false
     @State private var rowFrame: CGRect = .zero
     @State private var rowWidth: CGFloat = 390
 
@@ -1059,7 +1079,7 @@ private struct SkeuTaskRow: View {
             onTap: handleTap,
             onHold: {
                 guard !isEditing else { return }
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                SkeuHaptic.press()
                 menu.show(task: task, rowFrame: rowFrame)
             },
             onSwipeChanged: swipeChanged,
@@ -1160,15 +1180,28 @@ private struct SkeuTaskRow: View {
             dragOffset = dx * Self.rubberResistance
             if abs(dx) > 20, !rubberBandBuzzed {
                 rubberBandBuzzed = true
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                SkeuHaptic.press()
             }
         } else {
             dragOffset = dx
+            // Passing the bar is the moment worth feeling — after this,
+            // letting go commits. Fires once per crossing, not per frame.
+            //
+            // Measured against the row alone, not the runway `swipeEnded`
+            // uses: the finger's start x is not carried into this handler, and
+            // for a HAPTIC the exact bar matters far less than buzzing once,
+            // near it, in both looks alike.
+            let past = abs(dx) > rowWidth * Self.commitFraction
+            if past != passedThreshold {
+                passedThreshold = past
+                if past { SkeuHaptic.threshold() }
+            }
         }
     }
 
     private func swipeEnded(_ dx: CGFloat, velocity: CGFloat, startX: CGFloat) {
         rubberBandBuzzed = false
+        passedThreshold = false
         guard !task.isCompleted else { return }
 
         let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
@@ -1184,7 +1217,7 @@ private struct SkeuTaskRow: View {
 
         // Commit: slide off the edge, then the model moves and the list
         // closes the gap.
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        SkeuHaptic.press()
         withAnimation(.easeOut(duration: 0.15)) {
             dragOffset = dx < 0 ? -rowWidth * 1.2 : rowWidth * 1.2
         }
@@ -1443,8 +1476,8 @@ private struct SkeuPhotoViewer: View {
                 .font(SkeuFont.at(15, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(tint)
-                .frame(width: 37, height: 37)
-                .skeuGlass(Circle(), height: 37, frosted: true)
+                .frame(width: SkeuTopBar.control, height: SkeuTopBar.control)
+                .skeuGlass(Circle(), height: SkeuTopBar.control, frosted: true)
         }
         .buttonStyle(.plain)
         // The glass circle stays 37 — that is the rim SkeuMenu is matched to.

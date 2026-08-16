@@ -442,6 +442,11 @@ private struct LanguageSection: View {
                         guard !new.isEmpty, !isOpen else { return }
                         isOpen = true
                     }
+                    // See the skeu row: touching the field opens the list.
+                    .onChange(of: focused) { _, isFocused in
+                        guard isFocused, !isOpen else { return }
+                        isOpen = true
+                    }
 
                 Win95Button(action: toggle, compact: true, width: buttonColumn) {
                     TypedText(text: isOpen ? "Done" : "Edit", face: settings.face, role: .content)

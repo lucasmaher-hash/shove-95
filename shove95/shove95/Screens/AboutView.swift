@@ -8,9 +8,13 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct AboutView: View {
     @Environment(\.pixel) private var pixel
+    /// The system review prompt. Apple rate-limits it, so a press may show
+    /// nothing — which is why the button says "Rate", not "Open the App Store".
+    @Environment(\.requestReview) private var requestReview
     @Environment(\.openURL) private var openURL
     var onClose: () -> Void
 
@@ -50,6 +54,14 @@ struct AboutView: View {
                             .font(W95Font.small(pixel))
                             .foregroundStyle(Win95.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
+
+                        Win95Button(action: { requestReview() }, compact: true) {
+                            Text("Rate the app")
+                                .font(W95Font.small(pixel))
+                                .foregroundStyle(Win95.text)
+                        }
+                        .fixedSize()
+                        .padding(.top, Win95.Px.grid * 2 * pixel)
 
                         Win95Button(action: { openURL(Self.privacyPolicyURL) }, compact: true) {
                             Text("Privacy policy")
