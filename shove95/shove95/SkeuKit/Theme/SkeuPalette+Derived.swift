@@ -25,17 +25,33 @@ extension SkeuPalette {
         let s = seed.hsb
         let acc = (accentSeed ?? seed.shifted(sat: +0.22, bri: -0.24)).hsb
 
-        // Light ladder. ONE BASE: canvas, material and recess are all the seed
-        // itself — see `SkeuPalette.cream` for why. Only the gradient stops and
-        // the shadows move, so every object IS the page, lit differently.
+        // Light ladder. ONE BASE HUE: canvas, material and recess are all the
+        // same colour at different brightnesses — see `SkeuPalette.cream` for
+        // why every object IS the page, lit differently.
         if !dark {
-            return SkeuPalette(
-                canvas:         seed,
-                canvasAlt:      seed,
+            // LIGHT means light (founder direction 2026-08-16). The seeds are
+            // mid-tones — they were being used as the material directly, which
+            // made every light theme a dimmed version of its dark half rather
+            // than the opposite of it. The base is lifted and desaturated
+            // here, once, so all four derived themes move together and keep
+            // their hue: a light Moss is still Moss.
+            //
+            // 0.88 is a ceiling, not a target: a seed already brighter than
+            // that would otherwise be pushed into white, where the rim light
+            // has nowhere left to go.
+            let b = min(s.b * 1.22, 0.88)
+            let sat = s.s * 0.62
 
-                material:       seed,
-                materialTop:    Color(h: s.h, s: s.s * 0.78, b: min(s.b * 1.10, 1.0)),
-                materialBottom: Color(h: s.h, s: min(s.s * 1.18, 1), b: s.b * 0.86),
+            return SkeuPalette(
+                canvas:         Color(h: s.h, s: min(sat * 1.15, 1), b: b * 0.955),
+                canvasAlt:      Color(h: s.h, s: min(sat * 1.15, 1), b: b * 0.955),
+
+                material:       Color(h: s.h, s: sat, b: b),
+                // Held off white deliberately. `edgeLight` is white, and the
+                // old `× 1.10` clamped this stop to white as well at a light
+                // base — a white rim on a white surface is not a rim.
+                materialTop:    Color(h: s.h, s: sat * 0.78, b: min(b * 1.06, 0.94)),
+                materialBottom: Color(h: s.h, s: min(sat * 1.18, 1), b: b * 0.86),
 
                 // Trough BRIGHTNESS ratios come from the reference: near wall at
                 // 0.76× the base, floor at 0.955×, contour at 0.59×.
@@ -44,32 +60,46 @@ extension SkeuPalette {
                 // tuned for a red already at 0.73 saturation. Applied to a pale
                 // seed it yields grey, so they are pushed much harder here and
                 // scale with how unsaturated the seed is.
-                recess:         Color(h: s.h, s: min(s.s * 1.75, 1), b: s.b * 0.76),
-                recessBottom:   Color(h: s.h, s: min(s.s * 1.25, 1), b: min(s.b * 0.955, 1.0)),
+                recess:         Color(h: s.h, s: min(sat * 1.75, 1), b: b * 0.76),
+                recessBottom:   Color(h: s.h, s: min(sat * 1.25, 1), b: min(b * 0.955, 1.0)),
 
                 edgeLight:      .white,
+                // NOT lightened with the rest. On a light material the rim has
+                // nowhere brighter to go, so the contact shade is what
+                // separates an object from the page — weaken it and everything
+                // flattens.
                 edgeShade:      Color(h: s.h, s: min(s.s * 1.8, 1), b: s.b * 0.42),
-                seam:           Color(h: s.h, s: s.s * 0.35, b: min(s.b * 1.14, 1)),
+                seam:           Color(h: s.h, s: sat * 0.35, b: min(b * 1.14, 1)),
                 // The contour is a gradient: dark near lip, LIT far lip. The
                 // far one goes brighter than the material itself — it is a
                 // highlight, not just a paler edge.
-                outline:        Color(h: s.h, s: min(s.s * 1.9, 1), b: s.b * 0.60),
-                outlineBottom:  Color(h: s.h, s: s.s * 0.68, b: min(s.b * 1.02, 1.0)),
+                outline:        Color(h: s.h, s: min(sat * 1.9, 1), b: b * 0.60),
+                outlineBottom:  Color(h: s.h, s: sat * 0.68, b: min(b * 1.02, 0.97)),
 
-                ink:            Color(h: s.h, s: min(s.s * 1.35, 1), b: s.b * 0.26),
-                inkMuted:       Color(h: s.h, s: min(s.s * 1.15, 1), b: s.b * 0.46),
-                inkFaint:       Color(h: s.h, s: s.s * 0.9,          b: s.b * 0.62),
+                // ABSOLUTE, not a ratio of the base. As a ratio these tracked
+                // the base upward and got lighter exactly when the surface did,
+                // which is the wrong direction: the lighter the page, the
+                // darker its text has to be. Fixed stops give every seed the
+                // same black.
+                ink:            Color(h: s.h, s: min(s.s * 0.9, 1), b: 0.14),
+                inkMuted:       Color(h: s.h, s: min(s.s * 0.8, 1), b: 0.34),
+                inkFaint:       Color(h: s.h, s: s.s * 0.7,         b: 0.50),
                 inkOnAccent:    Color(h: acc.h, s: acc.s * 0.10, b: 0.99),
 
                 accent:         Color(h: acc.h, s: acc.s, b: acc.b),
                 accentTop:      Color(h: acc.h, s: acc.s * 0.88, b: min(acc.b * 1.14, 1)),
                 accentBottom:   Color(h: acc.h, s: min(acc.s * 1.10, 1), b: acc.b * 0.84),
 
-                positive:       Color(h: 0.35, s: 0.45, b: 0.55),
-                caution:        Color(h: 0.10, s: 0.62, b: 0.72),
-                critical:       Color(h: 0.02, s: 0.58, b: 0.62),
+                // Read as TEXT on a light page — an overdue title is
+                // critical-coloured — so they answer to 4.5:1, not 3:1. The
+                // old stops were mid-tones tuned against a mid-tone material.
+                positive:       Color(h: 0.35, s: 0.52, b: 0.42),
+                caution:        Color(h: 0.10, s: 0.72, b: 0.52),
+                critical:       Color(h: 0.02, s: 0.66, b: 0.48),
 
-                shadow:         Color(h: s.h, s: min(s.s * 1.5, 1), b: s.b * 0.22),
+                // Also absolute, and also on purpose: shadow carries the
+                // depth on a light theme, so it must not lift with the base.
+                shadow:         Color(h: s.h, s: min(s.s * 1.5, 1), b: 0.16),
                 shadowIntensity: 1.0,
                 isDark:         false
             )

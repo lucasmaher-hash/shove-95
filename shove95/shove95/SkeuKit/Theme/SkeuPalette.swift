@@ -140,40 +140,72 @@ extension SkeuPalette {
     /// them equal, and that reading was carried over too eagerly — the finished
     /// screen puts its cards on a deeper ground, and the cards are what the
     /// white rim is drawn against.
+    /// LIGHT means light (founder direction 2026-08-16). The values below used
+    /// to be a mid-brown carrying white text — the frame this look was
+    /// transcribed from is the DARK one, and the light half inherited its
+    /// white-on-brown relationship at a slightly raised brightness. It read as
+    /// a dimmer dark theme, and it measured 3.42:1 against a 4.5:1 bar.
+    ///
+    /// The base moves to 0.88 brightness and the ink to near-black. Every
+    /// other role is the SAME multiplier of the base as before, so the ladder
+    /// — near wall at 0.76×, floor at 0.955×, contour at 0.60×, lit lip at
+    /// 1.02× — is unchanged. Only where the ladder stands has moved.
+    ///
+    /// Two things had to be re-thought rather than re-scaled, because light
+    /// material does not behave like dark material:
+    ///
+    /// **The rim needs headroom.** `edgeLight` is white, and `materialTop` was
+    /// `base × 1.10`. At a light base that clamps to white as well, and a
+    /// white rim on a white surface is no rim at all. The top stop is held at
+    /// 0.93 so the rim still out-shines what it sits on.
+    ///
+    /// **Shadow does the work now.** On a dark surface a bright rim carries
+    /// the depth; on a light one there is nowhere brighter to go, so the
+    /// contact shade and the drop shadow are what separate an object from the
+    /// page. `edgeShade` and `shadow` therefore keep their strength instead of
+    /// being lightened along with everything else.
     static let cream = SkeuPalette(
-        canvas:         Color(hex: 0xAA8360),
-        canvasAlt:      Color(hex: 0xAA8360),
+        canvas:         Color(hex: 0xD6C3B2), // the ground, a step under material
+        canvasAlt:      Color(hex: 0xD6C3B2),
 
-        material:       Color(hex: 0xC79C75),
-        materialTop:    Color(hex: 0xD3AB86),
-        materialBottom: Color(hex: 0xB98C63),
+        material:       Color(hex: 0xE0CEBE),
+        materialTop:    Color(hex: 0xEDDED1), // held off white — see above
+        materialBottom: Color(hex: 0xC1AF9F),
 
-        recess:         Color(hex: 0x97704E), // trough top — the near wall, in shade
-        recessBottom:   Color(hex: 0xBF9774), // trough floor — light pools here
+        recess:         Color(hex: 0xAB937E), // trough top — the near wall, in shade
+        recessBottom:   Color(hex: 0xD6C1AE), // trough floor — light pools here
 
         edgeLight:      .white,
-        edgeShade:      Color(hex: 0x4A3524),
-        seam:           Color(hex: 0xE8D3BC),
-        outline:        Color(hex: 0x77593E), // 0.60 brightness of material
+        edgeShade:      Color(hex: 0x5E5145),
+        seam:           Color(hex: 0xFFF8F2),
+        outline:        Color(hex: 0x877260), // 0.60 brightness of material
         // Brighter than the material itself, but only just (1.02×). The far lip
         // is a highlight catching the key light, so it has to out-shine the
         // surface it is cut into — at 0.75× it read as a washed-out edge rather
         // than a lit one. 1.09× overshot and turned into a chrome piping.
-        outlineBottom:  Color(hex: 0xCBAD92),
+        outlineBottom:  Color(hex: 0xE5D9CE),
 
-        // Every label in the frame is plain white, selected or not.
-        ink:            .white,
-        inkMuted:       Color(hex: 0xF2E4D5),
-        inkFaint:       Color(hex: 0xDCC7AF),
-        inkOnAccent:    Color(hex: 0x3A2A1B),
+        // Black, warmed just enough not to read as a foreign neutral against
+        // the material. 10.9:1 on `material` — the old white managed 3.42.
+        ink:            Color(hex: 0x241D17),
+        inkMuted:       Color(hex: 0x57493D), // 5.7:1
+        inkFaint:       Color(hex: 0x806E5F), // 3.2:1
+        inkOnAccent:    Color(hex: 0xFBF3EA), // white now — the accent went dark
 
-        accent:         Color(hex: 0xD3AB86),
-        accentTop:      Color(hex: 0xE0BC9C),
-        accentBottom:   Color(hex: 0xB98C63),
+        // Deepened with the base move. The old caramel was chosen against a
+        // mid-brown material; on the light one it measured 1.9:1 and the pin
+        // glyph all but vanished. 3.7:1 now — the bar for a graphic that
+        // carries meaning. Still unmistakably caramel, just further down it.
+        accent:         Color(hex: 0x9A6630),
+        accentTop:      Color(hex: 0xB07A3F),
+        accentBottom:   Color(hex: 0x7E5223),
 
-        positive:       Color(hex: 0x5C7A52),
-        caution:        Color(hex: 0xB98A3C),
-        critical:       Color(hex: 0xA6503E),
+        // Deepened for the same reason. These three are read as TEXT — an
+        // overdue title is critical-coloured — so they answer to 4.5:1, not
+        // 3:1. Critical was 3.58:1 against the light material and is 4.7 now.
+        positive:       Color(hex: 0x46613C),
+        caution:        Color(hex: 0x8A6320),
+        critical:       Color(hex: 0x8E4030),
 
         shadow:         Color(hex: 0x2E1F12),
         shadowIntensity: 1.0,
