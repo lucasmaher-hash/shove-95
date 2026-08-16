@@ -5,22 +5,43 @@
 //  What the app expects you to do, written once.
 //
 //  Nearly every gesture here is CUSTOM — the swipe, the hold, the hold-drag,
-//  Return-as-commit — and none of them announce themselves. A list is not a
-//  substitute for an interface that explains itself, but it is what stands in
-//  until one does, and it costs nothing to be honest about the ones that are
-//  genuinely undiscoverable (the pin, the reorder, the rubber-band at the ends
-//  of the chain).
+//  Return-as-commit — and none of them announce themselves. What stands in
+//  until the interface explains itself is this: a picture of the gesture, its
+//  name, and one line saying what happens. Not a paragraph. A reader looking
+//  something up scans the pictures first and only reads the line under the one
+//  that matches (founder direction 2026-08-16).
 //
 //  ONE source for both looks. The two screens that render this have already
 //  drifted once elsewhere in the app — the VoiceOver row logic is written
-//  twice and no longer agrees with itself — and a help text that disagrees
-//  with itself is worse than none.
+//  twice and no longer agrees with itself — and help that disagrees with
+//  itself is worse than none.
 //
 
 import Foundation
 
 enum HowTo {
+    /// The pictogram beside an item. Drawn, not lettered: these have to read
+    /// in the Win95 look too, where SF Symbols are prohibited (design.md §9).
+    enum Glyph: String {
+        case line           // the four tabs, as a row of steps
+        case swipeRight
+        case swipeLeft
+        case clock
+        case tick
+        case caret          // tap to edit
+        case hold
+        case drag
+        case plus
+        case camera
+        case pin
+        case lockScreen
+        case workspace
+        case undo
+        case photo
+    }
+
     struct Item: Identifiable {
+        let glyph: Glyph
         let action: String
         let result: String
         var id: String { action }
@@ -34,52 +55,50 @@ enum HowTo {
 
     static let sections: [Section] = [
         Section(title: "The four tabs", items: [
-            Item(action: "Today · Tomorrow · Week · General",
-                 result: "One line, in that order. A task moves along it one step at a time — never two."),
-            Item(action: "Swipe a task right",
-                 result: "Pushes it one step later. From General it springs back: there is nowhere further."),
-            Item(action: "Swipe a task left",
-                 result: "Pulls it one step earlier. From Today it springs back the same way."),
-            Item(action: "Anything overdue",
-                 result: "Rolls into Today by itself and keeps a chip saying how long it has been waiting."),
+            Item(glyph: .line, action: "Today · Tomorrow · Week · General",
+                 result: "One line. A task moves along it one step at a time."),
+            Item(glyph: .swipeRight, action: "Swipe right",
+                 result: "One step later. From General it springs back."),
+            Item(glyph: .swipeLeft, action: "Swipe left",
+                 result: "One step earlier. From Today it springs back."),
+            Item(glyph: .clock, action: "Overdue",
+                 result: "Rolls into Today by itself, and says how long it waited."),
         ]),
 
         Section(title: "A task", items: [
-            Item(action: "Tap the circle",
-                 result: "Ticks it off. It drops to the bottom of the list, struck through, and leaves for the archive later."),
-            Item(action: "Tap the text",
-                 result: "Edits it in place. Return commits, and so does tapping another row. Clearing it entirely leaves the old title alone."),
-            Item(action: "Press and hold",
-                 result: "Opens the row menu: move it anywhere on the line, flag it as important, or delete it."),
-            Item(action: "Hold, then drag",
-                 result: "Reorders the list by hand. A task you have placed yourself is left where you put it."),
+            Item(glyph: .tick, action: "Tap the circle",
+                 result: "Ticks it off. It sinks to the bottom."),
+            Item(glyph: .caret, action: "Tap the text",
+                 result: "Edits in place. Return commits."),
+            Item(glyph: .hold, action: "Press and hold",
+                 result: "The row menu: move, flag, delete."),
+            Item(glyph: .drag, action: "Hold, then drag",
+                 result: "Reorders by hand, and it stays where you put it."),
         ]),
 
         Section(title: "Adding", items: [
-            Item(action: "The bottom row",
-                 result: "Type and press Return. The new task lands where the add row was standing."),
-            Item(action: "The camera, while typing",
-                 result: "Attaches a photo. Several are fine — they wait until the task exists."),
-            Item(action: "The circle beside it",
-                 result: "Pins the task to the Lock Screen as you write it."),
+            Item(glyph: .plus, action: "The bottom row",
+                 result: "Type, press Return."),
+            Item(glyph: .camera, action: "The camera",
+                 result: "Attaches photos while you write."),
+            Item(glyph: .pin, action: "The circle beside it",
+                 result: "Pins the task as you write it."),
         ]),
 
         Section(title: "The pinned task", items: [
-            Item(action: "Exactly one, app-wide",
-                 result: "Across every workspace. Pinning a second one asks before it lets the first go."),
-            Item(action: "On the Lock Screen",
-                 result: "It carries a tick button, so it can be finished without opening the app."),
-            Item(action: "It releases itself",
-                 result: "Completing, deleting or archiving the task takes it off the Lock Screen."),
+            Item(glyph: .pin, action: "Exactly one",
+                 result: "App-wide. Pinning a second one asks first."),
+            Item(glyph: .lockScreen, action: "On the Lock Screen",
+                 result: "With a tick button, so it finishes without the app."),
         ]),
 
         Section(title: "Elsewhere", items: [
-            Item(action: "The name at the top left",
-                 result: "Switches workspace. Each keeps its own list; the pin is shared across all of them."),
-            Item(action: "After a move",
-                 result: "A bar names what happened and offers to undo it. It retires itself after a few seconds."),
-            Item(action: "A photo thumbnail",
-                 result: "Opens it. It can be removed from there."),
+            Item(glyph: .workspace, action: "The name, top left",
+                 result: "Switches workspace. The pin is shared across all."),
+            Item(glyph: .undo, action: "After a move",
+                 result: "A bar offers to undo it, then retires."),
+            Item(glyph: .photo, action: "A thumbnail",
+                 result: "Opens the photo. It can be removed there."),
         ]),
     ]
 }

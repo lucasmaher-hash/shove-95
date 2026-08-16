@@ -50,8 +50,11 @@ private struct SkeuSheet<Content: View>: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
+                    // CHROME, like the Settings header — a screen's own name
+                    // is the app labelling itself, so it holds the pixel face
+                    // under Blend (founder bug report 2026-08-17).
                     Text(title)
-                        .font(SkeuFont.title3)
+                        .font(SkeuFont.title3Chrome)
                         .foregroundStyle(skeu.ink)
 
                     Spacer(minLength: SkeuSpace.sm)
@@ -75,10 +78,18 @@ private struct SkeuSheet<Content: View>: View {
                 ScrollView {
                     content
                         .padding(.horizontal, S.margin)
-                        .padding(.bottom, SkeuSpace.xxl)
+                        // Clears the home indicator by padding, since the
+                        // scroll view now runs past the safe area — the same
+                        // fix the settings sheet took (2026-08-16).
+                        .padding(.bottom, SkeuSpace.xxl + 34)
                 }
+                .ignoresSafeArea(.container, edges: .bottom)
                 .scrollBounceBehavior(.always, axes: .vertical)
-        .scrollIndicators(.hidden)
+                .scrollIndicators(.hidden)
+                // The header is docked here too, so content dissolves as it
+                // passes under it — the settings sheet got this and Archive,
+                // About and How to use were left without it.
+                .skeuScrollEdgeFade(28 * chromeScale, edges: .top)
             }
         }
     }
@@ -329,18 +340,26 @@ struct SkeuHowToView: View {
     /// The gesture reads as the heading and its outcome as the body — the same
     /// two-line stack the settings eyebrows use, so a reader can scan the left
     /// column alone and still find what they came for.
+    /// Picture first, then the name of the gesture, then one line. A reader
+    /// looking something up scans the left column and only reads the line
+    /// under the picture that matches.
     private func row(_ item: HowTo.Item) -> some View {
-        VStack(alignment: .leading, spacing: SkeuSpace.xs) {
-            Text(item.action)
-                .font(SkeuFont.at(labelSize, weight: .medium))
-                .foregroundStyle(skeu.ink)
+        HStack(alignment: .top, spacing: SkeuSpace.md) {
+            HowToGlyph(glyph: item.glyph, tint: skeu.inkMuted,
+                       size: 26 * chromeScale)
 
-            Text(item.result)
-                .font(SkeuFont.at(labelSize))
-                .foregroundStyle(skeu.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: SkeuSpace.xs) {
+                Text(item.action)
+                    .font(SkeuFont.at(labelSize, weight: .medium))
+                    .foregroundStyle(skeu.ink)
+
+                Text(item.result)
+                    .font(SkeuFont.at(labelSize))
+                    .foregroundStyle(skeu.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }

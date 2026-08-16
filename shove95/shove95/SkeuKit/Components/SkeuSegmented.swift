@@ -21,7 +21,12 @@ import SwiftUI
 
 enum SkeuToggle {
     static let height: CGFloat = 51.0
-    static let label: CGFloat = 14.1
+    /// Segment labels. This is the TASK text size (`F.label`, 16.4 at the
+    /// design step) rather than a figure of its own: the tab bar sits directly
+    /// under the list and read a shade smaller than the rows above it, which
+    /// makes the bar look like a caption instead of the app's own furniture
+    /// (founder direction 2026-08-17).
+    static let label: CGFloat = 16.4
     /// Pill padding — horizontal is deliberately tight: four labels have to
     /// share a phone width and "Tomorrow" is the longest word in the app.
     static let padH: CGFloat = 7.6

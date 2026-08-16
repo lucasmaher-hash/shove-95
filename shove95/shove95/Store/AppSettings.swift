@@ -119,8 +119,11 @@ final class AppSettings {
         scheme = Win95Scheme.named(stored)
         Win95.scheme = Win95Scheme.named(stored)
 
+        // Skeu on a fresh install (founder direction 2026-08-17). Anyone who
+        // has already chosen keeps their choice — this is the fallback, not an
+        // override.
         design = DesignMode(rawValue: UserDefaults.standard.string(forKey: Key.design) ?? "")
-            ?? .win95
+            ?? .skeu
         appearance = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: Key.appearance) ?? "")
             ?? .system
         skeuTheme = SkeuTheme.named(UserDefaults.standard.string(forKey: Key.skeuTheme) ?? "")

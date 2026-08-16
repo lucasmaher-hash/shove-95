@@ -112,7 +112,11 @@ extension SkeuPalette {
                 // old stops were mid-tones tuned against a mid-tone material.
                 positive:       Color(h: 0.35, s: 0.52, b: 0.42),
                 caution:        Color(h: 0.10, s: 0.72, b: 0.52),
-                critical:       Color(h: 0.02, s: 0.66, b: 0.48),
+                // Brighter than the rest of the light ladder on purpose.
+                // Important is the one thing on the screen that has to shout,
+                // and at b 0.48 the skeu strike read as maroon beside Win95's
+                // pure red (founder direction 2026-08-17).
+                critical:       Color(h: 0.02, s: 0.88, b: 0.74),
 
                 // Also absolute, and also on purpose: shadow carries the
                 // depth on a light theme, so it must not lift with the base.

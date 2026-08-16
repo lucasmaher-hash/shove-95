@@ -13,10 +13,14 @@
 import SwiftUI
 
 enum DesignMode: String, CaseIterable, Sendable {
-    /// The pixel-faithful Windows 95 interface the app is named after.
-    case win95
+    // Order is the PICKER's order — `allCases` drives both settings screens.
+    // Skeu leads because it is the default; the option a reader already has
+    // should be the one they meet first (founder direction 2026-08-17).
+
     /// Soft skeuomorphism — see docs/SKEUOMORPHIC_DESIGN_SYSTEM.md.
     case skeu
+    /// The pixel-faithful Windows 95 interface the app is named after.
+    case win95
 
     var label: String {
         switch self {

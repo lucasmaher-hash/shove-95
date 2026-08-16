@@ -38,6 +38,12 @@ private enum G {
     /// with a card edge, and seven settings ran together as one column.
     static let sectionGap: CGFloat = 44
 
+    /// Heading → the control it labels. Raised from `SkeuSpace.sm` (12): the
+    /// Win95 sheet sets 12 too, but its heading has the taller line box, so
+    /// the same number read tighter here. 16 lands the two side by side
+    /// (founder direction 2026-08-17).
+    static let headingGap: CGFloat = 16
+
     static let pillPadH = 36.923 * q        // 17.1
     static let pillHeight: CGFloat = 38     // 12.8 text + 2 × 11.4, rounded
     static let label: CGFloat = 12.8
@@ -332,7 +338,7 @@ struct SkeuSettingsView: View {
     /// cards' worth of gradients and shadows from the sheet's first frame.
     private func panel<C: View>(_ title: String,
                                 @ViewBuilder options: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+        VStack(alignment: .leading, spacing: G.headingGap) {
             TypedText(text: title.uppercased(), face: settings.skeuFace, role: .chrome)
                 .font(SkeuFont.eyebrow)
                 .tracking(0.8)
@@ -398,7 +404,7 @@ struct SkeuSettingsView: View {
     /// troughs of their own, so an outer frame was a frame inside a frame.
     private func card<C: View>(_ title: String,
                                @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+        VStack(alignment: .leading, spacing: G.headingGap) {
             TypedText(text: title.uppercased(), face: settings.skeuFace, role: .chrome)
                 .font(SkeuFont.eyebrow)
                 .tracking(0.8)

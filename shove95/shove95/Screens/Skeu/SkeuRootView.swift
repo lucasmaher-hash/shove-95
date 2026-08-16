@@ -209,6 +209,8 @@ struct SkeuRootView: View {
     @State private var addRowFrame: CGRect = .zero
     /// Guards against a double insert when both Return paths fire.
     @State private var committingAdd = false
+    /// Half-turns the gear has made. See the settings button.
+    @State private var gearTurns = 0
 
     var body: some View {
         ZStack {
@@ -293,7 +295,13 @@ struct SkeuRootView: View {
 
             // The gear stands in for the frame's ✚ — this screen still has to
             // reach Settings, and there is nowhere else yet.
-            Button { showSettings = true } label: {
+            Button {
+                // Half a turn on every press (founder direction 2026-08-17).
+                // Accumulated rather than toggled between two values, so the
+                // gear keeps turning the same way instead of rocking back.
+                withAnimation(SkeuMotion.layout) { gearTurns += 1 }
+                showSettings = true
+            } label: {
                 // Shared with the ✕ that closes every sheet — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
                 // Pixel under Retro and Blend, the system symbol under
@@ -301,6 +309,7 @@ struct SkeuRootView: View {
                 SkeuChromeGlyph(kind: .gear, face: settings.skeuFace,
                                 size: SkeuTopBar.icon * chromeScale, tint: skeu.ink)
                     .frame(width: size, height: size)
+                    .rotationEffect(.degrees(Double(gearTurns) * 180))
                     .skeuGlass(Circle(), height: size)
             }
             .buttonStyle(.plain)
@@ -648,7 +657,7 @@ struct SkeuRootView: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
             // Retires itself; any further mutation restarts the clock.
             .task(id: store.revision) {
-                try? await Task.sleep(for: .seconds(6))
+                try? await Task.sleep(for: .seconds(4))
                 if !Task.isCancelled {
                     withAnimation(SkeuMotion.layout) { store.dismissLastAction() }
                 }

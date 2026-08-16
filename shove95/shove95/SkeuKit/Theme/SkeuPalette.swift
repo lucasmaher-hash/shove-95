@@ -218,7 +218,7 @@ extension SkeuPalette {
         // 3:1. Critical was 3.58:1 against the light material and is 4.7 now.
         positive:       Color(hex: 0x46613C),
         caution:        Color(hex: 0x8A6320),
-        critical:       Color(hex: 0x8E4030),
+        critical:       Color(hex: 0xD1462C), // lifted — see the derived palette
 
         shadow:         Color(hex: 0x2E1F12),
         shadowIntensity: 1.0,

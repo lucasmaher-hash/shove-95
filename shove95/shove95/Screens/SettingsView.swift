@@ -24,6 +24,14 @@ struct SettingsView: View {
     @Environment(\.appFace) private var face
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
+    /// Needed to resolve the scheme for the sheets below — they were handed
+    /// the light palette unconditionally, which is why their ✕ stayed light
+    /// grey in dark mode while this screen's own was correct (founder bug
+    /// report 2026-08-17).
+    @Environment(\.colorScheme) private var systemScheme
+    private var resolvedScheme: Win95Scheme {
+        settings.scheme.resolved(dark: settings.appearance.isDark(system: systemScheme))
+    }
     @State private var showArchive = false
     @State private var showAbout = false
     @State private var showHowTo = false
@@ -78,6 +86,7 @@ struct SettingsView: View {
                     .padding(.bottom, Win95.Px.grid * 8 * pixel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
         }
@@ -90,18 +99,18 @@ struct SettingsView: View {
         .fullScreenCover(isPresented: $showArchive) {
             ArchiveView { showArchive = false }
                 .environment(\.pixel, pixel)
-                .environment(\.win95Scheme, settings.scheme)
+                .environment(\.win95Scheme, resolvedScheme)
                 .id(settings.face.rawValue + settings.scheme.id)
         }
         .fullScreenCover(isPresented: $showHowTo) {
             HowToView { showHowTo = false }
                 .environment(\.pixel, pixel)
-                .environment(\.win95Scheme, settings.scheme)
+                .environment(\.win95Scheme, resolvedScheme)
         }
         .fullScreenCover(isPresented: $showAbout) {
             AboutView { showAbout = false }
                 .environment(\.pixel, pixel)
-                .environment(\.win95Scheme, settings.scheme)
+                .environment(\.win95Scheme, resolvedScheme)
                 .id(settings.face.rawValue + settings.scheme.id)
         }
     }
@@ -116,21 +125,21 @@ struct SettingsView: View {
             // wedged between them, the line read as a caption for Archive.
             HStack(spacing: rowGap) {
                 Win95Button(action: { showArchive = true },
-                            compact: true, width: buttonColumn) {
+                            compact: true, width: dataButtonColumn) {
                     TypedText(text: "Archive", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
 
                 Win95Button(action: { showHowTo = true },
-                            compact: true, width: buttonColumn) {
+                            compact: true, width: dataButtonColumn) {
                     TypedText(text: "How to use", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
 
                 Win95Button(action: { showAbout = true },
-                            compact: true, width: buttonColumn) {
+                            compact: true, width: dataButtonColumn) {
                     TypedText(text: "About", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
@@ -243,6 +252,12 @@ struct SettingsView: View {
     /// fields ended at a different x than the Workspaces fields directly
     /// below them. Sized to the longest label at any pixel scale.
     private var buttonColumn: CGFloat { Win95.Px.grid * 12 * pixel }
+
+    /// The Data row's buttons. Wider than `buttonColumn`, which is sized for
+    /// "Default" beside a field — "How to use" was clipped inside it (founder
+    /// bug report 2026-08-17). Still one width for all three, so the row reads
+    /// as a set.
+    private var dataButtonColumn: CGFloat { Win95.Px.grid * 17 * pixel }
 
     /// A heading and the controls it labels, as one block.
     ///

@@ -39,6 +39,7 @@ struct HowToView: View {
                     .padding(.bottom, Win95.Px.grid * 8 * pixel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .background(Win95.surface)
@@ -46,17 +47,22 @@ struct HowToView: View {
     }
 
     private func row(_ item: HowTo.Item) -> some View {
-        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
-            Text(item.action)
-                .font(W95Font.standard(pixel))
-                .foregroundStyle(Win95.text)
+        HStack(alignment: .top, spacing: Win95.Px.grid * 2 * pixel) {
+            HowToGlyph(glyph: item.glyph, tint: Win95.textMuted,
+                       size: 13 * pixel)
 
-            Text(item.result)
-                .font(W95Font.small(pixel))
-                .foregroundStyle(Win95.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+                Text(item.action)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
+
+                Text(item.result)
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(Win95.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }

@@ -89,7 +89,7 @@ struct RootView: View {
                     }
                     // Retires itself; any further mutation restarts the clock.
                     .task(id: store.revision) {
-                        try? await Task.sleep(for: .seconds(6))
+                        try? await Task.sleep(for: .seconds(4))
                         if !Task.isCancelled { store.dismissLastAction() }
                     }
                 }
