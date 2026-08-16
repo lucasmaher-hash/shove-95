@@ -124,7 +124,7 @@ private struct SkeuPanel<Content: View>: View {
             // Raised contour: lit on top, falling into shade below.
             shape.strokeBorder(
                 LinearGradient(
-                    stops: [.init(color: skeu.outlineBottom, location: 0.0),
+                    stops: [.init(color: skeu.outlineLit, location: 0.0),
                             .init(color: skeu.outline, location: 0.55),
                             .init(color: skeu.outline, location: 1.0)],
                     startPoint: .top, endPoint: .bottom),

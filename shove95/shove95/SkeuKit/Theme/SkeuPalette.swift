@@ -61,6 +61,15 @@ struct SkeuPalette: Equatable, Sendable {
     var outline: Color
     /// Bottom stop of the contour — lighter, the lit far lip.
     var outlineBottom: Color
+    /// The lit edge of a RAISED frame — its top, where the key light lands.
+    ///
+    /// Separate from `outlineBottom` because the two describe opposite
+    /// geometries: a trough's lit lip is its FAR one at the bottom, sitting
+    /// against `recessBottom`, while a card's is its NEAR one at the top,
+    /// sitting against `materialTop`. One value cannot clear both — tuned for
+    /// the card it turned the trough's lip into a hard white stripe (founder
+    /// bug report 2026-08-16).
+    var outlineLit: Color
 
     // MARK: Ink
 
@@ -184,6 +193,10 @@ extension SkeuPalette {
         // surface it is cut into — at 0.75× it read as a washed-out edge rather
         // than a lit one. 1.09× overshot and turned into a chrome piping.
         outlineBottom:  Color(hex: 0xE5D9CE),
+        // Clear of `materialTop` (0xEDDED1). At the trough's 0xE5D9CE it sat
+        // 0.031 BELOW the surface it borders, so a raised frame's top edge was
+        // darker than the frame itself and the lift vanished.
+        outlineLit:     Color(hex: 0xFCF5EF),
 
         // Black, warmed just enough not to read as a foreign neutral against
         // the material. 10.9:1 on `material` — the old white managed 3.42.
@@ -238,6 +251,7 @@ extension SkeuPalette {
         seam:           Color(hex: 0x6F5B4C),
         outline:        Color(hex: 0x1A130D),
         outlineBottom:  Color(hex: 0x5E4634),
+        outlineLit:     Color(hex: 0x6E5240),
 
         ink:            Color(hex: 0xF2E7DC),
         inkMuted:       Color(hex: 0xBFAC9E), // 6.4:1 on material

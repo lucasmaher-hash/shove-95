@@ -1359,7 +1359,7 @@ private struct SkeuTaskRow: View {
                             RoundedRectangle(cornerRadius: SkeuRadius.sm, style: .continuous)
                                 .strokeBorder(
                                     LinearGradient(
-                                        colors: [skeu.outline, skeu.outlineBottom],
+                                        colors: [skeu.outline, skeu.outlineLit],
                                         startPoint: .top, endPoint: .bottom),
                                     lineWidth: 1.5)
                         }

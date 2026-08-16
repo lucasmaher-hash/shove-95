@@ -71,10 +71,27 @@ extension SkeuPalette {
                 edgeShade:      Color(h: s.h, s: min(s.s * 1.8, 1), b: s.b * 0.42),
                 seam:           Color(h: s.h, s: sat * 0.35, b: min(b * 1.14, 1)),
                 // The contour is a gradient: dark near lip, LIT far lip. The
-                // far one goes brighter than the material itself — it is a
-                // highlight, not just a paler edge.
+                // far one has to go brighter than the material AT THAT EDGE,
+                // which is `materialTop` — not `material`.
+                //
+                // It was × 1.02 against a `materialTop` of × 1.06, so on every
+                // light theme the lit lip came out 0.035 DARKER than the
+                // surface it borders. A raised card's top edge therefore had
+                // no highlight at all; the stroke read as a plain outline and
+                // the frame lost its lift (founder bug report 2026-08-16,
+                // confirmed by computing the two stops for all five seeds).
+                //
+                // × 1.16 clears `materialTop` by ~0.06 for every seed,
+                // including one already at the 0.88 ceiling, and the
+                // saturation drop keeps it reading as LIGHT rather than as a
+                // paler tint of the hue.
                 outline:        Color(h: s.h, s: min(sat * 1.9, 1), b: b * 0.60),
                 outlineBottom:  Color(h: s.h, s: sat * 0.68, b: min(b * 1.02, 0.97)),
+                // × 1.16 clears `materialTop` (× 1.06) by ~0.06 for every
+                // seed, including one already at the 0.88 ceiling. The
+                // saturation drop keeps it reading as LIGHT rather than as a
+                // paler tint of the hue.
+                outlineLit:     Color(h: s.h, s: sat * 0.55, b: min(b * 1.16, 0.995)),
 
                 // ABSOLUTE, not a ratio of the base. As a ratio these tracked
                 // the base upward and got lighter exactly when the surface did,
@@ -131,6 +148,9 @@ extension SkeuPalette {
             seam:           Color(h: s.h, s: s.s * 0.7, b: 0.36),
             outline:        Color(h: s.h, s: min(s.s * 1.5, 1), b: 0.09),
             outlineBottom:  Color(h: s.h, s: s.s * 0.9, b: 0.34),
+            // Already clears the dark `materialTop` of 0.26; lifted a little
+            // further so a raised edge reads as lit rather than merely paler.
+            outlineLit:     Color(h: s.h, s: s.s * 0.8, b: 0.42),
 
             ink:            Color(h: s.h, s: 0.10, b: 0.96),
             inkMuted:       Color(h: s.h, s: 0.16, b: 0.74),

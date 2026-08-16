@@ -73,9 +73,16 @@ struct SkeuSegmentedTrough<Content: View>: View {
         // The soft bloom that seats the trough in the ground: light over dark,
         // opposite the trough's own fill, so the bar sits in a shallow dish
         // rather than on flat paint.
+        //
+        // The lit stop is `materialTop`, not `recessBottom`. `recessBottom` is
+        // `base × 0.955` and so is `canvas` — the two are the same brightness,
+        // so the top of this bloom was drawn in exactly the tone behind it and
+        // the OUTER top edge of every trough had no lift at all. Only the dark
+        // half showed, which reads as a shadow under the bar rather than a
+        // dish it sits in (founder bug report 2026-08-16).
         .background {
             Capsule()
-                .fill(LinearGradient(colors: [skeu.recessBottom, skeu.recess],
+                .fill(LinearGradient(colors: [skeu.materialTop, skeu.recess],
                                      startPoint: .top, endPoint: .bottom))
                 .padding(-SkeuToggle.bloomOverhang * chromeScale)
                 .blur(radius: SkeuToggle.bloomBlur)
