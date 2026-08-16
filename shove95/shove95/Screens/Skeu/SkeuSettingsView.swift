@@ -51,9 +51,12 @@ private enum G {
     static let label: CGFloat = 12.8
     static let icon = 30.769 * q            // 14.2
 
-    /// Input rows: a trough one notch shorter than an option trough, so a
-    /// stack of fields doesn't out-weigh the choices above it.
-    static let fieldHeight: CGFloat = 46
+    /// Input rows are the TOGGLE, taken apart: the field is the toggle's
+    /// trough and the button beside it is the toggle's inner pill (founder
+    /// direction 2026-08-16). Read from `SkeuToggle` rather than copied, so
+    /// the two families cannot drift apart the way they already did once.
+    static let fieldHeight = SkeuToggle.height
+    static let rowButtonH = SkeuToggle.height - SkeuToggle.padV * 2
     static let pillSmall: CGFloat = 30
     static let circle = 80 * q              // 37 — the round corner button
 
@@ -395,11 +398,10 @@ struct SkeuSettingsView: View {
 
 /// The button that stands BESIDE a field: Default, Delete, Add.
 ///
-/// Same height as the field it accompanies, so the pair reads as one row
-/// rather than a control that fell out of its container, and one fixed width
-/// across all three so they line up down the sheet (founder direction
-/// 2026-08-16). It is glass, not a trough: it is the raised thing you press,
-/// next to the recessed thing you type into.
+/// It is the toggle's inner pill, standing outside a trough instead of in
+/// one: same height, same glass, so a field row and an option row are visibly
+/// the same construction (founder direction 2026-08-16). One fixed width
+/// across all three so they line up down the sheet.
 private struct SkeuRowButton: View {
     @Environment(\.skeu) private var skeu
     @Environment(\.skeuTextScale) private var textScale
@@ -412,7 +414,7 @@ private struct SkeuRowButton: View {
     var action: () -> Void
 
     var body: some View {
-        let height = G.fieldHeight * chromeScale
+        let height = G.rowButtonH * chromeScale
 
         Text(title)
             .font(SkeuFont.at(G.label * textScale, weight: .medium))
@@ -538,7 +540,8 @@ private struct SkeuWorkspaceRow: View {
             // collapsed, so that one row's field isn't wider than the rest.
             if workspace.isDefault {
                 Color.clear
-                    .frame(width: G.rowButtonW * chromeScale, height: fieldH)
+                    .frame(width: G.rowButtonW * chromeScale,
+                           height: G.rowButtonH * chromeScale)
             } else {
                 SkeuRowButton(title: "Delete", tint: skeu.critical) {
                     SkeuHaptic.warning()
