@@ -951,7 +951,15 @@ private struct SkeuTaskRow: View {
             )) {
                 if let index = viewerIndex, index < task.allPhotos.count,
                    let image = UIImage(data: task.allPhotos[index]) {
-                    SkeuPhotoViewer(image: image) { viewerIndex = nil }
+                    SkeuPhotoViewer(image: image) {
+                        // Close first, then delete: the viewer is bound to an
+                        // INDEX, and removing the photo under it would leave
+                        // the binding pointing past the end for a frame.
+                        viewerIndex = nil
+                        store.removePhoto(task, at: index)
+                    } onClose: {
+                        viewerIndex = nil
+                    }
                 }
             }
             // VoiceOver (FR-016). The row's whole interaction vocabulary is
@@ -1355,6 +1363,11 @@ private struct SkeuTaskRow: View {
 private struct SkeuPhotoViewer: View {
     @Environment(\.skeu) private var skeu
     let image: UIImage
+    /// Removing a photo was reachable ONLY from the Win95 viewer until now —
+    /// `store.removePhoto` had exactly one caller in the app — so a photo
+    /// attached in this look could not be deleted without switching design
+    /// (found in the 2026-08-16 audit, control placed by founder direction).
+    var onRemove: () -> Void
     var onClose: () -> Void
 
     var body: some View {
@@ -1366,21 +1379,39 @@ private struct SkeuPhotoViewer: View {
                 .scaledToFit()
                 .padding(SkeuSpace.lg)
 
-            Button {
-                SkeuHaptic.press()
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(SkeuFont.at(15, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(skeu.ink)
-                    .frame(width: 37, height: 37)
-                    .skeuGlass(Circle(), height: 37)
+            HStack(spacing: SkeuSpace.sm) {
+                control("trash", label: "Delete photo", tint: skeu.critical) {
+                    SkeuHaptic.warning()
+                    onRemove()
+                }
+                control("xmark", label: "Close photo", tint: skeu.ink) {
+                    SkeuHaptic.press()
+                    onClose()
+                }
             }
-            .buttonStyle(.plain)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(SkeuSpace.xl)
-            .accessibilityLabel("Close photo")
         }
+    }
+
+    /// FROSTED, unlike every other glass piece in the app. These two sit on
+    /// top of a photograph rather than on the app's own ground — clear glass
+    /// let the picture read straight through the glyph, and a photo can be
+    /// any colour at all, so no fixed tint would have held. Blurring the
+    /// backdrop gives the glyph a stable ground whatever is behind it.
+    private func control(_ symbol: String,
+                         label: String,
+                         tint: Color,
+                         action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(SkeuFont.at(15, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(tint)
+                .frame(width: 37, height: 37)
+                .skeuGlass(Circle(), height: 37, frosted: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }

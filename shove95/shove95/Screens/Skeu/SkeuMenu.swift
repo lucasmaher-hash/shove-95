@@ -67,11 +67,25 @@ struct SkeuMenu: View {
         }
         .padding(M.padding)
         .frame(width: M.width, alignment: .leading)
+        // FROSTED, like the photo viewer's controls (founder direction
+        // 2026-08-16). This panel floats over the task list, and a flat
+        // gradient fill made it a solid card sitting on the app rather than a
+        // piece of glass lying over it. The blur reads through, the tint
+        // keeps the hue, and the gradient stays on top so the panel is still
+        // lit from above like every other raised object.
+        //
+        // Opaque enough that the rows underneath cannot compete with the menu
+        // labels — the whole point of frosting rather than simply going
+        // clear.
         .background {
-            shape.fill(
-                LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                shape.fill(
+                    LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .opacity(skeu.isDark ? 0.86 : 0.80)
+                )
+            }
         }
         // The raised contour — light on top, falling into shade, the same
         // stroke the settings cards wear.

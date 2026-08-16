@@ -44,6 +44,20 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// and the caller dims its label. The lens stack is identical in both;
     /// what changes is only how much light the piece is catching.
     var prominent: Bool = true
+    /// Frosts the backdrop instead of letting it read straight through
+    /// (founder direction 2026-08-16, "so wie bei liquid glass").
+    ///
+    /// The lens stack is five 1%-white layers — thickness, not opacity — so a
+    /// glass piece over busy content shows every bit of it and the label
+    /// fights the backdrop. Frosting blurs what is behind and hands the label
+    /// a stable ground.
+    ///
+    /// It is a MATERIAL plus a tint, not a material alone. `.ultraThinMaterial`
+    /// on its own was tried early in this look and pulled all the hue out —
+    /// warm brown went grey — which is why it was removed then. The tint puts
+    /// the palette back over the blur, so the piece frosts without changing
+    /// colour. Still no texture: a blur is a lens, not an image fill.
+    var frosted: Bool = false
 
     private var k: CGFloat { height / 104.54 }
 
@@ -56,6 +70,11 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
         content
             .background {
                 ZStack {
+                    if frosted {
+                        Rectangle().fill(.ultraThinMaterial)
+                        // Hue back on top of the blur — see `frosted`.
+                        Rectangle().fill(skeu.material.opacity(skeu.isDark ? 0.55 : 0.45))
+                    }
                     lensStack
                     if prominent { glow }
                 }
@@ -127,7 +146,9 @@ extension View {
     /// `prominent: false` is the resting-option state of a settings panel.
     func skeuGlass<S: InsettableShape>(_ shape: S,
                                        height: CGFloat = 44,
-                                       prominent: Bool = true) -> some View {
-        modifier(SkeuGlass(shape: shape, height: height, prominent: prominent))
+                                       prominent: Bool = true,
+                                       frosted: Bool = false) -> some View {
+        modifier(SkeuGlass(shape: shape, height: height,
+                           prominent: prominent, frosted: frosted))
     }
 }
