@@ -78,7 +78,7 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                         // made it lighter than everything around it and it
                         // read as a pale card laid on top (founder note
                         // 2026-08-16).
-                        Rectangle().fill(skeu.canvas.opacity(skeu.isDark ? 0.80 : 0.72))
+                        Rectangle().fill(skeu.canvas.opacity(skeu.isDark ? 0.62 : 0.55))
                     }
                     lensStack
                     // NO GLOW when frosted. The glow's radius is a fraction of
