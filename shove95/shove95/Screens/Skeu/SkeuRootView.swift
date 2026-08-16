@@ -594,60 +594,21 @@ struct SkeuRootView: View {
     // MARK: Tab bar — node 2:639
 
     private var tabBar: some View {
-        // `symmetric: true`: the frame's own trough padding is uneven (19.2
-        // leading / 5.5 trailing), which read as the whole row sitting closer
-        // to General than to Today (founder bug report 2026-08-14). The tab
-        // bar is a fully centred four-up toggle, not a positioned frame
-        // element, so it gets equal breathing room on both sides instead.
-        trough(height: bottomBarHeight, spacing: 0, symmetric: true) {
-            // Equal-width columns, not the frame's fixed 122.79 gap or a
-            // Spacer-packed row: either of those lets the group drift off
-            // whichever side has the bigger neighbour, and the label inside
-            // a variable-width slot never sits dead-centre. A fixed column
-            // per tab centres every label in its own quarter of the bar
-            // (founder direction 2026-08-14) — the ✕-matching icon that used
-            // to ride along with the selected label is gone for the same
-            // reason: text is the whole tab now, so it can own the centre.
-            //
-            // Every label is laid out IDENTICALLY whether or not it is the
-            // selected one — same font, same padding, same centred column —
-            // so no text can shift when the selection moves. The glass is a
-            // BACKGROUND that only the selected column carries, and the
-            // matched-geometry id rides on that background alone. Putting the
-            // effect on the whole label instead (the first attempt) animated
-            // the text across with the pill; the founder's note was that the
-            // words should hold still and only the lens should travel
-            // (2026-08-14).
-            let pillHeight = bottomBarHeight - F.glassPadV * 2
+        // The shared toggle — the same construction every settings option row
+        // uses. See SkeuSegmented for why it lives in one place: a settings
+        // toggle that differs from this bar reads as a different control.
+        SkeuSegmentedTrough {
             ForEach(Bucket.line, id: \.self) { line in
-                Text(settings.name(for: line))
-                    .font(SkeuFont.at(F.tabLabel * textScale))
-                    .tracking(-0.02 * F.tabLabel)
-                    .foregroundStyle(skeu.ink)
-                    .lineLimit(1)
-                    // NOT fixedSize: that pins each label to its full
-                    // intrinsic width, so at large Dynamic Type the four of
-                    // them together exceeded the screen and pushed the whole
-                    // layout off both edges — checkboxes clipped on the left,
-                    // the gear on the right. The scale floor is the last
-                    // resort for accessibility sizes; at normal sizes
-                    // `tabLabel` is chosen so nothing shrinks at all.
-                    .minimumScaleFactor(0.5)
-                    .padding(.horizontal, F.tabPillPadH)
-                    .padding(.vertical, F.glassPadV)
-                    .background {
-                        if bucket == line {
-                            Color.clear
-                                .skeuGlass(Capsule(), height: pillHeight)
-                                .matchedGeometryEffect(id: "tabPill", in: tabPillNS)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture { select(line) }
+                SkeuSegment(isSelected: bucket == line,
+                            namespace: tabPillNS,
+                            geometryID: "tabPill") {
+                    Text(settings.name(for: line))
+                        .skeuSegmentLabel(textScale)
+                        .foregroundStyle(skeu.ink)
+                }
+                .onTapGesture { select(line) }
             }
         }
-        .frame(maxWidth: .infinity)
     }
 
     /// Resolves the slide direction BEFORE the selection moves, so the

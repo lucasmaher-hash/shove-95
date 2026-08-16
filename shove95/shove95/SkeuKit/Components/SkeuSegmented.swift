@@ -1,0 +1,124 @@
+//
+//  SkeuSegmented.swift
+//  shove95
+//
+//  THE toggle of this design: a trough holding equal-width segments, of which
+//  only the selected one wears glass.
+//
+//  It appears twice — the main screen's tab bar, and every option row in
+//  settings — and the two are defined HERE rather than separately, because a
+//  settings toggle that differs from the tab bar reads as a different kind of
+//  control (founder direction 2026-08-14). Sharing the construction is the
+//  only way that stays true as either side is edited.
+//
+//  Sizes are the tab bar's, resolved from the Figma frame: 148.2 × s × scaleUp
+//  for the height, 41 for the label, 22 and 23.771 for the pill's padding,
+//  where s = 402/1495 and scaleUp = 37/(107.444 × s). Written out as numbers
+//  because SkeuKit cannot see the screen's private frame table.
+//
+
+import SwiftUI
+
+enum SkeuToggle {
+    static let height: CGFloat = 51.0
+    static let label: CGFloat = 14.1
+    /// Pill padding — horizontal is deliberately tight: four labels have to
+    /// share a phone width and "Tomorrow" is the longest word in the app.
+    static let padH: CGFloat = 7.6
+    static let padV: CGFloat = 8.2
+    /// Trough inset. The frame's own padding is uneven (24.6 leading, 7.1
+    /// trailing); a centred toggle takes the average on both sides so it does
+    /// not read as pushed toward one end.
+    static let troughPad: CGFloat = 15.8
+    static let bloomOverhang: CGFloat = 5.3
+    static let bloomBlur: CGFloat = 1.85
+}
+
+// MARK: - The trough
+
+/// Holds a row of `SkeuSegment`s.
+struct SkeuSegmentedTrough<Content: View>: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let height = SkeuToggle.height * chromeScale
+
+        HStack(spacing: 0) {
+            content
+        }
+        .padding(.horizontal, SkeuToggle.troughPad * chromeScale)
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .skeuTrough(Capsule(), height: height)
+        // The soft bloom that seats the trough in the ground: light over dark,
+        // opposite the trough's own fill, so the bar sits in a shallow dish
+        // rather than on flat paint.
+        .background {
+            Capsule()
+                .fill(LinearGradient(colors: [skeu.recessBottom, skeu.recess],
+                                     startPoint: .top, endPoint: .bottom))
+                .padding(-SkeuToggle.bloomOverhang * chromeScale)
+                .blur(radius: SkeuToggle.bloomBlur)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+// MARK: - One segment
+
+/// One choice inside a `SkeuSegmentedTrough`.
+///
+/// Every segment is laid out IDENTICALLY whether or not it is selected — same
+/// font, same padding, same equal-width column — so no label can shift when
+/// the selection moves. The glass is a BACKGROUND that only the selected
+/// column carries, and the matched-geometry id rides on that background alone;
+/// putting it on the whole label animates the text across with the pill, which
+/// the founder rejected (2026-08-14).
+struct SkeuSegment<Content: View>: View {
+    @Environment(\.skeuChromeScale) private var chromeScale
+    let isSelected: Bool
+    /// Namespace and id for the gliding pill. Segments in the same row share
+    /// one namespace and one id.
+    var namespace: Namespace.ID
+    var geometryID: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let height = SkeuToggle.height * chromeScale
+        let pill = height - SkeuToggle.padV * chromeScale * 2
+
+        content
+            .padding(.horizontal, SkeuToggle.padH * chromeScale)
+            .padding(.vertical, SkeuToggle.padV * chromeScale)
+            .frame(maxWidth: .infinity)
+            .background {
+                if isSelected {
+                    Color.clear
+                        .skeuGlass(Capsule(), height: pill)
+                        .matchedGeometryEffect(id: geometryID, in: namespace)
+                }
+            }
+            .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Label
+
+extension View {
+    /// The type treatment every segment label shares.
+    ///
+    /// NOT `fixedSize`: that pins each label to its intrinsic width, so at
+    /// large Dynamic Type the row exceeds the screen and pushes the whole
+    /// layout off both edges. The scale floor is the last resort for
+    /// accessibility sizes; at normal sizes `SkeuToggle.label` is chosen so
+    /// nothing shrinks at all.
+    func skeuSegmentLabel(_ textScale: CGFloat) -> some View {
+        self
+            .font(SkeuFont.at(SkeuToggle.label * textScale))
+            .tracking(-0.02 * SkeuToggle.label)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+}

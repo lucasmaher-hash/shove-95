@@ -78,6 +78,12 @@ struct SkeuSettingsView: View {
     @State private var showAbout = false
     @State private var newWorkspace = ""
     @FocusState private var addWorkspaceFocused: Bool
+    // One namespace per toggle row: the gliding pill must travel WITHIN its
+    // own row, and a shared namespace would let it fly between panels.
+    @Namespace private var themeNS
+    @Namespace private var faceNS
+    @Namespace private var designNS
+    @Namespace private var appearanceNS
     var onClose: () -> Void
 
     var body: some View {
@@ -105,7 +111,8 @@ struct SkeuSettingsView: View {
                     panel("Theme") {
                         ForEach(SkeuTheme.all) { theme in
                             swatchOption(theme,
-                                         selected: settings.skeuTheme.id == theme.id) {
+                                         selected: settings.skeuTheme.id == theme.id,
+                                         in: themeNS) {
                                 settings.skeuTheme = theme
                             }
                         }
@@ -114,7 +121,8 @@ struct SkeuSettingsView: View {
                     panel("Typeface") {
                         ForEach(AppFace.allCases, id: \.self) { face in
                             option(face.label,
-                                   selected: settings.skeuFace == face) {
+                                   selected: settings.skeuFace == face,
+                                   in: faceNS) {
                                 settings.skeuFace = face
                             }
                         }
@@ -123,7 +131,8 @@ struct SkeuSettingsView: View {
                     panel("Design") {
                         ForEach(DesignMode.allCases, id: \.self) { mode in
                             option(mode.label,
-                                   selected: settings.design == mode) {
+                                   selected: settings.design == mode,
+                                   in: designNS) {
                                 settings.design = mode
                             }
                         }
@@ -132,7 +141,8 @@ struct SkeuSettingsView: View {
                     panel("Light & dark") {
                         ForEach(AppearanceMode.allCases, id: \.self) { mode in
                             option(mode.label,
-                                   selected: settings.appearance == mode) {
+                                   selected: settings.appearance == mode,
+                                   in: appearanceNS) {
                                 settings.appearance = mode
                             }
                         }
@@ -249,130 +259,74 @@ struct SkeuSettingsView: View {
 
     // MARK: Panels
 
-    /// One setting = one CARD, carrying its label and a trough with every
-    /// option. The card is the reference's sheet construction at panel size.
+    /// One setting = a heading and a trough of options. NO outer card.
+    ///
+    /// The card was the Figma menu study's construction, but stacking seven of
+    /// them put a frame inside a frame on every row (founder direction
+    /// 2026-08-14): the home screen does not wrap its four tabs in a card, and
+    /// these are the same control. The eyebrow now labels the trough directly,
+    /// and the trough is the only surface — which also removes seven raised
+    /// cards' worth of gradients and shadows from the sheet's first frame.
     private func panel<C: View>(_ title: String,
                                 @ViewBuilder options: () -> C) -> some View {
-        // Concrete rather than skeuShape(): that helper erases to AnyShape,
-        // which cannot strokeBorder, and the rim needs its inset stroke.
-        let shape = RoundedRectangle(cornerRadius: G.cardRadius, style: .continuous)
-
-        return VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
             Text(title)
                 .font(SkeuFont.eyebrow)
                 .textCase(.uppercase)
                 .tracking(0.8)
                 .foregroundStyle(skeu.inkFaint)
 
-            HStack(spacing: SkeuSpace.sm) {
-                options()
-            }
-            .padding(G.troughPad)
-            .frame(maxWidth: .infinity)
-            .skeuTrough(Capsule(),
-                        height: pillH + G.troughPad * 2)
+            SkeuSegmentedTrough { options() }
         }
-        .padding(G.cardPad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            // The frame lights its card with two soft glow blobs; a diagonal
-            // gradient carries the same top-left-lit read without an asset.
-            shape.fill(
-                LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-        }
-        // The SAME contour the troughs wear — identical thickness, colours and
-        // ramp (founder direction 2026-08-13: one stroke construction for the
-        // outer frames and the inner ones). The white rim of the Figma card is
-        // superseded.
-        //
-        // MIRRORED, though: the trough is carved in, so its lip is dark on top
-        // and lit at the bottom. The card is raised — the same edge catches
-        // the light on top and falls into shade below. Copying the trough's
-        // orientation verbatim put the light on the wrong side (founder catch,
-        // 2026-08-13).
-        .overlay {
-            shape.strokeBorder(
-                LinearGradient(
-                    stops: [.init(color: skeu.outlineBottom, location: 0.0),
-                            .init(color: skeu.outline, location: 0.55),
-                            .init(color: skeu.outline, location: 1.0)],
-                    startPoint: .top, endPoint: .bottom),
-                lineWidth: G.cardRim)
-        }
-        .shadow(color: drop(0.19), radius: 26.8, x: -6.5, y: 10.6)
-        .shadow(color: drop(0.16), radius: 49, x: -25.4, y: 42)
-        // Rasterise the finished card once instead of re-rendering its
-        // gradients, inner shadows and lens stack every frame of the sheet's
-        // slide. The card's content is static between taps, so there is
-        // nothing to lose — and `plusLighter` still composites correctly
-        // because the material it brightens lives inside this same group.
-        .compositingGroup()
     }
 
-    /// A labelled option pill. Options share the trough's width evenly, as the
-    /// reference pill fills its trough.
+    /// One option — the SAME segment the home screen's tab bar is built from.
+    ///
+    /// `group` is the matched-geometry namespace: each settings row is its own
+    /// toggle, so its pill must glide within that row and not toward some
+    /// other panel's selection.
     private func option(_ title: String,
                         selected: Bool,
+                        in group: Namespace.ID,
                         action: @escaping () -> Void) -> some View {
-        Button {
-            SkeuHaptic.selection()
-            action()
-        } label: {
+        SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill") {
             Text(title)
-                .font(SkeuFont.at(labelSize))
-                .tracking(-0.02 * G.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .skeuSegmentLabel(textScale)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
-                .padding(.horizontal, G.pillPadH * 0.6)
-                .frame(maxWidth: .infinity)
-                .frame(height: pillH)
-                // ONLY the selected option wears glass (founder direction
-                // 2026-08-14). A lens on every choice made the row read as
-                // four buttons with no answer to "which one is on"; the
-                // selection now carries the only surface in the trough.
-                .background {
-                    if selected {
-                        Color.clear.skeuGlass(Capsule(), height: pillH)
-                    }
-                }
         }
-        .buttonStyle(.plain)
+        .onTapGesture {
+            SkeuHaptic.selection()
+            withAnimation(SkeuMotion.layout) { action() }
+        }
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// A colour-swatch pill for the theme row — five must share one trough, so
-    /// they carry a dot instead of a name.
+    /// The theme row's segment — a colour dot instead of a name, because five
+    /// have to share one trough. Same segment, different content.
     private func swatchOption(_ theme: SkeuTheme,
                               selected: Bool,
+                              in group: Namespace.ID,
                               action: @escaping () -> Void) -> some View {
-        Button {
-            SkeuHaptic.selection()
-            action()
-        } label: {
+        SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill") {
             Circle()
                 .fill(theme.light.material)
                 .overlay { Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1) }
-                .frame(width: G.icon, height: G.icon)
-                .frame(maxWidth: .infinity)
-                .frame(height: pillH)
-                .skeuGlass(Capsule(), height: pillH, prominent: selected)
+                .frame(width: G.icon * chromeScale, height: G.icon * chromeScale)
         }
-        .buttonStyle(.plain)
+        .onTapGesture {
+            SkeuHaptic.selection()
+            withAnimation(SkeuMotion.layout) { action() }
+        }
         .accessibilityLabel("\(theme.name) theme")
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// A panel whose content is NOT a single option trough — used where the
-    /// setting is a list of fields rather than a choice. Same card, same
-    /// contour; only the inside differs.
+    /// A heading over free-form content — the field stacks and the Data row.
+    /// Card-less for the same reason `panel` is: those fields already sit in
+    /// troughs of their own, so an outer frame was a frame inside a frame.
     private func card<C: View>(_ title: String,
                                @ViewBuilder content: () -> C) -> some View {
-        let shape = RoundedRectangle(cornerRadius: G.cardRadius, style: .continuous)
-
-        return VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
             Text(title)
                 .font(SkeuFont.eyebrow)
                 .textCase(.uppercase)
@@ -381,31 +335,7 @@ struct SkeuSettingsView: View {
 
             content()
         }
-        .padding(G.cardPad)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            shape.fill(
-                LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-        }
-        .overlay {
-            shape.strokeBorder(
-                LinearGradient(
-                    stops: [.init(color: skeu.outlineBottom, location: 0.0),
-                            .init(color: skeu.outline, location: 0.55),
-                            .init(color: skeu.outline, location: 1.0)],
-                    startPoint: .top, endPoint: .bottom),
-                lineWidth: G.cardRim)
-        }
-        .shadow(color: drop(0.19), radius: 26.8, x: -6.5, y: 10.6)
-        .shadow(color: drop(0.16), radius: 49, x: -25.4, y: 42)
-        // Rasterise the finished card once instead of re-rendering its
-        // gradients, inner shadows and lens stack every frame of the sheet's
-        // slide. The card's content is static between taps, so there is
-        // nothing to lose — and `plusLighter` still composites correctly
-        // because the material it brightens lives inside this same group.
-        .compositingGroup()
     }
 
     /// A text field in a trough, with an optional control at its trailing end.
