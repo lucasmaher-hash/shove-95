@@ -99,7 +99,10 @@ struct Win95Checkbox: View {
 
 /// The checkmark drawn as pixel blocks on a 12×12 grid — no SF Symbols
 /// (design.md §9 prohibits them).
-private struct CheckmarkGlyph: Shape {
+///
+/// Shared with the skeu look: under Retro or Blend its tick takes this shape
+/// instead of the system symbol, so a ticked task matches the type beside it.
+struct CheckmarkGlyph: Shape {
     func path(in rect: CGRect) -> Path {
         let u = rect.width / 12 // one 1995 pixel
         // (column, row) blocks, each 1×2 pixels, forming the classic tick.

@@ -657,9 +657,8 @@ private struct SkeuLanguageRow: View {
             // A SHAPE, not a tint — the selected row has to be identifiable
             // without colour (N2).
             if selected {
-                Image(systemName: "checkmark")
-                    .font(SkeuFont.at(labelSize))
-                    .foregroundStyle(skeu.accent)
+                SkeuChromeGlyph(kind: .check, face: settings.skeuFace,
+                                size: labelSize, tint: skeu.accent)
             }
         }
         .padding(.horizontal, SkeuSpace.lg)

@@ -20,12 +20,23 @@ import SwiftUI
 
 struct SkeuChromeGlyph: View {
     enum Kind {
-        case gear, close
+        case gear, close, check
 
         var symbol: String {
             switch self {
             case .gear:  "gearshape"
             case .close: "xmark"
+            case .check: "checkmark"
+            }
+        }
+
+        /// How large to draw the pixel shape against the symbol's point size.
+        /// Each glyph fills a different fraction of its own grid, so one
+        /// factor for all three left the tick a speck inside its circle.
+        var pixelScale: CGFloat {
+            switch self {
+            case .gear, .close: 0.82
+            case .check:        1.85
             }
         }
     }
@@ -42,7 +53,7 @@ struct SkeuChromeGlyph: View {
         if face.isPixel(.chrome) {
             shape
                 .fill(tint)
-                .frame(width: size * 0.82, height: size * 0.82)
+                .frame(width: size * kind.pixelScale, height: size * kind.pixelScale)
         } else {
             Image(systemName: kind.symbol)
                 .font(SkeuFont.at(size, weight: .medium))
@@ -58,6 +69,7 @@ struct SkeuChromeGlyph: View {
         switch kind {
         case .gear:  AnyShape(GearGlyph())
         case .close: AnyShape(CloseGlyph())
+        case .check: AnyShape(CheckmarkGlyph())
         }
     }
 }

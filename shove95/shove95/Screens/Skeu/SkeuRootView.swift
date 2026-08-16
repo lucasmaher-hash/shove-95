@@ -866,6 +866,9 @@ private struct ChevronGlyph: Shape {
 /// pixel-grid snapping of the drag (the skeu look has no pixel grid), and the
 /// press reads as the skeu scale-down rather than a tint.
 private struct SkeuTaskRow: View {
+    /// The tick follows the typeface (see SkeuChromeGlyph), so the row has to
+    /// observe it.
+    @Environment(AppSettings.self) private var settings
     @Environment(\.skeu) private var skeu
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
@@ -1211,9 +1214,11 @@ private struct SkeuTaskRow: View {
             // other tappable in this screen already uses.
             ZStack {
                 if task.isCompleted {
-                    Image(systemName: "checkmark")
-                        .font(SkeuFont.at(11, weight: .semibold))
-                        .foregroundStyle(skeu.ink)
+                    // Pixel under Retro and Blend — the tick is furniture, and
+                    // a vector one beside bitmap text is the mismatch Blend
+                    // exists to avoid. See SkeuChromeGlyph.
+                    SkeuChromeGlyph(kind: .check, face: settings.skeuFace,
+                                    size: 11, tint: skeu.ink)
                 }
             }
             .frame(width: checkSize, height: checkSize)
