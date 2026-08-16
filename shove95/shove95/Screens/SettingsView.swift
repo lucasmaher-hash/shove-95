@@ -62,7 +62,14 @@ struct SettingsView: View {
                         section("Data") { dataSection }
                     }
                     .padding(.horizontal, Win95.Px.grid * 2 * pixel)
-                    .padding(.vertical, sectionGap)
+                    // TOP is matched to the skeu sheet's, not to `sectionGap`:
+                    // over there the first heading sits 32pt below the docked
+                    // header (its own 16 plus the scroll's 16), and the whole
+                    // point is that the first heading lands on the same y in
+                    // both looks. `contentTopInset` carries the difference in
+                    // chrome height between a title bar and a text header.
+                    .padding(.top, contentTopInset)
+                    .padding(.bottom, sectionGap)
                     // Clears the home indicator, since the well itself now
                     // runs to the physical bottom edge.
                     .padding(.bottom, Win95.Px.grid * 8 * pixel)
@@ -182,16 +189,30 @@ struct SettingsView: View {
     // belonging to neither (founder direction 2026-08-16). A heading hugs
     // what it labels; the air goes BETWEEN settings.
     //
-    // Values stay on the Win95 spacing grid (2/4/8/16/24 spec px), so they
-    // land on whole pixels at every Dynamic Type step — the skeu numbers
-    // (8 / 21 / 8) could not simply be copied across.
+    // The values are now the SKEU sheet's, exactly: 12 and 44 at the design
+    // step. They were approximated on the 2/4/8/16/24 spec grid before, which
+    // put every heading 4pt out and every control up to 20pt out from its twin
+    // — visible the moment you flip Design, which is the one moment C4 exists
+    // for (founder direction 2026-08-16). Half-grid units still land on whole
+    // pixels at every step, so nothing is lost by leaving the grid here.
+    //
+    // What CANNOT be matched is the curve. This look steps its unit in whole
+    // pixels (FR-015) while the skeu look scales continuously, so the two
+    // agree exactly at the design step and drift apart above it. Holding them
+    // together everywhere would mean giving one of them the other's scaling
+    // rule, and both rules are load-bearing.
 
-    /// Heading → its controls.
-    private var headingGap: CGFloat { Win95.Px.grid * pixel }
-    /// One setting → the next. Also the screen's top and bottom inset.
-    /// Raised to 4 grid units with the skeu sheet (founder direction
-    /// 2026-08-16) — the two screens hold the same rhythm or neither does.
-    private var sectionGap: CGFloat { Win95.Px.grid * 5 * pixel }
+    /// Distance from the title bar to the first heading. Chosen so that
+    /// heading lands on the same y as the skeu sheet's, which measures 32pt
+    /// below its header — the remainder is the title bar being taller than a
+    /// line of text. Verified by comparing both looks at the same scroll
+    /// position; adjust by measuring, not by reasoning about it.
+    private var contentTopInset: CGFloat { Win95.Px.grid * 4 * pixel }
+
+    /// Heading → its controls. 6 × 2 = 12pt, the skeu `SkeuSpace.sm`.
+    private var headingGap: CGFloat { Win95.Px.grid * 1.5 * pixel }
+    /// One setting → the next. 22 × 2 = 44pt, the skeu `G.sectionGap`.
+    private var sectionGap: CGFloat { Win95.Px.grid * 5.5 * pixel }
     /// Between field rows inside one section.
     private var rowGap: CGFloat { Win95.Px.grid * pixel }
 
