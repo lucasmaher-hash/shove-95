@@ -88,6 +88,7 @@ struct SkeuSettingsView: View {
     @Environment(SyncStatus.self) private var sync
     @State private var showArchive = false
     @State private var showAbout = false
+    @State private var showHowTo = false
     @State private var newWorkspace = ""
     @FocusState private var addWorkspaceFocused: Bool
     // One namespace per toggle row: the gliding pill must travel WITHIN its
@@ -205,6 +206,9 @@ struct SkeuSettingsView: View {
         .fullScreenCover(isPresented: $showAbout) {
             SkeuAboutView { showAbout = false }
         }
+        .fullScreenCover(isPresented: $showHowTo) {
+            SkeuHowToView { showHowTo = false }
+        }
     }
 
     // MARK: Tab names
@@ -274,6 +278,7 @@ struct SkeuSettingsView: View {
             VStack(alignment: .leading, spacing: SkeuSpace.md) {
                 HStack(spacing: SkeuSpace.sm) {
                     actionPill("Archive") { showArchive = true }
+                    actionPill("How to use") { showHowTo = true }
                     actionPill("About") { showAbout = true }
                     Spacer(minLength: 0)
                 }

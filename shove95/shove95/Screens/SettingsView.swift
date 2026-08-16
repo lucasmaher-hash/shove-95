@@ -26,6 +26,7 @@ struct SettingsView: View {
     @Environment(SyncStatus.self) private var sync
     @State private var showArchive = false
     @State private var showAbout = false
+    @State private var showHowTo = false
     var onClose: () -> Void
 
     var body: some View {
@@ -92,6 +93,11 @@ struct SettingsView: View {
                 .environment(\.win95Scheme, settings.scheme)
                 .id(settings.face.rawValue + settings.scheme.id)
         }
+        .fullScreenCover(isPresented: $showHowTo) {
+            HowToView { showHowTo = false }
+                .environment(\.pixel, pixel)
+                .environment(\.win95Scheme, settings.scheme)
+        }
         .fullScreenCover(isPresented: $showAbout) {
             AboutView { showAbout = false }
                 .environment(\.pixel, pixel)
@@ -112,6 +118,13 @@ struct SettingsView: View {
                 Win95Button(action: { showArchive = true },
                             compact: true, width: buttonColumn) {
                     TypedText(text: "Archive", face: settings.face, role: .content)
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.text)
+                }
+
+                Win95Button(action: { showHowTo = true },
+                            compact: true, width: buttonColumn) {
+                    TypedText(text: "How to use", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }

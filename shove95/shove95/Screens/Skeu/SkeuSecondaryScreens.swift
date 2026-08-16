@@ -297,3 +297,50 @@ struct SkeuAboutView: View {
         Calendar.current.component(.year, from: .now).formatted(.number.grouping(.never))
     }
 }
+
+// MARK: - How to use
+
+/// The gestures, listed. Content comes from `HowTo` so this screen and its
+/// Win95 twin cannot say different things.
+struct SkeuHowToView: View {
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    private var labelSize: CGFloat { S.label * textScale }
+    @Environment(\.skeu) private var skeu
+    var onClose: () -> Void
+
+    var body: some View {
+        SkeuSheet(title: "How to use", onClose: onClose) {
+            LazyVStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                ForEach(HowTo.sections) { section in
+                    SkeuPanel(title: section.title) {
+                        VStack(alignment: .leading, spacing: SkeuSpace.md) {
+                            ForEach(section.items) { item in
+                                row(item)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The gesture reads as the heading and its outcome as the body — the same
+    /// two-line stack the settings eyebrows use, so a reader can scan the left
+    /// column alone and still find what they came for.
+    private func row(_ item: HowTo.Item) -> some View {
+        VStack(alignment: .leading, spacing: SkeuSpace.xs) {
+            Text(item.action)
+                .font(SkeuFont.at(labelSize, weight: .medium))
+                .foregroundStyle(skeu.ink)
+
+            Text(item.result)
+                .font(SkeuFont.at(labelSize))
+                .foregroundStyle(skeu.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
