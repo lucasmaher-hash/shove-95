@@ -72,11 +72,22 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                 ZStack {
                     if frosted {
                         Rectangle().fill(.ultraThinMaterial)
-                        // Hue back on top of the blur — see `frosted`.
-                        Rectangle().fill(skeu.material.opacity(skeu.isDark ? 0.55 : 0.45))
+                        // CANVAS, not material. A frosted piece should read as
+                        // the ground seen through glass, so it takes the
+                        // ground's own colour — tinting it with `material`
+                        // made it lighter than everything around it and it
+                        // read as a pale card laid on top (founder note
+                        // 2026-08-16).
+                        Rectangle().fill(skeu.canvas.opacity(skeu.isDark ? 0.80 : 0.72))
                     }
                     lensStack
-                    if prominent { glow }
+                    // NO GLOW when frosted. The glow's radius is a fraction of
+                    // the SHAPE (0.62), not of `k` — on a pill that is a thin
+                    // band along the bottom edge, but on a tall panel it
+                    // washes out the lower half. It is also additive, and
+                    // plus-lighter over arbitrary content behind frosted glass
+                    // is not something that can be predicted.
+                    if prominent && !frosted { glow }
                 }
             }
             .overlay {
