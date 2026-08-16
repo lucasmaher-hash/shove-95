@@ -74,13 +74,18 @@ struct SkeuMenu: View {
         // the paired shadows. Frosting only stops the list beneath from
         // reading through the labels.
         //
-        // HEIGHT IS NOT THE PANEL'S HEIGHT. `skeuGlass` is parameterised on a
-        // PILL height — every inset, the rim width and all three shadows
-        // scale off it — so handing it ~200pt would have blown the lens stack
-        // and the shadows up by 2x. 110 reproduces the 3.1 rim this panel
-        // already wore (2.971 x 110/104.54), which is the figure the settings
-        // cards use too.
-        .skeuGlass(shape, height: 110, frosted: true)
+        // HEIGHT IS NOT THE PANEL'S HEIGHT, and it is not the old contour's
+        // either. `skeuGlass` is parameterised on a PILL height: every lens
+        // inset, the rim width and all three shadows scale off it.
+        //
+        // The first attempt passed 110 to reproduce the 3.1 contour this
+        // panel used to wear — and 3.1 is a TROUGH contour, a line drawn
+        // around a channel. A glass rim is a different thing: the round
+        // buttons are 37 tall, so theirs comes out at 1.05. At three times
+        // that the panel read as an outlined card, which is exactly what the
+        // founder saw (2026-08-16). Passing 37 makes this the same edge those
+        // buttons have.
+        .skeuGlass(shape, height: 37, frosted: true)
         // Floating depth on top of the glass's own contact shadows: this
         // panel hovers over the list, further from the page than a pill lying
         // on it.
