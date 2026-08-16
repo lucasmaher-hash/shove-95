@@ -54,6 +54,11 @@ private enum G {
     /// different widths there read as three different kinds of control.
     /// Sized for "Default", the longest of the three.
     static let rowButtonW: CGFloat = 88
+
+    /// The open language list. Tall enough to show several choices at once,
+    /// short enough that the sheet underneath is still reachable — an
+    /// unbounded list would push Data off the bottom and eat the outer scroll.
+    static let languageListHeight: CGFloat = 232
 }
 
 struct SkeuSettingsView: View {
@@ -161,6 +166,7 @@ struct SkeuSettingsView: View {
 
                     tabNamesPanel
                     workspacesPanel
+                    languagePanel
                     dataPanel
                 }
                 .padding(.horizontal, SkeuTopBar.margin) // the root's screen margin
@@ -190,6 +196,14 @@ struct SkeuSettingsView: View {
                 }
             }
         }
+    }
+
+    // MARK: Language
+
+    /// Below Workspaces and above Data — the last thing you SET, before the
+    /// section that only shows you things.
+    private var languagePanel: some View {
+        card("Language") { SkeuLanguageRow() }
     }
 
     // MARK: Workspaces
@@ -499,6 +513,139 @@ private struct SkeuNameField: View {
     private func commit() {
         settings.setName(draft == bucket.displayName ? "" : draft, for: bucket)
         draft = settings.name(for: bucket)
+    }
+}
+
+// MARK: - Language row
+
+/// The language picker: the workspace row's exact construction — a trough
+/// holding a field, a row button beside it — with a list that drops out
+/// underneath when the button is pressed.
+///
+/// The FIELD is the search box. Thirty languages is too long to scroll past
+/// politely, and a separate search box above a list is two controls where one
+/// will do: the row already has a field, so typing in it opens the list and
+/// filters it. Pressing Edit on an empty field opens the whole list to scroll.
+private struct SkeuLanguageRow: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    /// Read only to re-render on a typeface change — see `\.skeuFace`.
+    @Environment(\.skeuFace) private var face
+    @Environment(AppSettings.self) private var settings
+
+    @State private var query = ""
+    @State private var isOpen = false
+    @FocusState private var focused: Bool
+
+    private var labelSize: CGFloat { G.label * textScale }
+    private var fieldH: CGFloat { G.fieldHeight * chromeScale }
+    private var matches: [Language] { Language.all.filter { $0.matches(query) } }
+
+    var body: some View {
+        VStack(spacing: SkeuSpace.sm) {
+            HStack(spacing: SkeuSpace.sm) {
+                TextField("", text: $query,
+                          prompt: Text(settings.language.endonym)
+                            .foregroundStyle(skeu.inkFaint))
+                    .font(SkeuFont.at(labelSize))
+                    .foregroundStyle(skeu.ink)
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .padding(.horizontal, SkeuSpace.lg)
+                    .frame(height: fieldH)
+                    .skeuTrough(Capsule(), height: fieldH)
+                    // Typing IS the search — the list opens itself rather than
+                    // asking you to press Edit first and then type.
+                    .onChange(of: query) { _, new in
+                        guard !new.isEmpty, !isOpen else { return }
+                        withAnimation(SkeuMotion.layout) { isOpen = true }
+                    }
+
+                SkeuRowButton(title: isOpen ? "Done" : "Edit") {
+                    SkeuHaptic.press()
+                    withAnimation(SkeuMotion.layout) { isOpen.toggle() }
+                    if isOpen {
+                        focused = true
+                    } else {
+                        query = ""
+                        focused = false
+                    }
+                }
+                .accessibilityLabel(isOpen ? "Close language list" : "Choose language")
+            }
+
+            if isOpen { list }
+        }
+    }
+
+    /// Sits in a trough like every other well on this screen, and is bounded
+    /// so the sheet stays scrollable — a list grown to thirty rows would push
+    /// Data off the bottom and swallow the outer scroll.
+    private var list: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(matches) { language in
+                    row(language)
+                }
+                if matches.isEmpty {
+                    Text("No match")
+                        .font(SkeuFont.at(labelSize))
+                        .foregroundStyle(skeu.inkFaint)
+                        .frame(maxWidth: .infinity, minHeight: fieldH)
+                }
+            }
+            .padding(.vertical, SkeuSpace.xs)
+        }
+        .frame(maxHeight: G.languageListHeight * chromeScale)
+        .skeuTrough(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
+                    height: fieldH)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func row(_ language: Language) -> some View {
+        let selected = language.code == settings.languageCode
+        return HStack(spacing: SkeuSpace.sm) {
+            Text(language.endonym)
+                .font(SkeuFont.at(labelSize))
+                .foregroundStyle(skeu.ink)
+                .lineLimit(1)
+
+            // Honest about what the option currently does. The founder chose
+            // to ship the picker before the strings (2026-08-16); a language
+            // that changes nothing yet should say so rather than look broken.
+            if !language.isTranslated {
+                Text("soon")
+                    .font(SkeuFont.at(labelSize * 0.8))
+                    .foregroundStyle(skeu.inkFaint)
+            }
+
+            Spacer(minLength: 0)
+
+            // A SHAPE, not a tint — the selected row has to be identifiable
+            // without colour (N2).
+            if selected {
+                Image(systemName: "checkmark")
+                    .font(SkeuFont.at(labelSize))
+                    .foregroundStyle(skeu.accent)
+            }
+        }
+        .padding(.horizontal, SkeuSpace.lg)
+        .frame(minHeight: G.rowButtonH * chromeScale)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            SkeuHaptic.selection()
+            settings.languageCode = language.code
+            withAnimation(SkeuMotion.layout) { isOpen = false }
+            query = ""
+            focused = false
+        }
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityLabel(language.isTranslated
+                            ? language.endonym
+                            : "\(language.endonym), not translated yet")
     }
 }
 

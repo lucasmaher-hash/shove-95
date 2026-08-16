@@ -55,6 +55,10 @@ struct SettingsView: View {
                             WorkspacesSection(buttonColumn: buttonColumn)
                         }
 
+                        section("Language") {
+                            LanguageSection(buttonColumn: buttonColumn)
+                        }
+
                         section("Data") { dataSection }
                     }
                     .padding(.horizontal, Win95.Px.grid * 2 * pixel)
@@ -307,6 +311,122 @@ private struct SwatchBevel: ViewModifier {
 /// Field on the left, `Default` on the right. The field always holds the REAL
 /// current name in full-strength text — the greyed placeholder read as empty
 /// (founder feedback 2026-08-04). Default is compact, and fades out when the
+/// The language picker, in this look's own parts: a sunken field, a button
+/// beside it, and a sunken well of choices that drops out underneath.
+///
+/// Same behaviour as the skeu row (see `SkeuLanguageRow`) — the field IS the
+/// search box, so typing opens the list and filters it, and Edit with an
+/// empty field opens the whole list to scroll. The two looks have to agree on
+/// what a control DOES; only how it is drawn differs (C4).
+private struct LanguageSection: View {
+    @Environment(\.pixel) private var pixel
+    @Environment(AppSettings.self) private var settings
+    let buttonColumn: CGFloat
+
+    @State private var query = ""
+    @State private var isOpen = false
+    @FocusState private var focused: Bool
+
+    private var matches: [Language] { Language.all.filter { $0.matches(query) } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+            HStack(spacing: Win95.Px.grid * pixel) {
+                TextField(settings.language.endonym, text: $query)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .padding(.horizontal, Win95.Px.grid * pixel)
+                    .frame(minHeight: Win95.rowHeight(pixel))
+                    .background(Win95.well)
+                    .bevelSunken(pixel)
+                    .onChange(of: query) { _, new in
+                        guard !new.isEmpty, !isOpen else { return }
+                        isOpen = true
+                    }
+
+                Win95Button(action: toggle, compact: true, width: buttonColumn) {
+                    Text(isOpen ? "Done" : "Edit")
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.text)
+                }
+                .accessibilityLabel(isOpen ? "Close language list" : "Choose language")
+            }
+
+            if isOpen { list }
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(matches) { language in
+                    row(language)
+                }
+                if matches.isEmpty {
+                    Text("(no match)")
+                        .font(W95Font.standard(pixel))
+                        .foregroundStyle(Win95.textMuted)
+                        .padding(.horizontal, Win95.Px.grid * pixel)
+                        .frame(minHeight: Win95.rowHeight(pixel))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: Win95.rowHeight(pixel) * 6)
+        .background(Win95.well)
+        .bevelSunken(pixel)
+    }
+
+    private func row(_ language: Language) -> some View {
+        let selected = language.code == settings.languageCode
+        return HStack(spacing: Win95.Px.grid * pixel) {
+            Text(language.endonym)
+                .font(W95Font.standard(pixel))
+                // Selection is the SELECTION BAR, this look's own idiom for it
+                // — the navy fill and its light text, exactly as the workspace
+                // menu marks the current one.
+                .foregroundStyle(selected ? Win95.selectionText : Win95.text)
+                .lineLimit(1)
+
+            if !language.isTranslated {
+                Text("soon")
+                    .font(W95Font.small(pixel))
+                    .foregroundStyle(selected ? Win95.selectionText : Win95.textMuted)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Win95.Px.grid * pixel)
+        .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel), alignment: .leading)
+        .background(selected ? Win95.selectionBG : Win95.well)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            settings.languageCode = language.code
+            isOpen = false
+            query = ""
+            focused = false
+        }
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityLabel(language.isTranslated
+                            ? language.endonym
+                            : "\(language.endonym), not translated yet")
+    }
+
+    private func toggle() {
+        isOpen.toggle()
+        if isOpen {
+            focused = true
+        } else {
+            query = ""
+            focused = false
+        }
+    }
+}
+
 /// name already is the default: a button that would do nothing shouldn't
 /// invite a press.
 private struct NameField: View {

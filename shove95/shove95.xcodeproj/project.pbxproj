@@ -8,8 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		AA10000000000000000000A3 /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A2 /* Shove95Kit */; };
-		BB1000000000000000000F /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = BB1000000000000000000E /* Shove95Kit */; };
 		BB1000000000000000000D /* ShoveWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BB10000000000000000003 /* ShoveWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BB1000000000000000000F /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = BB1000000000000000000E /* Shove95Kit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -22,18 +22,24 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		BB1000000000000000000C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BB1000000000000000000D /* ShoveWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A698723A3020F6EC0009D035 /* shove95.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shove95.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB10000000000000000003 /* ShoveWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShoveWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXTargetDependency section */
-		BB1000000000000000000A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BB10000000000000000002 /* ShoveWidgets */;
-			targetProxy = BB1000000000000000000B /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A698723C3020F6EC0009D035 /* shove95 */ = {
@@ -66,20 +72,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		BB1000000000000000000C /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				BB1000000000000000000D /* ShoveWidgets.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		A69872313020F6EC0009D035 = {
@@ -225,6 +217,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BB1000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BB10000000000000000002 /* ShoveWidgets */;
+			targetProxy = BB1000000000000000000B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A69872433020F6EC0009D035 /* Debug */ = {
