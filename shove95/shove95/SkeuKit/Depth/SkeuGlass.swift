@@ -130,11 +130,39 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// trough contour's gradient. Taken literally it lights the whole perimeter
     /// evenly, which turns the lens into a ring. Only the surfaces facing the
     /// key light should catch it; the sides are edge-on to it and stay dark.
+    /// A rim is a HIGHLIGHT, and a highlight needs somewhere brighter to go.
+    ///
+    /// On a dark palette it has all the room in the world. On a light one it
+    /// has none: the material already sits near the top of the range, so a
+    /// white edge on a near-white surface is not an edge — and at RESTING
+    /// strength, where everything is halved and there is no glow underneath
+    /// either, it disappeared completely. That is what made the unchecked
+    /// circles unreadable in light mode (founder bug report 2026-08-16).
+    ///
+    /// The palette already says what to do instead, in its own note beside
+    /// `edgeShade`: "on a light material the rim has nowhere brighter to go,
+    /// so the contact shade is what separates an object from the page". So a
+    /// resting object on a light page gets a CONTACT edge rather than a lit
+    /// one — dark along the lower arc, gone by the top, where the page is
+    /// already brighter than the object is.
+    ///
+    /// Prominent glass keeps its lit rim in both directions: it has the glow
+    /// and the full-strength stops to carry it, and that is the look as signed
+    /// off.
     private var rim: LinearGradient {
-        LinearGradient(
-            stops: [.init(color: .white.opacity(0.55 * strength), location: 0.0),
-                    .init(color: .white.opacity(0.05 * strength), location: 0.5),
-                    .init(color: .white.opacity(0.60 * strength), location: 1.0)],
+        guard !skeu.isDark, !prominent else {
+            return LinearGradient(
+                stops: [.init(color: skeu.edgeLight.opacity(0.55 * strength), location: 0.0),
+                        .init(color: skeu.edgeLight.opacity(0.05 * strength), location: 0.5),
+                        .init(color: skeu.edgeLight.opacity(0.60 * strength), location: 1.0)],
+                startPoint: .top, endPoint: .bottom)
+        }
+        // Absolute, not scaled by `strength`: this branch only ever runs at
+        // rest, and halving it again is what the bug was.
+        return LinearGradient(
+            stops: [.init(color: skeu.edgeShade.opacity(0.00), location: 0.0),
+                    .init(color: skeu.edgeShade.opacity(0.14), location: 0.45),
+                    .init(color: skeu.edgeShade.opacity(0.42), location: 1.0)],
             startPoint: .top, endPoint: .bottom)
     }
 
