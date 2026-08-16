@@ -161,7 +161,10 @@ struct SettingsView: View {
                     font: W95Font.small(pixel),
                     isSelected: settings.design == mode,
                     accessibilityLabel: "\(mode.label) design"
-                ) { settings.design = mode }
+                ) {
+                    // The two looks cross-fade — see DesignSwitch.
+                    withAnimation(DesignSwitch.animation) { settings.design = mode }
+                }
             }
         }
     }

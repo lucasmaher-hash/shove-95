@@ -157,7 +157,10 @@ struct SkeuSettingsView: View {
                             option(mode.label,
                                    selected: settings.design == mode,
                                    in: designNS) {
-                                settings.design = mode
+                                // The two looks cross-fade — see DesignSwitch.
+                                withAnimation(DesignSwitch.animation) {
+                                    settings.design = mode
+                                }
                             }
                         }
                     }

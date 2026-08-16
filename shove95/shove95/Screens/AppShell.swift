@@ -18,6 +18,22 @@
 
 import SwiftUI
 
+/// The dissolve between the two looks.
+///
+/// Driven from the CONTROL, with `withAnimation`, not from a container
+/// watching `settings.design`. Watching it animated one direction and not the
+/// other — the value changes identically both ways, but the container only
+/// reliably picked it up when the tree it was animating was the one being
+/// inserted (founder bug report 2026-08-16). An explicit transaction at the
+/// switch itself has no such asymmetry: both looks fade, both ways.
+///
+/// Slow enough to read as a change of clothes rather than a flicker, short
+/// enough that the control you just pressed is still under your finger when it
+/// settles.
+enum DesignSwitch {
+    static let animation: Animation = .easeInOut(duration: 0.34)
+}
+
 struct AppShell: View {
     @Environment(AppSettings.self) private var settings
     /// The DEVICE setting. Only consulted when the user picked "System" — in
@@ -36,7 +52,19 @@ struct AppShell: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        root
+        // The two looks CROSS-FADE into each other. They are different view
+        // trees, not one tree re-skinned, so there is nothing to interpolate
+        // — but a hard cut between two complete design languages reads as a
+        // glitch, and the reader is usually looking at the very control that
+        // caused it. A dissolve says "this is the same screen, dressed
+        // differently", which is exactly what it is (founder direction
+        // 2026-08-16; possible at all only since the transitions ban came off
+        // §9 the same day).
+        //
+        // Held in a ZStack so both trees occupy the same space while they
+        // trade places. They line up section for section now, so the fade
+        // lands on itself instead of sliding.
+        ZStack { root }
             // ONE presentation for both looks. `isPresented` is untouched by
             // the design switch, so the sheet stays up; only its content and
             // the palette underneath change.
@@ -107,6 +135,10 @@ struct AppShell: View {
                 .onChange(of: settings.scheme.id) { _, _ in
                     Win95.scheme = settings.scheme.resolved(dark: isDark)
                 }
+                // Both halves of the dissolve — see `body`. Opacity only: a
+                // slide or a scale would say the screen went somewhere, and
+                // it did not.
+                .transition(.opacity)
         case .skeu:
             SkeuRootView(showSettings: $showSettings)
                 // The palette rides the environment, so it needs no help. The
@@ -119,20 +151,30 @@ struct AppShell: View {
                 .skeuTypeScaling()
                 .skeuTheme(settings.skeuTheme.palette(dark: isDark))
                 .preferredColorScheme(settings.appearance.preferred)
+                .transition(.opacity)
         }
     }
 
     /// The settings screen in whichever look is active. Both variants need the
     /// same `.id` treatment their roots get, for the same reason: the typeface
     /// and palette are read through statics the sheet cannot observe.
-    @ViewBuilder
     private var settingsSheet: some View {
+        // Same dissolve as the roots, and it matters MORE here: the Design
+        // switch is on this screen, so this is the surface the reader is
+        // looking at when it changes. The two sheets are aligned section for
+        // section, so the fade happens in place rather than under a jump.
+        ZStack { settingsSheetContent }
+    }
+
+    @ViewBuilder
+    private var settingsSheetContent: some View {
         switch settings.design {
         case .win95:
             SettingsView { showSettings = false }
                 .environment(\.win95Scheme, settings.scheme.resolved(dark: isDark))
                 .id(settings.face.rawValue + settings.scheme.id + (isDark ? "d" : "l"))
                 .preferredColorScheme(settings.appearance.preferred)
+                .transition(.opacity)
         case .skeu:
             // NO `.id(face)` here, unlike the root above. Rebuilding this
             // sheet on a typeface change tore down the toggle mid-glide, so
@@ -145,6 +187,7 @@ struct AppShell: View {
                 .skeuTypeScaling()
                 .skeuTheme(settings.skeuTheme.palette(dark: isDark))
                 .preferredColorScheme(settings.appearance.preferred)
+                .transition(.opacity)
         }
     }
 
