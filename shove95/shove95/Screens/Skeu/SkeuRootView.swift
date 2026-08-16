@@ -146,6 +146,7 @@ struct SkeuRootView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
     @Environment(TaskStore.self) private var store
+    @Environment(PinCoordinator.self) private var pins
 
     /// Owned by AppShell — see that file for why the sheet cannot live here.
     @Binding var showSettings: Bool
@@ -196,6 +197,9 @@ struct SkeuRootView: View {
     @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
     @State private var pendingPhotos: [Data] = []
+    /// Held until commit, like `pendingPhotos`: there is nothing to pin until
+    /// the task exists.
+    @State private var pendingPin = false
     /// The add row's frame in global space — reported to the editing
     /// coordinator so a focused field can be lifted above the keyboard.
     @State private var addRowFrame: CGRect = .zero
@@ -241,6 +245,19 @@ struct SkeuRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         // The row menu draws above everything, unclipped by the scroll view.
         .overlay { SkeuMenuOverlay() }
+        // Only one task may be pinned, so pinning a second one asks first —
+        // silently dropping the earlier pin would read as a bug.
+        .overlay {
+            if let pending = pins.replacement {
+                SkeuPinReplaceDialog(outgoing: pending.outgoingTitle) {
+                    pins.confirm(store: store)
+                } onCancel: {
+                    pins.cancel()
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(SkeuMotion.present, value: pins.replacement)
         .environment(menu)
         .environment(editing)
         // The store's queries are scoped to the active workspace. The Win95
@@ -441,6 +458,25 @@ struct SkeuRootView: View {
                 }
             }
 
+            // Held until commit, exactly like `pendingPhotos` above it: there
+            // is nothing to pin until the task exists.
+            if addFocused {
+                Button {
+                    SkeuHaptic.selection()
+                    withAnimation(SkeuMotion.press) { pendingPin.toggle() }
+                } label: {
+                    Image(systemName: pendingPin ? "record.circle.fill" : "circle.slash")
+                        .font(SkeuFont.at(glyphSize, weight: .medium))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(pendingPin ? skeu.accent : skeu.inkMuted)
+                        .frame(width: glyphBox, height: glyphBox)
+                }
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                .accessibilityLabel("Pin new task to Lock Screen")
+                .accessibilityAddTraits(pendingPin ? [.isButton, .isSelected] : .isButton)
+            }
+
             if addFocused {
                 Button {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -521,11 +557,14 @@ struct SkeuRootView: View {
         let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             draft = ""
+            pendingPin = false
             Task { @MainActor in addFocused = false }
             return
         }
         committingAdd = true
         draft = ""
+        let wantsPin = pendingPin
+        pendingPin = false
         // Deferred: a store write and a focus change from inside a binding
         // setter both land mid-update, where SwiftUI drops them.
         Task { @MainActor in
@@ -536,6 +575,9 @@ struct SkeuRootView: View {
                     store.addPhoto(task, data: data)
                 }
                 pendingPhotos = []
+                // Through the coordinator, not the store: composing while
+                // another task holds the pin still asks before replacing it.
+                if wantsPin { pins.toggle(task, store: store) }
             }
             // Keyboard dismisses on commit: a field that stays open reads as
             // "still typing" and hides the list you just added to.
@@ -796,6 +838,7 @@ private struct SkeuTaskRow: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(EditingCoordinator.self) private var editing
+    @Environment(PinCoordinator.self) private var pins
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
@@ -1180,6 +1223,31 @@ private struct SkeuTaskRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: rowH)
                     .allowsHitTesting(false) // the ROW owns tap-to-edit
+            }
+
+            // The pin sits LEFT of the camera while editing, and stays behind
+            // — left of the date chip — once it holds. Same grammar as the
+            // Win95 row: reachable while you work on a task, present
+            // afterwards only when it means something.
+            if isEditing || task.isPinned {
+                // The founder's reference art, which SF Symbols happens to
+                // ship exactly: a ring around a solid core, and a struck-out
+                // ring for the resting state.
+                Image(systemName: task.isPinned ? "record.circle.fill" : "circle.slash")
+                    .font(SkeuFont.at(glyphSize, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(task.isPinned ? skeu.accent : skeu.inkMuted)
+                    .frame(width: glyphBox, height: glyphBox)
+                    .frame(width: SkeuControl.minTouch, height: rowH)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        SkeuHaptic.selection()
+                        withAnimation(SkeuMotion.press) { pins.toggle(task, store: store) }
+                    }
+                    .accessibilityLabel(task.isPinned
+                                        ? "Unpin from Lock Screen"
+                                        : "Pin to Lock Screen")
+                    .accessibilityAddTraits(task.isPinned ? [.isButton, .isSelected] : .isButton)
             }
 
             // Trailing column: the camera while editing, otherwise the overdue

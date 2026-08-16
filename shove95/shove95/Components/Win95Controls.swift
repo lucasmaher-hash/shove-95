@@ -170,3 +170,57 @@ struct PlusGlyph: Shape {
     }
 }
 
+// MARK: - Pin glyph
+
+/// The pin control's mark: a ring, holding a solid core when the task is
+/// pinned and struck through when it is not.
+///
+/// The skeu look draws this with two SF Symbols (`record.circle.fill` and
+/// `circle.slash`), which is exactly the founder's reference art. A hairline
+/// vector circle is an anti-pattern here though — nothing in 1995 had one —
+/// so this is the same mark rasterised onto the pixel grid, the way the
+/// checkbox and the plus already are.
+///
+/// The cells are computed rather than hand-listed: a 13-unit grid is too
+/// large to transcribe by hand without an error, and the radii are the real
+/// design decision. Odd grid so the circle has a true centre cell.
+struct PinGlyph: Shape {
+    var isPinned: Bool
+
+    /// Grid units from centre. The ring is ~1.5 cells thick, which is the
+    /// thinnest that still reads as a ring rather than a dotted outline once
+    /// quantised.
+    private static let outer: CGFloat = 6.1
+    private static let inner: CGFloat = 4.5
+    /// The core leaves a clear gap inside the ring — touching, it would read
+    /// as one fat blob at small pixel scales.
+    private static let core: CGFloat = 3.0
+
+    func path(in rect: CGRect) -> Path {
+        let n = 13
+        let u = rect.width / CGFloat(n)
+        let centre = CGFloat(n) / 2
+        var path = Path()
+
+        for row in 0..<n {
+            for column in 0..<n {
+                let dx = CGFloat(column) + 0.5 - centre
+                let dy = CGFloat(row) + 0.5 - centre
+                let distance = (dx * dx + dy * dy).squareRoot()
+
+                let onRing = distance <= Self.outer && distance >= Self.inner
+                let inCore = isPinned && distance <= Self.core
+                // The strike runs corner to corner and overshoots the ring on
+                // both ends, as in the reference. Top-left to bottom-right,
+                // so it never reads as a checkmark.
+                let onStrike = !isPinned && abs(dx - dy) < 0.95
+
+                guard onRing || inCore || onStrike else { continue }
+                path.addRect(CGRect(x: CGFloat(column) * u, y: CGFloat(row) * u,
+                                    width: u, height: u))
+            }
+        }
+        return path
+    }
+}
+

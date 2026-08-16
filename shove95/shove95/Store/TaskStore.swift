@@ -378,6 +378,46 @@ final class TaskStore {
     func toggleCompleted(_ task: TaskItem) {
         task.isCompleted.toggle()
         task.completedAt = task.isCompleted ? now() : nil
+        // A finished task stops following you. Unticking does NOT re-pin it —
+        // pinning is a deliberate act, and silently re-pinning something you
+        // un-ticked by accident would put it back on the Lock Screen.
+        if task.isCompleted { task.isPinned = false }
+        commit()
+    }
+
+    // MARK: - The pinned task (mononote)
+
+    /// The one task pinned to the Lock Screen, or nil.
+    ///
+    /// Searched WITHOUT the workspace filter that `allTasksSorted` applies:
+    /// the pin is app-wide, so a task pinned in Work must still be found
+    /// while Personal is open — otherwise switching workspace would look
+    /// like the pin had been lost, and pinning again would leave two.
+    func pinnedTask() -> TaskItem? {
+        _ = revision // observation hook
+        var descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isPinned })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
+    /// Pins `task`, releasing whatever held the pin.
+    ///
+    /// Exactly one, app-wide. The unpin loop is defensive rather than
+    /// decorative: two devices can each pin a different task offline, and
+    /// sync then delivers a store with two. Whoever pins next cleans it up.
+    func pin(_ task: TaskItem) {
+        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isPinned })
+        for held in (try? context.fetch(descriptor)) ?? [] where held.id != task.id {
+            held.isPinned = false
+        }
+        task.isPinned = true
+        commit()
+    }
+
+    func unpin(_ task: TaskItem) {
+        guard task.isPinned else { return }
+        task.isPinned = false
         commit()
     }
 

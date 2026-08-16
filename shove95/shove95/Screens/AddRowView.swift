@@ -23,6 +23,7 @@ struct AddRowView: View {
     @Environment(TaskStore.self) private var store
     @Environment(\.pixel) private var pixel
     @Environment(EditingCoordinator.self) private var editing
+    @Environment(PinCoordinator.self) private var pins
 
     @State private var text = ""
     @State private var frame: CGRect = .zero
@@ -33,6 +34,10 @@ struct AddRowView: View {
     /// view still holds the newline when the second call arrives — and each
     /// call was creating its own task (founder bug report 2026-08-04).
     @State private var committing = false
+    /// Held until commit, like `pendingPhotos` on the skeu add row: there is
+    /// nothing to pin until the task exists, and committing early would
+    /// dismiss the keyboard out from under someone still typing.
+    @State private var pendingPin = false
 
     // Photo attached during capture: the task is created first, then the
     // picker targets it (TASK-044).
@@ -76,13 +81,20 @@ struct AddRowView: View {
             // Nothing typed — Return just closes the row rather than sitting
             // there looking broken.
             text = ""
+            pendingPin = false
             Task { @MainActor in focused = false }
             return
         }
         committing = true
         text = ""
+        let wantsPin = pendingPin
+        pendingPin = false
         Task { @MainActor in
-            store.addTask(title: title, in: bucket)
+            let task = store.addTask(title: title, in: bucket)
+            // The pin is applied AFTER the task exists, and through the
+            // coordinator rather than the store, so composing a task while
+            // another one holds the pin still asks before replacing it.
+            if wantsPin, let task { pins.toggle(task, store: store) }
             // Keyboard DISMISSES on commit (2026-08-04): a field that stays
             // open reads as "still typing" and hides the list you just added to.
             focused = false
@@ -128,6 +140,21 @@ struct AddRowView: View {
                 }
                 .padding(.vertical, firstLineInset)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Pin while composing: you write the one thing that should follow
+            // you and pin it in the same motion (founder direction
+            // 2026-08-16). Always drawn resting — the task does not exist
+            // yet, so it cannot already hold the pin.
+            if focused {
+                PinGlyph(isPinned: pendingPin)
+                    .fill(pendingPin ? Win95.accent : Win95.shadow)
+                    .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                    .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                    .contentShape(Rectangle())
+                    .onTapGesture { pendingPin.toggle() }
+                    .accessibilityLabel("Pin new task to Lock Screen")
+                    .accessibilityAddTraits(pendingPin ? [.isButton, .isSelected] : .isButton)
+            }
 
             // Same bare theme-coloured glyph an existing task's photo control
             // uses — appears only while composing, matching the skeu row.

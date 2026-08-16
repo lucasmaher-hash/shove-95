@@ -25,6 +25,7 @@ struct TaskRowView: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(EditingCoordinator.self) private var editing
+    @Environment(PinCoordinator.self) private var pins
     @Environment(\.pixel) private var pixel
 
     // Visual state
@@ -217,27 +218,47 @@ struct TaskRowView: View {
     }
 
     private var trailingColumn: some View {
-        Group {
-            if isEditing && !addedPhotoThisEdit {
-                // Add-photo plus: a bare glyph in the theme colour, not a
-                // button. One photo per edit session — the plus retires after
-                // a pick and returns on the next edit.
-                PlusGlyph()
-                    .fill(Win95.accent)
+        HStack(spacing: 0) {
+            // The pin sits LEFT of the camera while editing, and stays behind
+            // — left of the date chip — once it holds. That is the whole
+            // grammar of it: while you are working on a task you can always
+            // reach for it, and afterwards it is only there when it means
+            // something (founder direction 2026-08-16).
+            if isEditing || task.isPinned {
+                PinGlyph(isPinned: task.isPinned)
+                    .fill(task.isPinned ? Win95.accent : Win95.shadow)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())
-                    .onTapGesture { chooseSource() }
-                    .accessibilityLabel("Add photo")
-            } else if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
-                                                  now: store.now(), calendar: store.calendar) {
-                DateChip(label: chip)
-                    .allowsHitTesting(false)
+                    .onTapGesture { pins.toggle(task, store: store) }
+                    .accessibilityLabel(task.isPinned
+                                        ? "Unpin from Lock Screen"
+                                        : "Pin to Lock Screen")
+                    .accessibilityAddTraits(task.isPinned ? [.isButton, .isSelected] : .isButton)
             }
+
+            Group {
+                if isEditing && !addedPhotoThisEdit {
+                    // Add-photo plus: a bare glyph in the theme colour, not a
+                    // button. One photo per edit session — the plus retires
+                    // after a pick and returns on the next edit.
+                    PlusGlyph()
+                        .fill(Win95.accent)
+                        .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                        .contentShape(Rectangle())
+                        .onTapGesture { chooseSource() }
+                        .accessibilityLabel("Add photo")
+                } else if let chip = ChipFormat.label(dueDate: task.dueDate, isCompleted: task.isCompleted,
+                                                      now: store.now(), calendar: store.calendar) {
+                    DateChip(label: chip)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
         }
         // Pinned to the first line's band, however tall the row grows.
-        .frame(width: Win95.Px.grid * 8 * pixel,
-               height: Win95.rowHeight(pixel), alignment: .trailing)
+        .frame(height: Win95.rowHeight(pixel), alignment: .trailing)
     }
 
     /// Thumbnails accumulate LEFT TO RIGHT in the order added. Tapping one

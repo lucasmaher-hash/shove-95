@@ -26,6 +26,11 @@ struct AppShell: View {
     @Environment(\.colorScheme) private var systemScheme
 
     @State private var showSettings = false
+    /// Owned HERE, above the design switch, for the same reason the settings
+    /// sheet is: the pinned task is app-wide, and a coordinator per look
+    /// would mean the replace question could be asked twice, or lost when
+    /// the switch is flipped mid-question.
+    @State private var pins = PinCoordinator()
 
     var body: some View {
         root
@@ -35,6 +40,7 @@ struct AppShell: View {
             .fullScreenCover(isPresented: $showSettings) {
                 settingsSheet
             }
+            .environment(pins)
     }
 
     @ViewBuilder

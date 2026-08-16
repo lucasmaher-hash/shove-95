@@ -21,6 +21,7 @@ struct RootView: View {
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
+    @Environment(PinCoordinator.self) private var pins
     @State private var menu = MenuCoordinator()
     @State private var editing = EditingCoordinator()
 
@@ -147,6 +148,17 @@ struct RootView: View {
         .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
         .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
+        // Only one task may be pinned, so pinning a second one asks first —
+        // silently dropping the earlier pin would read as a bug.
+        .overlay {
+            if let pending = pins.replacement {
+                Win95PinReplaceDialog(outgoing: pending.outgoingTitle) {
+                    pins.confirm(store: store)
+                } onCancel: {
+                    pins.cancel()
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).
