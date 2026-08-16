@@ -56,6 +56,12 @@ private enum G {
     static let fieldHeight: CGFloat = 46
     static let pillSmall: CGFloat = 30
     static let circle = 80 * q              // 37 — the round corner button
+
+    /// The width of a button standing BESIDE a field. Fixed, not intrinsic:
+    /// Default, Delete and Add stack in one column down the sheet, and three
+    /// different widths there read as three different kinds of control.
+    /// Sized for "Default", the longest of the three.
+    static let rowButtonW: CGFloat = 88
 }
 
 struct SkeuSettingsView: View {
@@ -194,9 +200,14 @@ struct SkeuSettingsView: View {
                     }
                 }
 
-                field(text: $newWorkspace, prompt: "New workspace",
-                      focused: $addWorkspaceFocused) {
-                    trailingPill("Add") { addWorkspace() }
+                HStack(spacing: SkeuSpace.sm) {
+                    field(text: $newWorkspace, prompt: "New workspace",
+                          focused: $addWorkspaceFocused)
+
+                    SkeuRowButton(title: "Add") {
+                        SkeuHaptic.press()
+                        addWorkspace()
+                    }
                 }
             }
         }
@@ -338,44 +349,25 @@ struct SkeuSettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// A text field in a trough, with an optional control at its trailing end.
-    /// §9.7: inputs are recessed — the same channel everything else uses.
-    @ViewBuilder
-    private func field<T: View>(text: Binding<String>,
-                                prompt: String,
-                                focused: FocusState<Bool>.Binding,
-                                @ViewBuilder trailing: () -> T) -> some View {
-        HStack(spacing: SkeuSpace.sm) {
-            TextField("", text: text,
-                      prompt: Text(prompt).foregroundStyle(skeu.inkFaint))
-                .font(SkeuFont.at(labelSize))
-                .foregroundStyle(skeu.ink)
-                .focused(focused)
-                .submitLabel(.done)
-
-            trailing()
-        }
-        .padding(.leading, SkeuSpace.lg)
-        .padding(.trailing, SkeuSpace.sm)
-        .frame(height: fieldH)
-        .skeuTrough(Capsule(), height: fieldH)
-    }
-
-    /// A small glass pill sitting inside a field's trough.
-    private func trailingPill(_ title: String, action: @escaping () -> Void) -> some View {
-        Text(title)
-            .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
+    /// A text field in a trough. §9.7: inputs are recessed — the same channel
+    /// everything else uses.
+    ///
+    /// Nothing else goes in here. The Default / Delete / Add buttons used to
+    /// sit inside this trough, which made a control live in a container that
+    /// is meant to read as a hole in the surface; they stand beside it now
+    /// (founder direction 2026-08-16) — see `SkeuRowButton`.
+    private func field(text: Binding<String>,
+                       prompt: String,
+                       focused: FocusState<Bool>.Binding) -> some View {
+        TextField("", text: text,
+                  prompt: Text(prompt).foregroundStyle(skeu.inkFaint))
+            .font(SkeuFont.at(labelSize))
             .foregroundStyle(skeu.ink)
-            .lineLimit(1)
-            .padding(.horizontal, SkeuSpace.md)
-            .frame(height: pillSmallH)
-            .skeuGlass(Capsule(), height: pillSmallH)
-            .contentShape(Capsule())
-            .onTapGesture {
-                SkeuHaptic.press()
-                action()
-            }
-            .accessibilityAddTraits(.isButton)
+            .focused(focused)
+            .submitLabel(.done)
+            .padding(.horizontal, SkeuSpace.lg)
+            .frame(height: fieldH)
+            .skeuTrough(Capsule(), height: fieldH)
     }
 
     /// A standalone action pill — no trough behind it, it IS the control.
@@ -396,6 +388,44 @@ struct SkeuSettingsView: View {
 
     private func drop(_ alpha: Double) -> Color {
         skeu.shadow.opacity(alpha * skeu.shadowIntensity)
+    }
+}
+
+// MARK: - Row button
+
+/// The button that stands BESIDE a field: Default, Delete, Add.
+///
+/// Same height as the field it accompanies, so the pair reads as one row
+/// rather than a control that fell out of its container, and one fixed width
+/// across all three so they line up down the sheet (founder direction
+/// 2026-08-16). It is glass, not a trough: it is the raised thing you press,
+/// next to the recessed thing you type into.
+private struct SkeuRowButton: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    let title: String
+    /// Colour comes from the caller — Delete is the one destructive word on
+    /// this screen and says so.
+    var tint: Color?
+    var prominent = true
+    var action: () -> Void
+
+    var body: some View {
+        let height = G.fieldHeight * chromeScale
+
+        Text(title)
+            .font(SkeuFont.at(G.label * textScale, weight: .medium))
+            .foregroundStyle(tint ?? skeu.ink)
+            .lineLimit(1)
+            // The width is fixed, so an accessibility size has to shrink the
+            // word rather than push the field off the screen.
+            .minimumScaleFactor(0.6)
+            .frame(width: G.rowButtonW * chromeScale, height: height)
+            .skeuGlass(Capsule(), height: height, prominent: prominent)
+            .contentShape(Capsule())
+            .onTapGesture(perform: action)
+            .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -439,30 +469,23 @@ private struct SkeuNameField: View {
                 .onChange(of: focused) { _, isFocused in
                     if !isFocused { commit() }
                 }
+                .padding(.horizontal, SkeuSpace.lg)
+                .frame(height: fieldH)
+                .skeuTrough(Capsule(), height: fieldH)
 
-            Text("Default")
-                .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
-                .foregroundStyle(skeu.ink)
-                .lineLimit(1)
-                .padding(.horizontal, SkeuSpace.md)
-                .frame(height: pillSmallH)
-                .skeuGlass(Capsule(), height: pillSmallH, prominent: !isDefault)
-                .contentShape(Capsule())
-                .onTapGesture {
-                    guard !isDefault else { return }
-                    SkeuHaptic.press()
-                    focused = false
-                    draft = bucket.displayName
-                    settings.resetName(for: bucket)
-                }
-                .opacity(isDefault ? 0.35 : 1)
-                .animation(SkeuMotion.tint, value: isDefault)
-                .accessibilityLabel("Restore default name for \(bucket.displayName)")
+            // Fades when the name already IS the default — a control that
+            // would do nothing shouldn't invite a press.
+            SkeuRowButton(title: "Default", prominent: !isDefault) {
+                guard !isDefault else { return }
+                SkeuHaptic.press()
+                focused = false
+                draft = bucket.displayName
+                settings.resetName(for: bucket)
+            }
+            .opacity(isDefault ? 0.35 : 1)
+            .animation(SkeuMotion.tint, value: isDefault)
+            .accessibilityLabel("Restore default name for \(bucket.displayName)")
         }
-        .padding(.leading, SkeuSpace.lg)
-        .padding(.trailing, SkeuSpace.sm)
-        .frame(height: fieldH)
-        .skeuTrough(Capsule(), height: fieldH)
         .task { draft = settings.name(for: bucket) }
     }
 
@@ -506,29 +529,24 @@ private struct SkeuWorkspaceRow: View {
                 .onChange(of: focused) { _, isFocused in
                     if !isFocused { commit() }
                 }
+                .padding(.horizontal, SkeuSpace.lg)
+                .frame(height: fieldH)
+                .skeuTrough(Capsule(), height: fieldH)
 
             // The default workspace can't be deleted — there must always be
-            // somewhere for tasks to live.
-            if !workspace.isDefault {
-                Text("Delete")
-                    .font(SkeuFont.at(labelSize * 0.9, weight: .medium))
-                    .foregroundStyle(skeu.critical)
-                    .lineLimit(1)
-                    .padding(.horizontal, SkeuSpace.md)
-                    .frame(height: pillSmallH)
-                    .skeuGlass(Capsule(), height: pillSmallH)
-                    .contentShape(Capsule())
-                    .onTapGesture {
-                        SkeuHaptic.warning()
-                        onDelete()
-                    }
-                    .accessibilityLabel("Delete workspace \(workspace.name)")
+            // somewhere for tasks to live. Its slot is HELD rather than
+            // collapsed, so that one row's field isn't wider than the rest.
+            if workspace.isDefault {
+                Color.clear
+                    .frame(width: G.rowButtonW * chromeScale, height: fieldH)
+            } else {
+                SkeuRowButton(title: "Delete", tint: skeu.critical) {
+                    SkeuHaptic.warning()
+                    onDelete()
+                }
+                .accessibilityLabel("Delete workspace \(workspace.name)")
             }
         }
-        .padding(.leading, SkeuSpace.lg)
-        .padding(.trailing, SkeuSpace.sm)
-        .frame(height: fieldH)
-        .skeuTrough(Capsule(), height: fieldH)
         .task { draft = workspace.name }
     }
 
