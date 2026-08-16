@@ -45,6 +45,11 @@ enum SkeuToggle {
     /// carry a colour and butted-up capsules read as one striped bar rather
     /// than five pills.
     static let gap: CGFloat = 3
+
+    /// How large a colour swatch sits while it is NOT the chosen one. Small
+    /// enough to read as a sample rather than a filled slot, large enough that
+    /// the colour is still the thing you see.
+    static let restSwatch: CGFloat = 0.74
 }
 
 // MARK: - The trough
@@ -116,7 +121,21 @@ struct SkeuSegment<Content: View>: View {
             .background {
                 ZStack {
                     if let fill {
-                        Capsule().fill(fill)
+                        Capsule()
+                            .fill(fill)
+                            // A resting swatch sits SMALLER than its slot and
+                            // grows into it when chosen (founder direction
+                            // 2026-08-16). Five colours each filling their
+                            // whole segment read as one striped bar, and the
+                            // choice was carried by the glass alone; shrinking
+                            // the others makes the row a set of samples with
+                            // one of them taken up.
+                            //
+                            // A scale, not an inset: it shrinks both
+                            // dimensions together, so a swatch stays the same
+                            // shape and the change reads as expanding rather
+                            // than as a differently-proportioned pill.
+                            .scaleEffect(isSelected ? 1 : SkeuToggle.restSwatch)
                     }
                     // The glass is a lens with no fill, so it goes OVER the
                     // colour — as a background layer its rim would be hidden
