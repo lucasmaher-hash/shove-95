@@ -89,7 +89,23 @@ struct SkeuSettingsView: View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
 
-            ScrollView {
+            // The header is a SIBLING of the scroll view, not its first row —
+            // the Win95 window's arrangement, where the title bar stays put
+            // and only the well's contents travel (founder direction
+            // 2026-08-16). Scrolled inside, the title and the ✕ rode up under
+            // the status bar and the first panel collided with the clock.
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    // Lands the ✕ on exactly the gear's y — see SkeuTopBar.
+                    .padding(.top, SkeuTopBar.inset)
+                    .padding(.horizontal, SkeuTopBar.margin)
+                    // A band of its own. The Win95 window gets this for free
+                    // from the title bar's height; here the panels would
+                    // otherwise travel a few points under the word "Settings"
+                    // and read as a collision rather than a dock.
+                    .padding(.bottom, SkeuSpace.md)
+
+                ScrollView {
                 // LAZY, not a plain VStack. Seven cards, each carrying a
                 // trough (four inner shadows apiece) and the selected option's
                 // glass (five blurred lens layers, two additive gradients,
@@ -98,10 +114,6 @@ struct SkeuSettingsView: View {
                 // made the presentation stutter (founder bug report
                 // 2026-08-14). Only the cards actually on screen now render.
                 LazyVStack(alignment: .leading, spacing: G.sectionGap) {
-                    header
-                        // Lands the ✕ on exactly the gear's y — see SkeuTopBar.
-                        .padding(.top, SkeuTopBar.inset)
-
                     // Section order MATCHES the Win95 settings exactly — the
                     // two are the same screen in two looks, and a reader who
                     // switches design should find the same control in the same
@@ -153,8 +165,9 @@ struct SkeuSettingsView: View {
                 }
                 .padding(.horizontal, SkeuTopBar.margin) // the root's screen margin
                 .padding(.vertical, SkeuSpace.md)
+                }
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
         .fullScreenCover(isPresented: $showArchive) {
             SkeuArchiveView { showArchive = false }
