@@ -304,10 +304,8 @@ struct SkeuSettingsView: View {
                 // Same size, same glyph weight and same corner as the gear
                 // this sheet opened from — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
-                Image(systemName: "xmark")
-                    .font(SkeuFont.at(SkeuTopBar.icon * chromeScale, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(skeu.ink)
+                SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
+                                size: SkeuTopBar.icon * chromeScale, tint: skeu.ink)
                     .frame(width: size, height: size)
                     .skeuGlass(Circle(), height: size)
             }

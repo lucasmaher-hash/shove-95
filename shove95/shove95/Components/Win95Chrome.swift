@@ -104,7 +104,9 @@ struct TitleBar: View {
 /// Pixel cog on a 12×12 grid: a hollow two-unit ring, four square teeth and
 /// four corner nubs. Solid bodies turn to mush at 24pt — the hole is what makes
 /// it read as a gear.
-private struct GearGlyph: Shape {
+/// Shared with the skeu look: under Retro or Blend its top bar takes these
+/// pixel glyphs instead of SF Symbols, so the chrome matches the type.
+struct GearGlyph: Shape {
     func path(in rect: CGRect) -> Path {
         let u = rect.width / 12
         func block(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {

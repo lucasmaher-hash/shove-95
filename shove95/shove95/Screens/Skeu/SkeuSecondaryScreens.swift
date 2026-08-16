@@ -31,6 +31,7 @@ private enum S {
 
 /// Header + scrolling body, shared by both screens.
 private struct SkeuSheet<Content: View>: View {
+    @Environment(AppSettings.self) private var settings
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
 
@@ -59,10 +60,8 @@ private struct SkeuSheet<Content: View>: View {
                         SkeuHaptic.press()
                         onClose()
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(SkeuFont.at(15, weight: .medium))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(skeu.ink)
+                        SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
+                                        size: 15, tint: skeu.ink)
                             .frame(width: closeSize, height: closeSize)
                             .skeuGlass(Circle(), height: closeSize)
                     }

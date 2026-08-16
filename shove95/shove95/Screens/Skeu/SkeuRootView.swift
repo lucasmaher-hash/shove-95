@@ -296,10 +296,10 @@ struct SkeuRootView: View {
             Button { showSettings = true } label: {
                 // Shared with the ✕ that closes every sheet — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
-                Image(systemName: "gearshape")
-                    .font(SkeuFont.at(SkeuTopBar.icon * chromeScale, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(skeu.ink)
+                // Pixel under Retro and Blend, the system symbol under
+                // System — see SkeuChromeGlyph.
+                SkeuChromeGlyph(kind: .gear, face: settings.skeuFace,
+                                size: SkeuTopBar.icon * chromeScale, tint: skeu.ink)
                     .frame(width: size, height: size)
                     .skeuGlass(Circle(), height: size)
             }
