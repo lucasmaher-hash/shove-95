@@ -264,7 +264,7 @@ extension SkeuPalette {
 
         positive:       Color(hex: 0x8AA37B),
         caution:        Color(hex: 0xD9A94E),
-        critical:       Color(hex: 0xC7705C),
+        critical:       Color(hex: 0xE85A3C), // saturated — see the derived palette
 
         shadow:         Color(hex: 0x080503),
         shadowIntensity: 0.9,

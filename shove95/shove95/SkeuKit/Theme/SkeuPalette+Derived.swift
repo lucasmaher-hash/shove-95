@@ -167,7 +167,11 @@ extension SkeuPalette {
 
             positive:       Color(h: 0.35, s: 0.42, b: 0.72),
             caution:        Color(h: 0.10, s: 0.60, b: 0.86),
-            critical:       Color(h: 0.02, s: 0.55, b: 0.80),
+            // Saturation, not brightness, is what was missing here. At 0.55
+            // the dark-mode strike came out coral — bright enough and not RED
+            // enough, which is the half of the complaint the light branch did
+            // not answer (founder direction 2026-08-17).
+            critical:       Color(h: 0.02, s: 0.80, b: 0.86),
 
             shadow:         Color(h: s.h, s: min(s.s * 1.5, 1), b: 0.04),
             shadowIntensity: 0.9,
