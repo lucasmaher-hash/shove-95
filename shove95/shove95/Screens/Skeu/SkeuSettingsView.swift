@@ -32,28 +32,15 @@ import Shove95Kit
 private enum G {
     static let q: CGFloat = 12.8 / 27.692   // 0.4622 — the frame-to-phone scale
 
-    /// NOT the transcribed 123.077 × q (56.9). That figure is proportional to
-    /// the reference card's 800pt width, but these panels are squat — at their
-    /// height the same radius reads as a capsule, which the founder rejected
-    /// against the reference's clearly squarer corners (2026-08-13).
-    static let cardRadius: CGFloat = 30
-    /// The stroke width of the TROUGHS at their on-screen size — the founder
-    /// wants one identical contour on both, so this is the trough formula
-    /// (7 × height/148.2) evaluated at the trough height used below.
-    static let cardRim = 7 * (66.4 / 148.2) // 3.1
-    static let cardPad = 46.154 * q         // 21.3
     /// Between one setting and the next — i.e. the air ABOVE each heading.
     /// Raised from the transcribed 21.3 (founder direction 2026-08-16): with
     /// the outer cards gone, that figure was doing two jobs it used to share
     /// with a card edge, and seven settings ran together as one column.
     static let sectionGap: CGFloat = 44
 
-    static let troughPad = 30.769 * q       // 14.2
     static let pillPadH = 36.923 * q        // 17.1
-    static let pillPadV = 24.615 * q        // 11.4
     static let pillHeight: CGFloat = 38     // 12.8 text + 2 × 11.4, rounded
     static let label: CGFloat = 12.8
-    static let icon = 30.769 * q            // 14.2
 
     /// Input rows are the TOGGLE, taken apart: the field is the toggle's
     /// trough and the button beside it is the toggle's inner pill (founder
@@ -61,8 +48,6 @@ private enum G {
     /// the two families cannot drift apart the way they already did once.
     static let fieldHeight = SkeuToggle.height
     static let rowButtonH = SkeuToggle.height - SkeuToggle.padV * 2
-    static let pillSmall: CGFloat = 30
-    static let circle = 80 * q              // 37 — the round corner button
 
     /// The width of a button standing BESIDE a field. Fixed, not intrinsic:
     /// Default, Delete and Add stack in one column down the sheet, and three
@@ -81,8 +66,6 @@ struct SkeuSettingsView: View {
     private var labelSize: CGFloat { G.label * textScale }
     private var fieldH: CGFloat { G.fieldHeight * chromeScale }
     private var pillH: CGFloat { G.pillHeight * chromeScale }
-    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
-    private var circleSize: CGFloat { G.circle * chromeScale }
     // No `\.skeuFace` here: this view observes AppSettings, so a face change
     // already re-runs its body. Only the leaf views below, which don't, need
     // to declare that dependency.
@@ -455,9 +438,6 @@ private struct SkeuNameField: View {
     // field label stayed fixed — giant titles over tiny controls.
     private var labelSize: CGFloat { G.label * textScale }
     private var fieldH: CGFloat { G.fieldHeight * chromeScale }
-    private var pillH: CGFloat { G.pillHeight * chromeScale }
-    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
-    private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
     /// Read only to re-render on a typeface change — see `\.skeuFace`.
     @Environment(\.skeuFace) private var face
@@ -522,9 +502,6 @@ private struct SkeuWorkspaceRow: View {
     // field label stayed fixed — giant titles over tiny controls.
     private var labelSize: CGFloat { G.label * textScale }
     private var fieldH: CGFloat { G.fieldHeight * chromeScale }
-    private var pillH: CGFloat { G.pillHeight * chromeScale }
-    private var pillSmallH: CGFloat { G.pillSmall * chromeScale }
-    private var circleSize: CGFloat { G.circle * chromeScale }
     @Environment(\.skeu) private var skeu
     /// Read only to re-render on a typeface change — see `\.skeuFace`.
     @Environment(\.skeuFace) private var face
