@@ -113,6 +113,12 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
             }
         }
         .blur(radius: 3.281 * k)
+        // NOT rasterised, deliberately. `drawingGroup` renders a subtree at
+        // its LAYOUT BOUNDS, and this blur is meant to spread past the shape's
+        // edge — rasterising cut the highlight off square at the rim (founder
+        // bug report 2026-08-16). Anything whose effect bleeds outside its own
+        // frame has to stay un-grouped; the trough's channel can be grouped
+        // only because its mask already confines it.
         .allowsHitTesting(false)
     }
 

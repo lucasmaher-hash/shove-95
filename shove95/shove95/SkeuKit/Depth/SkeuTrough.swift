@@ -50,22 +50,30 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
                                    startPoint: .top, endPoint: .bottom)
                 )
             }
-            // The lip, casting down into the channel.
-            .innerShadow(shape, color: shadow(0.22), radius: 11.885 * k,
-                         offset: CGSize(width: 0, height: 17.828 * k))
-            // The far wall, throwing shade back up from the floor. The RADIUS
-            // is pulled in hard from the frame's 29.714 — at that spread the
-            // blur covers most of a 39.9pt channel and stops being an edge at
-            // all. The ALPHA is close to the frame's again: it was taken down
-            // with the radius at first, which fixed the smear but left the
-            // channel washed out (founder notes 2026-08-13).
-            .innerShadow(shape, color: shadow(0.19), radius: 16 * k,
-                         offset: CGSize(width: 0, height: -11.885 * k))
-            // The two diagonals — these are what round the channel's corners.
-            .innerShadow(shape, color: shadow(0.20), radius: 8.217 * k,
-                         offset: CGSize(width: 8.217 * k, height: 12.326 * k))
-            .innerShadow(shape, color: shadow(0.20), radius: 8.247 * k,
-                         offset: CGSize(width: -8.247 * k, height: -2.062 * k))
+            // All four in ONE masked, rasterised pass — see InnerShadow.swift
+            // for why the count matters. Applied separately this was eight
+            // offscreen passes per trough, re-run every frame the trough
+            // moved, and the settings sheet stands up eleven troughs.
+            .innerShadows(shape, [
+                // The lip, casting down into the channel.
+                InnerShadowSpec(shadow(0.22), radius: 11.885 * k,
+                                offset: CGSize(width: 0, height: 17.828 * k)),
+                // The far wall, throwing shade back up from the floor. The
+                // RADIUS is pulled in hard from the frame's 29.714 — at that
+                // spread the blur covers most of a 39.9pt channel and stops
+                // being an edge at all. The ALPHA is close to the frame's
+                // again: it was taken down with the radius at first, which
+                // fixed the smear but left the channel washed out (founder
+                // notes 2026-08-13).
+                InnerShadowSpec(shadow(0.19), radius: 16 * k,
+                                offset: CGSize(width: 0, height: -11.885 * k)),
+                // The two diagonals — these are what round the channel's
+                // corners.
+                InnerShadowSpec(shadow(0.20), radius: 8.217 * k,
+                                offset: CGSize(width: 8.217 * k, height: 12.326 * k)),
+                InnerShadowSpec(shadow(0.20), radius: 8.247 * k,
+                                offset: CGSize(width: -8.247 * k, height: -2.062 * k)),
+            ])
             // Drawn LAST, over everything: the founder's construction order is
             // bloom → trough → stroke, and the stroke has to sit on top of the
             // inner shadows or the lip loses its edge.

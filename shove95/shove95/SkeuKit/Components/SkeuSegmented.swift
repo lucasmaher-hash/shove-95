@@ -66,6 +66,9 @@ struct SkeuSegmentedTrough<Content: View>: View {
                                      startPoint: .top, endPoint: .bottom))
                 .padding(-SkeuToggle.bloomOverhang * chromeScale)
                 .blur(radius: SkeuToggle.bloomBlur)
+                // Left un-rasterised: the overhang puts this bloom OUTSIDE the
+                // trough's bounds on purpose, and a drawingGroup would clip it
+                // back to them. See SkeuGlass.lensStack.
                 .allowsHitTesting(false)
         }
     }
