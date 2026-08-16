@@ -327,9 +327,8 @@ struct SkeuSettingsView: View {
     private func panel<C: View>(_ title: String,
                                 @ViewBuilder options: () -> C) -> some View {
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            Text(title)
+            TypedText(text: title.uppercased(), trigger: settings.skeuFace)
                 .font(SkeuFont.eyebrow)
-                .textCase(.uppercase)
                 .tracking(0.8)
                 .foregroundStyle(skeu.inkFaint)
 
@@ -347,7 +346,10 @@ struct SkeuSettingsView: View {
                         in group: Namespace.ID,
                         action: @escaping () -> Void) -> some View {
         SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill") {
-            Text(title)
+            // Types itself out on a face change, like the headings — these are
+            // the labels most obviously "set" in the chosen face, since one of
+            // them names it.
+            TypedText(text: title, trigger: settings.skeuFace)
                 .skeuSegmentLabel(textScale)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
         }
@@ -387,9 +389,8 @@ struct SkeuSettingsView: View {
     private func card<C: View>(_ title: String,
                                @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            Text(title)
+            TypedText(text: title.uppercased(), trigger: settings.skeuFace)
                 .font(SkeuFont.eyebrow)
-                .textCase(.uppercase)
                 .tracking(0.8)
                 .foregroundStyle(skeu.inkFaint)
 
