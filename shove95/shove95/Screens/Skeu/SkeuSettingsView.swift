@@ -42,7 +42,11 @@ private enum G {
     /// (7 × height/148.2) evaluated at the trough height used below.
     static let cardRim = 7 * (66.4 / 148.2) // 3.1
     static let cardPad = 46.154 * q         // 21.3
-    static let sectionGap = 46.154 * q      // 21.3
+    /// Between one setting and the next — i.e. the air ABOVE each heading.
+    /// Raised from the transcribed 21.3 (founder direction 2026-08-16): with
+    /// the outer cards gone, that figure was doing two jobs it used to share
+    /// with a card edge, and seven settings ran together as one column.
+    static let sectionGap: CGFloat = 44
 
     static let troughPad = 30.769 * q       // 14.2
     static let pillPadH = 36.923 * q        // 17.1

@@ -185,7 +185,9 @@ struct SettingsView: View {
     /// Heading → its controls.
     private var headingGap: CGFloat { Win95.Px.grid * pixel }
     /// One setting → the next. Also the screen's top and bottom inset.
-    private var sectionGap: CGFloat { Win95.Px.grid * 3 * pixel }
+    /// Raised to 4 grid units with the skeu sheet (founder direction
+    /// 2026-08-16) — the two screens hold the same rhythm or neither does.
+    private var sectionGap: CGFloat { Win95.Px.grid * 5 * pixel }
     /// Between field rows inside one section.
     private var rowGap: CGFloat { Win95.Px.grid * pixel }
 

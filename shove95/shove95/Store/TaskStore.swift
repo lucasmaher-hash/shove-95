@@ -134,9 +134,31 @@ final class TaskStore {
             byID[workspace.id] = workspace
         }
         // Default first, then oldest to newest.
-        return byID.values.sorted {
+        let unique = byID.values.sorted {
             if $0.isDefault != $1.isDefault { return $0.isDefault }
             return $0.createdAt < $1.createdAt
+        }
+
+        // ...and then deduped by NAME as well (founder bug report 2026-08-16:
+        // "Work" appeared twice on the phone).
+        //
+        // Deduping by id alone cannot catch this. Two records with the SAME
+        // name and DIFFERENT ids are exactly what the legacy migration
+        // produces: a device that had workspaces in preferences creates "Work"
+        // with a generated id, while a device seeding fresh creates it with
+        // the fixed `Workspace.workID`. CloudKit then delivers both, and the
+        // id-dedup above sees two legitimately distinct records.
+        //
+        // Oldest wins, matching the id rule, so every device converges on the
+        // same survivor. The loser's tasks fall back to the default workspace
+        // for display via the existing unknown-id path in `allTasksSorted` —
+        // they are not lost, and nothing is written, so a real merge (or an
+        // undo) is still possible later.
+        var seenNames = Set<String>()
+        return unique.filter { workspace in
+            let key = workspace.name.trimmingCharacters(in: .whitespaces).lowercased()
+            guard !key.isEmpty else { return true }
+            return seenNames.insert(key).inserted
         }
     }
 

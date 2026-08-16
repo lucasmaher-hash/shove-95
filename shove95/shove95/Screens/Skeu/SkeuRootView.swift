@@ -602,13 +602,15 @@ struct SkeuRootView: View {
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Flat too. A glass pill inside a flat bar would have been the
+                // only lit object on it; tone alone carries the button here.
                 Text("Undo")
                     .font(SkeuFont.at(labelSize, weight: .medium))
                     .foregroundStyle(skeu.ink)
                     .lineLimit(1)
                     .padding(.horizontal, F.glassPadH)
                     .frame(height: 30)
-                    .skeuGlass(Capsule(), height: 30)
+                    .background(Capsule().fill(skeu.material))
                     .contentShape(Capsule())
                     .onTapGesture {
                         SkeuHaptic.press()
@@ -620,7 +622,15 @@ struct SkeuRootView: View {
             .padding(.leading, F.padLead)
             .padding(.trailing, SkeuSpace.sm)
             .frame(height: 46)
-            .skeuTrough(Capsule(), height: 46)
+            // FLAT, and inset from the edges (founder direction 2026-08-16).
+            // It was a trough running the full screen width — the one object
+            // in the app that touched both edges, and carved into the ground
+            // on top of that. It is not part of the furniture; it is a message
+            // that arrives and leaves, so it lies ON the page rather than
+            // being cut into it. `recess` is the same stock a shade darker,
+            // which is all the separation a flat panel needs.
+            .background(Capsule().fill(skeu.recess))
+            .padding(.horizontal, F.margin)
             .padding(.bottom, SkeuSpace.sm)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             // Retires itself; any further mutation restarts the clock.
