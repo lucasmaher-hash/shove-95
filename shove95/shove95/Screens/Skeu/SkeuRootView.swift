@@ -661,6 +661,12 @@ struct SkeuRootView: View {
                         .foregroundStyle(skeu.ink)
                 }
                 .onTapGesture { select(line) }
+                // Same contract as the Win95 taskbar button: the FULL name is
+                // the label even when the visible text is short, and selection
+                // is a trait rather than something you have to see (FR-016).
+                .accessibilityAddTraits(bucket == line ? [.isButton, .isSelected]
+                                                       : .isButton)
+                .accessibilityLabel(settings.name(for: line))
             }
         }
     }
