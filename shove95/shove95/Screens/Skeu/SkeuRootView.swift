@@ -729,6 +729,7 @@ struct SkeuRootView: View {
 /// crawl (founder bug report 2026-08-14). Owning the flag here keeps the
 /// invalidation inside this small subtree.
 private struct SkeuWorkspacePill: View {
+    @Environment(\.skeu) private var skeu
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
     @Environment(\.skeuTextScale) private var textScale
@@ -766,12 +767,12 @@ private struct SkeuWorkspacePill: View {
                     // own. It rides inside the pill it controls, the same way
                     // the Win95 ▼ rides inside the title bar it controls.
                     ChevronGlyph()
-                        .stroke(Color.white,
+                        .stroke(skeu.ink,
                                 style: StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round))
                         .frame(width: label * 0.55, height: label * 0.32)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(skeu.ink)
                 .frame(height: rowHeight)
                 .contentShape(Rectangle())
             }
@@ -784,7 +785,7 @@ private struct SkeuWorkspacePill: View {
                     Text(workspace.name)
                         .font(SkeuFont.at(label))
                         .tracking(-0.02 * label)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(skeu.inkMuted)
                         .lineLimit(1)
                         // Full pill width, not `.fixedSize()` — the row has to
                         // be tappable across the whole pill, not just where

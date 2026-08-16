@@ -29,7 +29,11 @@ struct Win95PinReplaceDialog: View {
             // The scrim is a control: tapping it cancels, the way clicking
             // outside a Win95 modal beeps and keeps focus. Cancelling is the
             // safe answer, so it is the one that costs least.
-            Color.black.opacity(0.4)
+            // `darkShadow` from the scheme, not black: the scrim has to
+            // re-tint with the palette like everything else, and a scheme
+            // whose darkest tone is not black would have shown a black veil
+            // over its own colours.
+            Win95.darkShadow.opacity(0.4)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onCancel)
