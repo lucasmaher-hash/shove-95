@@ -8,16 +8,42 @@
 
 /* Begin PBXBuildFile section */
 		AA10000000000000000000A3 /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000A2 /* Shove95Kit */; };
+		BB1000000000000000000F /* Shove95Kit in Frameworks */ = {isa = PBXBuildFile; productRef = BB1000000000000000000E /* Shove95Kit */; };
+		BB1000000000000000000D /* ShoveWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BB10000000000000000003 /* ShoveWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BB1000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A69872323020F6EC0009D035 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BB10000000000000000002;
+			remoteInfo = ShoveWidgets;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A698723A3020F6EC0009D035 /* shove95.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shove95.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB10000000000000000003 /* ShoveWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShoveWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXTargetDependency section */
+		BB1000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BB10000000000000000002 /* ShoveWidgets */;
+			targetProxy = BB1000000000000000000B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A698723C3020F6EC0009D035 /* shove95 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = shove95;
+			sourceTree = "<group>";
+		};
+		BB10000000000000000001 /* ShoveWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ShoveWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,13 +57,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB10000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB1000000000000000000F /* Shove95Kit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BB1000000000000000000C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BB1000000000000000000D /* ShoveWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		A69872313020F6EC0009D035 = {
 			isa = PBXGroup;
 			children = (
 				A698723C3020F6EC0009D035 /* shove95 */,
+				BB10000000000000000001 /* ShoveWidgets */,
 				A698723B3020F6EC0009D035 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				A698723A3020F6EC0009D035 /* shove95.app */,
+				BB10000000000000000003 /* ShoveWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,10 +110,12 @@
 				A69872363020F6EC0009D035 /* Sources */,
 				A69872373020F6EC0009D035 /* Frameworks */,
 				A69872383020F6EC0009D035 /* Resources */,
+				BB1000000000000000000C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BB1000000000000000000A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A698723C3020F6EC0009D035 /* shove95 */,
@@ -76,6 +128,29 @@
 			productReference = A698723A3020F6EC0009D035 /* shove95.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BB10000000000000000002 /* ShoveWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB10000000000000000007 /* Build configuration list for PBXNativeTarget "ShoveWidgets" */;
+			buildPhases = (
+				BB10000000000000000004 /* Sources */,
+				BB10000000000000000005 /* Frameworks */,
+				BB10000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BB10000000000000000001 /* ShoveWidgets */,
+			);
+			name = ShoveWidgets;
+			packageProductDependencies = (
+				BB1000000000000000000E /* Shove95Kit */,
+			);
+			productName = ShoveWidgets;
+			productReference = BB10000000000000000003 /* ShoveWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -87,6 +162,9 @@
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					A69872393020F6EC0009D035 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					BB10000000000000000002 = {
 						CreatedOnToolsVersion = 26.6;
 					};
 				};
@@ -109,6 +187,7 @@
 			projectRoot = "";
 			targets = (
 				A69872393020F6EC0009D035 /* shove95 */,
+				BB10000000000000000002 /* ShoveWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -121,10 +200,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB10000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A69872363020F6EC0009D035 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB10000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -346,6 +439,66 @@
 			};
 			name = Release;
 		};
+		BB10000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 35875F7J33;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ShoveWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "shove.95 Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lucasmaher.shove95.ShoveWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BB10000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 35875F7J33;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ShoveWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "shove.95 Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lucasmaher.shove95.ShoveWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -367,6 +520,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BB10000000000000000007 /* Build configuration list for PBXNativeTarget "ShoveWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB10000000000000000008 /* Debug */,
+				BB10000000000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -378,6 +540,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		AA10000000000000000000A2 /* Shove95Kit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Shove95Kit;
+		};
+		BB1000000000000000000E /* Shove95Kit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Shove95Kit;
 		};

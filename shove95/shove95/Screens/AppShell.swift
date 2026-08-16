@@ -31,6 +31,9 @@ struct AppShell: View {
     /// would mean the replace question could be asked twice, or lost when
     /// the switch is flipped mid-question.
     @State private var pins = PinCoordinator()
+    @State private var activity = LiveActivityController()
+    @Environment(TaskStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         root
@@ -41,6 +44,34 @@ struct AppShell: View {
                 settingsSheet
             }
             .environment(pins)
+            // Reconciliation, not commands — see LiveActivityController. Every
+            // way a pin can appear or vanish (pinned, replaced, completed,
+            // deleted, rolled over, synced from another device) bumps
+            // `revision`, so this one hook covers all of them.
+            .task(id: store.revision) { reconcile() }
+            // The look travels INSIDE the activity's content, so a theme,
+            // typeface or design change has to be pushed out to the Lock
+            // Screen the same as a title change.
+            .onChange(of: lookSignature) { reconcile() }
+            // Restarts anything iOS retired at its eight-hour ceiling.
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { reconcile() }
+            }
+    }
+
+    private func reconcile() {
+        activity.reconcile(store: store, settings: settings, isDark: isDark)
+    }
+
+    /// Everything the Lock Screen card's appearance depends on, in one value
+    /// so a single `onChange` catches all of it.
+    private var lookSignature: String {
+        [settings.design.rawValue,
+         settings.scheme.id,
+         settings.skeuTheme.id,
+         settings.face.rawValue,
+         settings.skeuFace.rawValue,
+         isDark ? "d" : "l"].joined(separator: "|")
     }
 
     @ViewBuilder

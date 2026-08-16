@@ -24,8 +24,25 @@ struct shove95App: App {
     init() {
         let (container, mode) = Self.makeContainer()
         self.container = container
-        _store = State(initialValue: TaskStore(context: container.mainContext))
+        let store = TaskStore(context: container.mainContext)
+        _store = State(initialValue: store)
         _sync = State(initialValue: SyncStatus(mode: mode))
+
+        // The Lock Screen's tick button. `CompletePinnedTaskIntent` lives in
+        // the package so both targets can see it, and performs in THIS
+        // process — iOS launches the app in the background to run it — so the
+        // work is handed back up here, where the store is.
+        //
+        // Installed in `init` rather than a `.task`: on that background launch
+        // no scene is ever shown, so nothing in `body` is guaranteed to run
+        // before the intent performs. `init` always does.
+        // Found through `pinnedTask()`, not `task(withID:)`: the latter is
+        // workspace-scoped, and the pin is app-wide — a task pinned in Work
+        // would not be found while Personal was the last workspace open.
+        PinnedTaskActions.complete = { @MainActor id in
+            guard let task = store.pinnedTask(), task.id == id, !task.isCompleted else { return }
+            store.toggleCompleted(task) // also releases the pin
+        }
     }
 
     /// Sync when it's provisioned, local otherwise — and NEVER a crash.
