@@ -49,6 +49,10 @@ enum SkeuFont {
     static var title1: Font { styled(.title, weight: .semibold, w95: 34) }
     static var title2: Font { styled(.title2, weight: .semibold, w95: 27) }
     static var title3: Font { styled(.title3, weight: .semibold, w95: 24) }
+    /// The same size as `title3`, but as CHROME — a screen's own name is the
+    /// app labelling itself, so it holds the pixel face under Blend exactly
+    /// as a section eyebrow does.
+    static var title3Chrome: Font { styled(.title3, weight: .semibold, w95: 24, role: .chrome) }
 
     // MARK: Body
 

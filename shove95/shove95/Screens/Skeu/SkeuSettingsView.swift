@@ -288,8 +288,11 @@ struct SkeuSettingsView: View {
 
     private var header: some View {
         HStack {
-            Text("Settings")
-                .font(SkeuFont.title3)
+            // CHROME, and typed out with the rest: the screen's own name is a
+            // heading like the section eyebrows are, so it keeps the pixel
+            // face under Blend (founder direction 2026-08-16).
+            TypedText(text: "Settings", trigger: settings.skeuFace)
+                .font(SkeuFont.title3Chrome)
                 .foregroundStyle(skeu.ink)
 
             Spacer(minLength: SkeuSpace.sm)
@@ -349,8 +352,12 @@ struct SkeuSettingsView: View {
             // Types itself out on a face change, like the headings — these are
             // the labels most obviously "set" in the chosen face, since one of
             // them names it.
+            // CONTENT, selected or not. The active toggle was pixel for one
+            // round and the founder reversed it (2026-08-16): in settings only
+            // the HEADINGS carry the face, so the options read as a row of
+            // equals and the choice is marked by the glass, not by the type.
             TypedText(text: title, trigger: settings.skeuFace)
-                .skeuSegmentLabel(textScale, role: selected ? .chrome : .content)
+                .skeuSegmentLabel(textScale, role: .content)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
         }
         .onTapGesture {

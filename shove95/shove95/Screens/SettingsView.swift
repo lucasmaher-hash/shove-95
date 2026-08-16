@@ -244,9 +244,13 @@ struct SettingsView: View {
     private func section<C: View>(_ title: String,
                                   @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: headingGap) {
-            Text(title)
+            // Types itself out on a face change, exactly as the skeu heading
+            // does — this look had the same setting and none of the animation
+            // (founder bug report 2026-08-16). `.uppercased()` rather than
+            // `.textCase`, since TypedText slices the string itself and has to
+            // slice the string that is actually shown.
+            TypedText(text: title.uppercased(), trigger: settings.face)
                 .font(W95Font.small(pixel, role: .chrome))
-                .textCase(.uppercase)
                 .tracking(0.8)
                 .foregroundStyle(Win95.textMuted)
 

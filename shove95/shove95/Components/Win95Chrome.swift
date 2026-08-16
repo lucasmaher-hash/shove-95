@@ -41,8 +41,10 @@ struct TitleBar: View {
                 // The workspace is the window's identity, so it sits where a
                 // Win95 title sits; the ▼ marks it as a menu, not a label.
                 HStack(spacing: Win95.Px.grid * pixel) {
+                    // CHROME: the workspace name and the window title are
+                    // the app naming itself — pixel under Blend, see TextRole.
                     Text(workspace)
-                        .font(W95Font.standard(pixel))
+                        .font(W95Font.standard(pixel, role: .chrome))
                         .foregroundStyle(Color(hex: scheme.selectionText))
                         .lineLimit(1)
                     DownArrowGlyph()
@@ -63,13 +65,13 @@ struct TitleBar: View {
                 Spacer(minLength: 0)
 
                 Text(title)
-                    .font(W95Font.standard(pixel))
+                    .font(W95Font.standard(pixel, role: .chrome))
                     .foregroundStyle(Color(hex: scheme.selectionText))
                     .lineLimit(1)
                     .padding(.trailing, Win95.Px.grid * 2 * pixel)
             } else {
                 Text(title)
-                    .font(W95Font.standard(pixel))
+                    .font(W95Font.standard(pixel, role: .chrome))
                     .foregroundStyle(Color(hex: scheme.selectionText))
                     .padding(.leading, Win95.Px.grid * pixel)
                     .lineLimit(1)

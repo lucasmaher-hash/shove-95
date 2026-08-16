@@ -40,11 +40,21 @@ struct TypedText: View {
     @State private var seen: AnyHashable?
 
     var body: some View {
-        // nil means "show everything" — the state before any face change and
-        // the state after the run finishes.
-        Text(revealed.map { String(text.prefix($0)) } ?? text)
-            // The caret keeps the line from collapsing while it is short, so
-            // neighbours do not shuffle sideways as it grows.
+        // The FULL string, hidden, holds the final size — and the growing
+        // prefix is laid over it from the leading edge.
+        //
+        // Without that, a half-typed label is a shorter view, so its layout
+        // centres it and the text crawls outward from the middle with even
+        // margins either side. Nothing ends up where it started. Reserving the
+        // final box means the first character appears exactly where it is
+        // going to stay and the rest arrive after it (founder direction
+        // 2026-08-16).
+        Text(text)
+            .hidden()
+            .overlay(alignment: .leading) {
+                Text(revealed.map { String(text.prefix($0)) } ?? text)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
             .fixedSize(horizontal: false, vertical: true)
             .task(id: trigger) {
                 guard let previous = seen else {
