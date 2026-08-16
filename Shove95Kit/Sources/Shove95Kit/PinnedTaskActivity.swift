@@ -24,7 +24,12 @@
 
 import Foundation
 
-#if canImport(ActivityKit)
+// `os(iOS)`, NOT `canImport(ActivityKit)`. The module IS importable on
+// macOS — every type in it is marked unavailable there instead — so
+// canImport compiled the guard in and then failed on the protocol. The
+// package targets macOS for the future Mac app, and this broke `swift test`
+// outright (found in the 2026-08-16 audit).
+#if os(iOS)
 import ActivityKit
 #endif
 
@@ -79,7 +84,7 @@ public struct ActivityPalette: Codable, Hashable, Sendable {
     }
 }
 
-#if canImport(ActivityKit)
+#if os(iOS)
 
 public struct PinnedTaskAttributes: ActivityAttributes {
 

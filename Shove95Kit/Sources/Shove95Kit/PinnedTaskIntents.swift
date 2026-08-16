@@ -20,7 +20,9 @@
 
 import Foundation
 
-#if canImport(AppIntents)
+// `os(iOS)` for the same reason as PinnedTaskActivity: AppIntents is
+// importable on macOS but `LiveActivityIntent` is unavailable there.
+#if os(iOS)
 import AppIntents
 
 /// The seam between an intent defined down here and a store defined up in the

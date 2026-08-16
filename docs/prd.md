@@ -391,7 +391,7 @@ Hold-without-move → menu; hold-with-move → reorder (navy row follows finger)
 Exactly the placement table in §3 — including `overduePlaced` semantics and the rollover pass trigger points (app active, significant time change). Acceptance: unit tests for each placement row, plus "dragged overdue task not re-placed next morning". Related: US-001, US-010.
 
 **FR-006: Inline add** — P0
-Permanent add row at list bottom (sunken field per design.md): return commits and **dismisses the keyboard** (reversed 2026-08-04 on device feedback); empty return no-ops; camera glyph attaches a photo to a task created from current text (if text empty, glyph no-ops). Related: US-007.
+Permanent add row at list bottom (sunken field per design.md): return commits and **dismisses the keyboard** (reversed 2026-08-04 on device feedback); empty return no-ops. The camera glyph COMMITS the task being typed and opens the photo menu for a new one (revised 2026-08-14 — it used to attach to the task it created, which made the plus mean two different things depending on where you pressed it). A pin control sits left of the camera; its state is held until commit, since there is nothing to pin until the task exists (2026-08-16). Related: US-007.
 
 **FR-007: Inline edit** — P0
 Tap text → edit in place. Commit on return or focus loss; empty → revert. Related: US-008.
@@ -400,7 +400,7 @@ Tap text → edit in place. Commit on return or focus loss; empty → revert. Re
 Tick/untick per US-009 rules; archive visibility per `isArchived` definition (§3). Archive screen grouped by day. Related: US-009, US-013.
 
 **FR-009: Undo** — P0
-Single-level `LastAction` for moves and deletes, surfaced in the status bar, persistent until replaced. Related: US-006.
+Single-level `LastAction` for moves and deletes, surfaced in the status bar. **Retires itself after 6s**; any further mutation restarts the clock. (Was "persistent until replaced"; the implementation has always timed out, and a panel that never leaves covers the last row of the list.) Related: US-006.
 
 **FR-010: Win95 visual system** — P0
 Implement every component in design.md § Components with tokens from §§ 2–4: window + title bar (`{Tab} - shove.95`, gear control), sunken list well, task rows (checkbox, single-size text, red Important, trailing chip column, strikethrough+grey completed, navy drag state), status bar, taskbar (four text buttons, pressed active state, clock/date well, safe-area fill), photo viewer window, `(empty)` states. Prohibited-list (design.md §9) violations are bugs. Related: all.
@@ -409,7 +409,7 @@ Implement every component in design.md § Components with tokens from §§ 2–4
 Position animates (snapped to pixel grid); appearance is instant. Photo viewer + tab switches: no transition. Haptics: light impact on swipe commit and rubber-band; selection feedback on drag pickup/drop. Related: US-003, US-011.
 
 **FR-012: Photos** — P1
-One photo per task via PhotosPicker + camera; downscale ≤2048px JPEG q0.8 on import; `@Attribute(.externalStorage)`; 64pt thumbnail; instant viewer. Related: US-011.
+MANY photos per task, each its own `TaskPhoto` record (revised for CloudKit: an array of blobs serialises into one field and CKRecord caps non-asset payload at 1MB, so a second photo would have failed to sync silently). Added via PhotosPicker + camera; downscale ≤2048px JPEG q0.8 on import; `@Attribute(.externalStorage)`; 64pt thumbnail; instant viewer. Related: US-011.
 
 **FR-013: CloudKit sync** — P1
 `.private` database, container `iCloud.com.lucasmaher.shove95`. No login UI. Settings shows account status (`iCloud: available / not signed in / restricted`). Acceptance: two-device round-trip including a photo; offline edit syncs on reconnect. Related: US-012.
@@ -426,8 +426,17 @@ Rows expose label (title + state: "important", "overdue since Monday", "complete
 **FR-017: App icon & launch** — P1
 32×32-style pixel-art icon (drawn from scratch — no Microsoft assets), exported at required sizes; launch screen plain `#C0C0C0`. Related: —.
 
-**FR-018: Empty states** — P2
-`(empty)` centered per design.md. Archive empty: `(empty)`. Related: US-013.
+**FR-019: Two design languages** — P0 *(added 2026-08-14)*
+The Win95 system of FR-010 is one of TWO complete looks, switched in Settings. The second is soft skeuomorphism per `docs/SKEUOMORPHIC_DESIGN_SYSTEM.md`. Both must reach feature parity — every FR above holds in both. Neither wraps the other; they are siblings chosen above the root. Acceptance: flipping Design never loses state, never closes an open sheet, and leaves the reader looking at the same control in the same place.
+
+**FR-020: Global appearance and typeface** — P1 *(added 2026-08-14)*
+Light/dark is GLOBAL and independent of the design switch; both looks ship light and dark palettes. The typeface switch (W95FA / system) is per-look, since the two default differently. Light palettes carry near-black ink at ≥ 4.5:1 (2026-08-16).
+
+**FR-021: The pinned task** — P1 *(added 2026-08-16)*
+EXACTLY ONE task, app-wide across every workspace, may be pinned to the Lock Screen and Dynamic Island as a Live Activity, with a tick button that completes it in place. Borrowed from Mononote: the point is not that one item exists, it is that one thing may follow you out of the app and you have to choose which. Replacing the pin asks first; unpinning does not. Completing, deleting or archiving releases it. The card is drawn in the active design. iOS ends any Live Activity within 8h; the app restarts it on next foreground, since the pin belongs to the task rather than to the activity.
+
+**FR-018: Empty states** — P2 — **WITHDRAWN 2026-08-14.**
+The main list shows nothing at all when empty; the add row is the invitation. `(empty)` read as an error state. Archive keeps its `(empty)`. Related: US-013.
 
 -----
 
