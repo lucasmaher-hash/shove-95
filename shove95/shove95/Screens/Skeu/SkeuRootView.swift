@@ -175,7 +175,6 @@ struct SkeuRootView: View {
     private var checkSize: CGFloat { F.check * chromeScale }
     private var glyphSize: CGFloat { F.plusIcon * chromeScale }
     private var glyphBox: CGFloat { F.plus * chromeScale }
-    private var topBarHeight: CGFloat { F.topHeight * chromeScale }
     private var bottomBarHeight: CGFloat { F.bottomHeight * chromeScale }
 
     /// The tab bar's glass pill glides from the old selection to the new one

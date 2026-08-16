@@ -381,10 +381,6 @@ struct SkeuSettingsView: View {
             }
             .accessibilityAddTraits(.isButton)
     }
-
-    private func drop(_ alpha: Double) -> Color {
-        skeu.shadow.opacity(alpha * skeu.shadowIntensity)
-    }
 }
 
 // MARK: - Row button
