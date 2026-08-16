@@ -31,31 +31,34 @@ struct SettingsView: View {
 
             SunkenWell {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Win95.Px.grid * 2 * pixel) {
-                        header("Appearance")
-                        schemeRow
+                    // Same sections in the same order and the same rhythm as
+                    // the skeu sheet — this is one settings screen in two
+                    // looks, and a reader who flips Design should find every
+                    // control where they left it (founder direction
+                    // 2026-08-16).
+                    VStack(alignment: .leading, spacing: sectionGap) {
+                        section("Appearance") { schemeRow }
+                        section("Typeface") { faceRow }
+                        section("Design") { designRow }
+                        section("Light & dark") { appearanceRow }
 
-                        header("Typeface").padding(.top, Win95.Px.grid * 2 * pixel)
-                        faceRow
-
-                        header("Design").padding(.top, Win95.Px.grid * 2 * pixel)
-                        designRow
-
-                        header("Light & dark").padding(.top, Win95.Px.grid * 2 * pixel)
-                        appearanceRow
-
-                        header("Tab names").padding(.top, Win95.Px.grid * 2 * pixel)
-                        ForEach(Bucket.line, id: \.self) { bucket in
-                            NameField(bucket: bucket)
+                        section("Tab names") {
+                            VStack(alignment: .leading, spacing: rowGap) {
+                                ForEach(Bucket.line, id: \.self) { bucket in
+                                    NameField(bucket: bucket,
+                                              buttonColumn: buttonColumn)
+                                }
+                            }
                         }
 
-                        header("Workspaces").padding(.top, Win95.Px.grid * 2 * pixel)
-                        WorkspacesSection()
+                        section("Workspaces") {
+                            WorkspacesSection(buttonColumn: buttonColumn)
+                        }
 
-                        header("Data").padding(.top, Win95.Px.grid * 2 * pixel)
-                        dataSection
+                        section("Data") { dataSection }
                     }
-                    .padding(Win95.Px.grid * 2 * pixel)
+                    .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+                    .padding(.vertical, sectionGap)
                     // Clears the home indicator, since the well itself now
                     // runs to the physical bottom edge.
                     .padding(.bottom, Win95.Px.grid * 8 * pixel)
@@ -88,26 +91,32 @@ struct SettingsView: View {
     /// control: sync is silent (FR-013), so there is nothing here to press and
     /// nothing to retry.
     private var dataSection: some View {
-        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
-            Win95Button(action: { showArchive = true }, compact: true) {
-                Text("Archive")
-                    .font(W95Font.small(pixel))
-                    .foregroundStyle(Win95.text)
+        VStack(alignment: .leading, spacing: Win95.Px.grid * 2 * pixel) {
+            // The two buttons sit side by side, with the status line beneath
+            // both — the skeu sheet's arrangement. Stacked, with the status
+            // wedged between them, the line read as a caption for Archive.
+            HStack(spacing: rowGap) {
+                Win95Button(action: { showArchive = true },
+                            compact: true, width: buttonColumn) {
+                    Text("Archive")
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.text)
+                }
+
+                Win95Button(action: { showAbout = true },
+                            compact: true, width: buttonColumn) {
+                    Text("About")
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.text)
+                }
+
+                Spacer(minLength: 0)
             }
-            .fixedSize()
 
             Text(sync.summary)
                 .font(W95Font.small(pixel))
                 .foregroundStyle(sync.isDegraded ? Win95.important : Win95.shadow)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Win95Button(action: { showAbout = true }, compact: true) {
-                Text("About")
-                    .font(W95Font.small(pixel))
-                    .foregroundStyle(Win95.text)
-            }
-            .fixedSize()
-            .padding(.top, Win95.Px.grid * pixel)
         }
     }
 
@@ -161,10 +170,43 @@ struct SettingsView: View {
         }
     }
 
-    private func header(_ title: String) -> some View {
-        Text(title)
-            .font(W95Font.standard(pixel))
-            .foregroundStyle(Win95.text)
+    // MARK: Rhythm
+    //
+    // The three gaps that give this screen its shape, matched to the skeu
+    // sheet's. Before this the heading sat 16pt from its own controls and 32
+    // from the previous section — near enough to the middle that it read as
+    // belonging to neither (founder direction 2026-08-16). A heading hugs
+    // what it labels; the air goes BETWEEN settings.
+    //
+    // Values stay on the Win95 spacing grid (2/4/8/16/24 spec px), so they
+    // land on whole pixels at every Dynamic Type step — the skeu numbers
+    // (8 / 21 / 8) could not simply be copied across.
+
+    /// Heading → its controls.
+    private var headingGap: CGFloat { Win95.Px.grid * pixel }
+    /// One setting → the next. Also the screen's top and bottom inset.
+    private var sectionGap: CGFloat { Win95.Px.grid * 3 * pixel }
+    /// Between field rows inside one section.
+    private var rowGap: CGFloat { Win95.Px.grid * pixel }
+
+    /// One trailing column for EVERY field row on the screen — Default,
+    /// Delete, Add, and the empty slot on the undeletable default workspace
+    /// all reserve it. Tab names used an intrinsic width before, so its
+    /// fields ended at a different x than the Workspaces fields directly
+    /// below them. Sized to the longest label at any pixel scale.
+    private var buttonColumn: CGFloat { Win95.Px.grid * 12 * pixel }
+
+    /// A heading and the controls it labels, as one block.
+    private func section<C: View>(_ title: String,
+                                  @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: headingGap) {
+            Text(title)
+                .font(W95Font.standard(pixel))
+                .foregroundStyle(Win95.text)
+
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // One bare row of swatches — no box, no caption. The pressed bevel on the
@@ -269,6 +311,8 @@ private struct NameField: View {
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
     let bucket: Bucket
+    /// Shared with Workspaces, so every field on the screen ends at the same x.
+    let buttonColumn: CGFloat
 
     @State private var draft = ""
     @FocusState private var focused: Bool
@@ -297,12 +341,11 @@ private struct NameField: View {
                 focused = false
                 draft = bucket.displayName
                 settings.resetName(for: bucket)
-            }, compact: true) {
+            }, compact: true, width: buttonColumn) {
                 Text("Default")
                     .font(W95Font.small(pixel))
                     .foregroundStyle(Win95.text)
             }
-            .fixedSize()
             .opacity(isDefault ? 0.35 : 1)
             .disabled(isDefault)
             .animation(.easeOut(duration: 0.15), value: isDefault)
@@ -327,14 +370,11 @@ private struct WorkspacesSection: View {
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
 
+    /// Owned by the screen now, not this section — Tab names shares it.
+    let buttonColumn: CGFloat
+
     @State private var newName = ""
     @FocusState private var addFocused: Bool
-
-    /// One trailing column for the whole section: Delete, Add, and the empty
-    /// slot on the undeletable default workspace all reserve this width, so
-    /// every name field ends at the same x (founder request 2026-08-04).
-    /// Sized to the longest label at any pixel scale.
-    private var buttonColumn: CGFloat { Win95.Px.grid * 12 * pixel }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
