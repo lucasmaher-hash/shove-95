@@ -257,7 +257,14 @@ struct SettingsView: View {
     /// "Default" beside a field — "How to use" was clipped inside it (founder
     /// bug report 2026-08-17). Still one width for all three, so the row reads
     /// as a set.
-    private var dataButtonColumn: CGFloat { Win95.Px.grid * 17 * pixel }
+    ///
+    /// 14 grid units and not more: THREE of these plus two gaps have to fit
+    /// inside the well. At 17 they came to 424pt against 386 available, which
+    /// does not clip the row — it widens the whole window past the screen and
+    /// shifts every heading off the left edge (founder bug report 2026-08-17).
+    /// Anything laid out in a row here is bounded by that sum, not by its own
+    /// label.
+    private var dataButtonColumn: CGFloat { Win95.Px.grid * 14 * pixel }
 
     /// A heading and the controls it labels, as one block.
     ///
