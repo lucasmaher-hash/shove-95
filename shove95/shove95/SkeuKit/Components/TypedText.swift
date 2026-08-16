@@ -47,7 +47,20 @@ struct TypedText: View {
     private static let duration: Double = 0.42
 
     @State private var revealed: Int?
-    @State private var seen: Bool?
+    /// Seeded from the value this view was BORN with, not left empty for the
+    /// first `task` to fill in. An environment-supplied face arrives with a
+    /// default on the very first pass, and a nil-then-fill seed read that
+    /// default as the previous value — so simply opening the settings sheet
+    /// typed every heading out, having changed nothing (caught in the
+    /// simulator 2026-08-16).
+    @State private var seen: Bool
+
+    init(text: String, face: AppFace, role: TextRole) {
+        self.text = text
+        self.face = face
+        self.role = role
+        _seen = State(initialValue: face.isPixel(role))
+    }
 
     var body: some View {
         // The FULL string, hidden, holds the final size — and the growing
@@ -67,11 +80,7 @@ struct TypedText: View {
             }
             .fixedSize(horizontal: false, vertical: true)
             .task(id: trigger) {
-                guard let previous = seen else {
-                    seen = trigger          // first appearance: no animation
-                    return
-                }
-                guard previous != trigger else { return }
+                guard seen != trigger else { return }   // nothing changed here
                 seen = trigger
                 await type()
             }

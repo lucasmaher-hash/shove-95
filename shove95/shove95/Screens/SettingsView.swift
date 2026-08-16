@@ -19,6 +19,9 @@ import Shove95Kit
 
 struct SettingsView: View {
     @Environment(\.pixel) private var pixel
+    /// Read so a face change re-renders this view — the face is a static
+    /// SwiftUI cannot see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
     @State private var showArchive = false
@@ -108,14 +111,14 @@ struct SettingsView: View {
             HStack(spacing: rowGap) {
                 Win95Button(action: { showArchive = true },
                             compact: true, width: buttonColumn) {
-                    Text("Archive")
+                    TypedText(text: "Archive", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
 
                 Win95Button(action: { showAbout = true },
                             compact: true, width: buttonColumn) {
-                    Text("About")
+                    TypedText(text: "About", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
@@ -123,7 +126,7 @@ struct SettingsView: View {
                 Spacer(minLength: 0)
             }
 
-            Text(sync.summary)
+            TypedText(text: sync.summary, face: settings.face, role: .content)
                 .font(W95Font.small(pixel))
                 .foregroundStyle(sync.isDegraded ? Win95.important : Win95.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -314,6 +317,7 @@ private struct SchemeSwatch: View {
 /// same idiom the scheme swatches use, so the three switches read as one family.
 private struct SegmentedChoice: View {
     @Environment(\.pixel) private var pixel
+    @Environment(AppSettings.self) private var settings
     /// Read only to re-render on a typeface change — the face is a
     /// static this view cannot otherwise see. See `\.appFace`.
     @Environment(\.appFace) private var face
@@ -324,7 +328,9 @@ private struct SegmentedChoice: View {
     var action: () -> Void
 
     var body: some View {
-        Text(label)
+        // Types on a face change like every other label here — this look had
+        // only its headings animating (founder bug report 2026-08-16).
+        TypedText(text: label, face: settings.face, role: .content)
             .font(font)
             .foregroundStyle(Win95.text)
             .lineLimit(1)
@@ -370,6 +376,9 @@ private struct SwatchBevel: ViewModifier {
 /// what a control DOES; only how it is drawn differs (C4).
 private struct LanguageSection: View {
     @Environment(\.pixel) private var pixel
+    /// Read so a face change re-renders this view — the face is a static
+    /// SwiftUI cannot see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     @Environment(AppSettings.self) private var settings
     let buttonColumn: CGFloat
 
@@ -399,7 +408,7 @@ private struct LanguageSection: View {
                     }
 
                 Win95Button(action: toggle, compact: true, width: buttonColumn) {
-                    Text(isOpen ? "Done" : "Edit")
+                    TypedText(text: isOpen ? "Done" : "Edit", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
@@ -434,7 +443,7 @@ private struct LanguageSection: View {
     private func row(_ language: Language) -> some View {
         let selected = language.code == settings.languageCode
         return HStack(spacing: Win95.Px.grid * pixel) {
-            Text(language.endonym)
+            TypedText(text: language.endonym, face: settings.face, role: .content)
                 .font(W95Font.standard(pixel))
                 // Selection is the SELECTION BAR, this look's own idiom for it
                 // — the navy fill and its light text, exactly as the workspace
@@ -481,6 +490,9 @@ private struct LanguageSection: View {
 /// invite a press.
 private struct NameField: View {
     @Environment(\.pixel) private var pixel
+    /// Read so a face change re-renders this view — the face is a static
+    /// SwiftUI cannot see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     @Environment(AppSettings.self) private var settings
     let bucket: Bucket
     /// Shared with Workspaces, so every field on the screen ends at the same x.
@@ -514,7 +526,7 @@ private struct NameField: View {
                 draft = bucket.displayName
                 settings.resetName(for: bucket)
             }, compact: true, width: buttonColumn) {
-                Text("Default")
+                TypedText(text: "Default", face: settings.face, role: .content)
                     .font(W95Font.small(pixel))
                     .foregroundStyle(Win95.text)
             }
@@ -539,6 +551,9 @@ private struct NameField: View {
 /// not deletable — there must always be somewhere for tasks to live.
 private struct WorkspacesSection: View {
     @Environment(\.pixel) private var pixel
+    /// Read so a face change re-renders this view — the face is a static
+    /// SwiftUI cannot see. See `\.appFace`.
+    @Environment(\.appFace) private var face
     @Environment(AppSettings.self) private var settings
     @Environment(TaskStore.self) private var store
 
@@ -572,7 +587,7 @@ private struct WorkspacesSection: View {
                     .bevelSunken(pixel)
 
                 Win95Button(action: add, compact: true, width: buttonColumn) {
-                    Text("Add")
+                    TypedText(text: "Add", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.text)
                 }
@@ -593,6 +608,7 @@ private struct WorkspacesSection: View {
 
 private struct WorkspaceRow: View {
     @Environment(\.pixel) private var pixel
+    @Environment(AppSettings.self) private var settings
     /// Read only to re-render on a typeface change — the face is a
     /// static this view cannot otherwise see. See `\.appFace`.
     @Environment(\.appFace) private var face
@@ -626,7 +642,7 @@ private struct WorkspaceRow: View {
                 Color.clear.frame(width: buttonColumn, height: 1)
             } else {
                 Win95Button(action: onDelete, compact: true, width: buttonColumn) {
-                    Text("Delete")
+                    TypedText(text: "Delete", face: settings.face, role: .content)
                         .font(W95Font.small(pixel))
                         .foregroundStyle(Win95.important)
                 }

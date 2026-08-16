@@ -26,10 +26,18 @@ enum SkeuToggle {
     /// share a phone width and "Tomorrow" is the longest word in the app.
     static let padH: CGFloat = 7.6
     static let padV: CGFloat = 8.2
-    /// Trough inset. The frame's own padding is uneven (24.6 leading, 7.1
-    /// trailing); a centred toggle takes the average on both sides so it does
-    /// not read as pushed toward one end.
-    static let troughPad: CGFloat = 15.8
+    /// Trough inset — and it IS `padV`, not a figure of its own.
+    ///
+    /// It was 15.8, the average of the frame's uneven 24.6 leading and 7.1
+    /// trailing. But `padV` is what sets the gap above and below the selected
+    /// pill, so taking a different number at the ends left the sides at nearly
+    /// twice the top and bottom, and the glass read as floating in a wide slot
+    /// instead of seated in a channel (founder direction 2026-08-16).
+    ///
+    /// Derived rather than copied so the four gaps around a pill cannot drift
+    /// apart again — the same reason the settings field rows read their
+    /// heights from here.
+    static var troughPad: CGFloat { padV }
     static let bloomOverhang: CGFloat = 5.3
     static let bloomBlur: CGFloat = 1.85
     /// Between segments. Invisible on a row of labels, where only one segment
