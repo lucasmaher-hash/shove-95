@@ -256,6 +256,16 @@ struct Win95StatusPanel: View {
 /// home-indicator safe area. (The clock well was removed 2026-08-04 at the
 /// founder's request — the tabs get the whole bar.)
 struct Taskbar: View {
+    /// The button row's true height, and therefore the Live button's side.
+    ///
+    /// Derived, not measured: the bar is `taskbar + taskbarTopInset` tall and
+    /// gives back `taskbarTopInset + 1` above its buttons and 1 below, which
+    /// leaves `taskbar - 2`. Stating it here rather than guessing a number
+    /// keeps the square square at every Dynamic Type step.
+    static func liveSide(_ pixel: CGFloat) -> CGFloat {
+        (Win95.Px.taskbar - 2) * pixel
+    }
+
     @Environment(\.pixel) private var pixel
     @Environment(AppSettings.self) private var settings
     // Painted from the scheme rather than the statics, same reasoning as
@@ -279,9 +289,13 @@ struct Taskbar: View {
                 t.disablesAnimations = true
                 withTransaction(t) { showLive = true }
             }
-            // A gap wider than the one between the three, so the eye reads
-            // "this one is not with those" without a divider.
-            Spacer(minLength: 0).frame(width: Win95.Px.grid * pixel)
+            // The gap ABSORBS what the square gave up, so the three keep the
+            // width and the position they already had (founder direction
+            // 2026-08-17). The block up to the first tab is the width the
+            // oblong button and its gap used to occupy together; only the
+            // split between them moved.
+            Spacer(minLength: 0)
+                .frame(width: (Win95.Px.grid * 10) * pixel - Self.liveSide(pixel))
 
             ForEach(Bucket.line, id: \.self) { bucket in
                 TaskbarButton(bucket: bucket, isActive: !showLive && bucket == selected) {
@@ -331,8 +345,10 @@ private struct LiveTaskbarButton: View {
 
     var body: some View {
         PixelLiveGlyph(pixel: pixel, tint: Color(hex: scheme.text))
-            .frame(width: Win95.Px.grid * 9 * pixel)
-            .frame(maxHeight: .infinity)
+            // SQUARE, not oblong: it holds a mark rather than a word, and a
+            // word-shaped frame around a mark reads as a button missing its
+            // label (founder direction 2026-08-17).
+            .frame(width: Taskbar.liveSide(pixel), height: Taskbar.liveSide(pixel))
             .modifier(TaskbarBevel(isActive: isActive, pixel: pixel))
             .contentShape(Rectangle())
             .onTapGesture { SkeuHaptic.selection(); action() }
