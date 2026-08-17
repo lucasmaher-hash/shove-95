@@ -566,20 +566,31 @@ private struct LanguageSection: View {
 
 /// name already is the default: a button that would do nothing shouldn't
 /// invite a press.
-/// A pencil on an 8×8 grid — whole cells only, like every other mark here.
+/// A pencil laid across a page, on a 9×9 grid — whole cells only, like every
+/// other mark here.
 ///
 /// Not an SF Symbol: those are drawn on a continuous curve and land on
 /// fractional pixels at every scale step, which is exactly the softness this
-/// look exists to avoid.
+/// look exists to avoid. The shape is the founder's reference redrawn at this
+/// look's resolution (2026-08-17) — the page opens at its top right so the
+/// pencil can cross the corner rather than sit beside it.
 private struct PixelPencil: View {
     let pixel: CGFloat
 
-    /// Filled cells: a nib at the bottom left, a shaft climbing to the right.
-    private static let cells: [(Int, Int)] = [
-        (1, 6), (1, 5), (2, 5),
-        (2, 4), (3, 4), (3, 3), (4, 3),
-        (4, 2), (5, 2), (5, 1), (6, 1),
-    ]
+    private static let cells: [(Int, Int)] = {
+        var c: [(Int, Int)] = []
+        for x in 0...6 {
+            c.append((x, 8))                   // the page's floor
+            if x <= 2 { c.append((x, 2)) }     // its roof, stopping at the nib
+        }
+        for y in 2...8 {
+            c.append((0, y))                   // the near wall
+            if y >= 6 { c.append((6, y)) }     // the far one, likewise cut short
+        }
+        for i in 0...4 { c.append((3 + i, 6 - i)) }  // the shaft
+        c.append((8, 1))                       // and the tip beyond the corner
+        return c
+    }()
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -591,7 +602,7 @@ private struct PixelPencil: View {
                     .offset(x: CGFloat(cell.0) * pixel, y: CGFloat(cell.1) * pixel)
             }
         }
-        .frame(width: 8 * pixel, height: 8 * pixel)
+        .frame(width: 9 * pixel, height: 9 * pixel)
     }
 }
 

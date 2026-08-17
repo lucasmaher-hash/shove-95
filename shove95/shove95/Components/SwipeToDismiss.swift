@@ -29,9 +29,14 @@
 //
 //  2. Offsetting the sheet revealed BLACK. Nothing is behind a full-screen
 //     cover — the screen it came from is not rendered underneath — so moving
-//     it exposes the void. A backdrop in the sheet's own ground colour sits
-//     behind it and stays put while it travels, so what appears is the app
-//     rather than a hole.
+//     it exposes the void. The Win95 covers ask for a clear presentation
+//     background and get the real screen; the skeu ones sit on their own
+//     canvas colour, which is what is behind them anyway.
+//
+//  3. A committed drag used to dismiss on the spot and spring the offset back
+//     to zero, so the sheet snapped to the middle and then dropped — the hand
+//     threw it one way and the screen answered by throwing it another. It now
+//     leaves along the line the drag was already on.
 //
 
 import SwiftUI
@@ -60,15 +65,25 @@ struct SwipeToDismiss: ViewModifier {
     /// (founder, twice, 2026-08-17). This much further down still sits above
     /// any content worth scrolling, so nothing is taken from the scroll view.
     private static let reach: CGFloat = 72
+    /// How long the sheet takes to leave. Short — this is the tail of a
+    /// gesture that has already happened, not an animation in its own right.
+    private static let exitDuration: TimeInterval = 0.26
 
     @State private var offset: CGSize = .zero
+    /// True once the gesture has committed and the sheet is on its way out.
+    /// The backdrop goes with it — left behind, it would hold a flat colour
+    /// on screen after the sheet had gone.
+    @State private var leaving = false
+    /// The full screen, measured alongside the inset. The sheet has to travel
+    /// far enough to actually clear it, and that distance is not a guess.
+    @State private var canvas: CGSize = .zero
     /// The status-bar inset, measured rather than assumed. `startLocation` is
     /// global and counts it; the header band is stated from below it.
     @State private var topInset: CGFloat = 0
 
     func body(content: Content) -> some View {
         ZStack {
-            backdrop.ignoresSafeArea()
+            backdrop.ignoresSafeArea().opacity(leaving ? 0 : 1)
             content.offset(x: offset.width, y: offset.height)
         }
         // The measurement lives in a BACKGROUND, not around the content.
@@ -79,8 +94,12 @@ struct SwipeToDismiss: ViewModifier {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { topInset = proxy.safeAreaInsets.top }
+                    .onAppear {
+                        topInset = proxy.safeAreaInsets.top
+                        canvas = proxy.size
+                    }
                     .onChange(of: proxy.safeAreaInsets.top) { _, new in topInset = new }
+                    .onChange(of: proxy.size) { _, new in canvas = new }
             }
             .ignoresSafeArea()
         }
@@ -106,12 +125,33 @@ struct SwipeToDismiss: ViewModifier {
                     let committed = mode != .none
                         && (travelled > Self.distance || speed > Self.velocity)
 
-                    if committed {
-                        SkeuHaptic.press()
-                        onDismiss()
+                    guard committed else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            offset = .zero
+                        }
+                        return
                     }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        offset = .zero
+
+                    // OUT, not back. Dismissing on the spot snapped the sheet
+                    // to the middle and then dropped it — the hand threw it
+                    // one way and the screen answered by throwing it another
+                    // (founder bug report 2026-08-17). It leaves along the
+                    // line the drag was already on: a sideways throw carries
+                    // down and to the right, a downward one keeps going down.
+                    SkeuHaptic.press()
+                    let exit = mode == .horizontal
+                        ? CGSize(width: canvas.width, height: canvas.height * 0.55)
+                        : CGSize(width: 0, height: canvas.height)
+                    withAnimation(.easeIn(duration: Self.exitDuration)) {
+                        offset = exit
+                        leaving = true
+                    }
+                    // Told to close just BEFORE it lands, so the cover's own
+                    // dismissal is already under way by the time the sheet is
+                    // off the edge and there is no still frame between them.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(Self.exitDuration - 0.04))
+                        onDismiss()
                     }
                 }
         )

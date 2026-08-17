@@ -578,7 +578,7 @@ private struct SkeuNameField: View {
             // needed something that does (founder direction 2026-08-17).
             // Round, because it holds a mark rather than a word, and this
             // look's word-buttons are all capsules.
-            Image(systemName: "pencil")
+            Image(systemName: "square.and.pencil")
                 .font(.system(size: labelSize * 0.95))
                 .foregroundStyle(skeu.ink)
                 .frame(width: fieldH, height: fieldH)
