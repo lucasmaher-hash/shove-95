@@ -217,6 +217,40 @@ struct CameraGlyph: Shape {
     }
 }
 
+// MARK: - Calendar glyph
+
+/// The schedule control's mark, on the same 12-cell grid as the camera.
+///
+/// A wall calendar: two hangers, a heavy header band, and a grid of days
+/// inside. The band is what makes it read as a calendar rather than a window
+/// at this size — without it the shape is just a box with dots in it.
+struct CalendarGlyph: Shape {
+    private static let rows = [
+        "..#......#..",
+        ".##########.",
+        "############",
+        "############",
+        "#..........#",
+        "#.##.##.##.#",
+        "#..........#",
+        "#.##.##.##.#",
+        "#..........#",
+        "############",
+    ]
+
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        var path = Path()
+        for (r, row) in Self.rows.enumerated() {
+            for (c, mark) in row.enumerated() where mark == "#" {
+                path.addRect(CGRect(x: CGFloat(c) * u, y: CGFloat(r) * u,
+                                    width: u, height: u))
+            }
+        }
+        return path
+    }
+}
+
 // MARK: - Pin glyph
 
 /// The pin control's mark: a ring, holding a solid core when the task is

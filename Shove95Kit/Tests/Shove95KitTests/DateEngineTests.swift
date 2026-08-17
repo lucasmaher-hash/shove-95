@@ -142,18 +142,16 @@ struct ChipFormatTests {
     let cal = Fixed.calendar
     let mondayNoon = Fixed.date(2026, 8, 3)
 
-    @Test func oneToSixDaysShowsWeekday() {
+    @Test("counts the days it has waited, all the way down")
+    func countsDays() {
         #expect(ChipFormat.label(dueDate: Fixed.date(2026, 8, 2, 0, 0), isCompleted: false,
-                                 now: mondayNoon, calendar: cal) == "Sun")   // 1 day
+                                 now: mondayNoon, calendar: cal) == "1 Day")
+        #expect(ChipFormat.label(dueDate: Fixed.date(2026, 7, 31, 0, 0), isCompleted: false,
+                                 now: mondayNoon, calendar: cal) == "3 Days")
         #expect(ChipFormat.label(dueDate: Fixed.date(2026, 7, 28, 0, 0), isCompleted: false,
-                                 now: mondayNoon, calendar: cal) == "Tue")   // 6 days
-    }
-
-    @Test func sevenPlusDaysShowsCount() {
-        #expect(ChipFormat.label(dueDate: Fixed.date(2026, 7, 27, 0, 0), isCompleted: false,
-                                 now: mondayNoon, calendar: cal) == "7d")
+                                 now: mondayNoon, calendar: cal) == "6 Days")
         #expect(ChipFormat.label(dueDate: Fixed.date(2026, 6, 24, 0, 0), isCompleted: false,
-                                 now: mondayNoon, calendar: cal) == "40d")
+                                 now: mondayNoon, calendar: cal) == "40 Days")
     }
 
     @Test func notOverdueMeansNoChip() {
@@ -215,5 +213,30 @@ struct DayHeadingTests {
     func singleDigit() {
         let day = Fixed.date(2026, 8, 3, 0, 0)
         #expect(DayHeading.label(for: day, calendar: Fixed.calendar) == "Mon 3 Aug")
+    }
+}
+
+@Suite("Month grid layout")
+struct MonthGridTests {
+    private let cal = Fixed.calendar
+
+    /// August 2026 starts on a Saturday, so a Monday-first grid needs five
+    /// blanks before the 1st. Getting this wrong puts every date in the month
+    /// under the wrong weekday, silently.
+    @Test("leading blanks put the 1st under its own weekday")
+    func leadingBlanks() {
+        let august = Fixed.date(2026, 8, 1, 0, 0)
+        let cells = MonthGrid.cells(for: august, calendar: cal)
+        #expect(cells.prefix(5).allSatisfy { $0 == nil })
+        #expect(cells[5] == august)
+        #expect(cells.count == 5 + 31)
+    }
+
+    @Test("a month starting on Monday needs no blanks")
+    func noBlanks() {
+        let june = Fixed.date(2026, 6, 1, 0, 0)   // Monday
+        let cells = MonthGrid.cells(for: june, calendar: cal)
+        #expect(cells.first == june)
+        #expect(cells.count == 30)
     }
 }

@@ -324,6 +324,29 @@ final class TaskStore {
         return (active, completed)
     }
 
+    /// Schedules a task for a given day — the calendar button in Soon.
+    ///
+    /// Records undo like any other move, because that is what it is: the
+    /// task's date changes and it may leave the tab entirely. Choosing today
+    /// or tomorrow is allowed and simply sends it there (founder direction
+    /// 2026-08-17); the date line decides which tab holds it, as it does for
+    /// everything else.
+    func schedule(_ task: TaskItem, on day: Date) {
+        let target = calendar.startOfDay(for: day)
+        let destination = DateEngine.bucket(for: target, now: now(), calendar: calendar)
+        let destinationActive = tasks(in: destination).active.filter { $0 !== task }
+        let destinationAll = allInBucket(destination).filter { $0 !== task }
+        lastAction = .moved(
+            taskID: task.id, title: task.title, to: destination,
+            previousDueDate: task.dueDate, previousSortOrder: task.sortOrder,
+            previousOverduePlaced: task.overduePlaced)
+        task.dueDate = target
+        task.overduePlaced = false
+        task.sortOrder = Placement.sortOrderForArrival(
+            isImportant: task.isImportant, visible: destinationActive, allInBucket: destinationAll)
+        commit()
+    }
+
     /// Soon, in the shape that tab draws: the undated block, then one entry
     /// per day, oldest day first.
     ///

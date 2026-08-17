@@ -200,6 +200,11 @@ struct SkeuRootView: View {
     @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
     @State private var pendingPhotos: [Data] = []
+    /// Held until commit, like `pendingPhotos`: there is nothing to schedule
+    /// until the task exists. Without this the calendar only worked on tasks
+    /// that were already written (founder bug report 2026-08-17).
+    @State private var pendingDay: Date?
+    @State private var showAddDayPicker = false
     /// The add row's frame in global space — reported to the editing
     /// coordinator so a focused field can be lifted above the keyboard.
     @State private var addRowFrame: CGRect = .zero
@@ -539,6 +544,24 @@ struct SkeuRootView: View {
             // 2026-08-17).
 
 
+            // The calendar, AFTER the camera. Editing a task puts it there,
+            // and a control that changes sides between writing and editing is
+            // a control you have to look for twice (founder bug report
+            // 2026-08-17).
+            if addFocused, bucket == .general {
+                Image(systemName: "calendar")
+                    .font(SkeuFont.at(glyphSize, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    // Lit once a day is chosen, so the row says it is carrying
+                    // one before the task exists to show it.
+                    .foregroundStyle(pendingDay == nil ? skeu.ink : skeu.accent)
+                    .frame(width: glyphBox, height: glyphBox)
+                    .frame(width: SkeuControl.minTouch, height: rowH)
+                    .contentShape(Rectangle())
+                    .onTapGesture { SkeuHaptic.press(); showAddDayPicker = true }
+                    .accessibilityLabel("Schedule")
+            }
+
             if addFocused {
                 Button {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -573,6 +596,13 @@ struct SkeuRootView: View {
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
+        .sheet(isPresented: $showAddDayPicker) {
+            SkeuDayPickerSheet(current: pendingDay) { day in
+                showAddDayPicker = false
+                pendingDay = day
+            }
+            .presentationDetents([.medium, .large])
+        }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
                 showCamera = false
@@ -633,9 +663,13 @@ struct SkeuRootView: View {
                     store.addPhoto(task, data: data)
                 }
                 pendingPhotos = []
+                if let pendingDay {
+                    store.schedule(task, on: pendingDay)
+                }
             }
             // Keyboard dismisses on commit: a field that stays open reads as
             // "still typing" and hides the list you just added to.
+            pendingDay = nil
             addFocused = false
             // Second clear — UIKit writes its own buffer back after the
             // setter returns. See AddRowView.returnCommitting.
@@ -1099,6 +1133,8 @@ private struct SkeuTaskRow: View {
     @State private var pressedThumb: Int?
     /// The photo waiting on a yes — see the viewer's bin.
     @State private var pendingPhotoDelete: Int?
+    /// True while the day list is up.
+    @State private var showDayPicker = false
     /// One photo per edit session: the camera retires after a pick and returns
     /// the next time the row enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -1171,6 +1207,13 @@ private struct SkeuTaskRow: View {
                 }
             }
             .onAppear { dragOffset = 0 } // row identity survives tab switches
+            .sheet(isPresented: $showDayPicker) {
+                SkeuDayPickerSheet(current: task.dueDate) { day in
+                    showDayPicker = false
+                    withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
+                }
+                .presentationDetents([.medium, .large])
+            }
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { data in
@@ -1575,7 +1618,26 @@ private struct SkeuTaskRow: View {
                     .contentShape(Rectangle())
                     .onTapGesture { chooseSource() }
                     .accessibilityLabel("Add photo")
-            } else if let chip = ChipFormat.label(dueDate: task.dueDate,
+            }
+
+            // The calendar, only in Soon and only while editing (founder
+            // direction 2026-08-17). Scheduling is what this tab is for; in
+            // Today and Tomorrow the tab already IS the date.
+            // Asked of the TASK, not the screen: a row does not know which
+            // tab is showing, and its date already answers the question.
+            if isEditing, task.bucket(now: store.now(), calendar: store.calendar) == .general {
+                Image(systemName: "calendar")
+                    .font(SkeuFont.at(glyphSize, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(skeu.ink)
+                    .frame(width: glyphBox, height: glyphBox)
+                    .frame(width: SkeuControl.minTouch, height: rowH)
+                    .contentShape(Rectangle())
+                    .onTapGesture { SkeuHaptic.press(); showDayPicker = true }
+                    .accessibilityLabel("Schedule")
+            }
+
+            if !isEditing, let chip = ChipFormat.label(dueDate: task.dueDate,
                                                   isCompleted: task.isCompleted,
                                                   now: store.now(),
                                                   calendar: store.calendar) {
@@ -1734,5 +1796,115 @@ private struct SkeuPhotoViewer: View {
         .buttonStyle(.plain)
         .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
         .accessibilityLabel(label)
+    }
+}
+
+
+// MARK: - Day picker
+
+/// The next four weeks, one row per day. See `DayPickerRange` for why a list
+/// rather than a month grid, and why there is no "no date" row.
+private struct SkeuDayPickerSheet: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @Environment(TaskStore.self) private var store
+    /// Marked in the grid, so picking again is a change rather than a guess.
+    let current: Date?
+    let onPick: (Date) -> Void
+
+    private var chosen: Date? { current.map { store.calendar.startOfDay(for: $0) } }
+    private var today: Date { store.calendar.startOfDay(for: store.now()) }
+
+    var body: some View {
+        ZStack {
+            skeu.canvas.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                    shortcuts
+                    ForEach(DayPickerRange.monthStarts(now: today, calendar: store.calendar),
+                            id: \.self) { month in
+                        monthBlock(month)
+                    }
+                }
+                .padding(.horizontal, SkeuSpace.xl)
+                .padding(.vertical, SkeuSpace.lg)
+            }
+        }
+    }
+
+    /// Today and Tomorrow, above the grid. They are answers people give
+    /// without thinking about dates, so they should not require finding one.
+    private var shortcuts: some View {
+        let height = SkeuToggle.height * chromeScale
+        let tomorrow = store.calendar.date(byAdding: .day, value: 1, to: today) ?? today
+
+        return VStack(spacing: SkeuSpace.xs) {
+            shortcut("Today", day: today, height: height)
+            shortcut("Tomorrow", day: tomorrow, height: height)
+        }
+    }
+
+    private func shortcut(_ title: String, day: Date, height: CGFloat) -> some View {
+        Text(title)
+            .font(SkeuFont.at(SkeuToggle.label * textScale, weight: .medium))
+            .foregroundStyle(skeu.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, SkeuSpace.lg)
+            .frame(height: height)
+            .skeuGlass(Capsule(), height: height, prominent: day == chosen)
+            .contentShape(Capsule())
+            .skeuPress { onPick(day) }
+            .accessibilityAddTraits(day == chosen ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private func monthBlock(_ month: Date) -> some View {
+        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+            Text(DayPickerRange.title(for: month, calendar: store.calendar))
+                .font(SkeuFont.eyebrow)
+                .tracking(0.8)
+                .foregroundStyle(skeu.inkFaint)
+
+            HStack(spacing: 0) {
+                ForEach(DayPickerRange.weekdayHeaders, id: \.self) { day in
+                    Text(day)
+                        .font(SkeuFont.at(SkeuToggle.label * textScale * 0.78))
+                        .foregroundStyle(skeu.inkFaint)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            let cells = DayPickerRange.grid(for: month, calendar: store.calendar)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7),
+                      spacing: SkeuSpace.xs) {
+                ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                    if let day { dayCell(day) } else { Color.clear.frame(height: 1) }
+                }
+            }
+        }
+    }
+
+    private func dayCell(_ day: Date) -> some View {
+        let size = 38 * chromeScale
+        let isChosen = day == chosen
+        // A day already gone is not a schedule, it is a mistake waiting to
+        // happen — shown, so the month reads as a month, but not tappable.
+        let isPast = day < today
+
+        return Text("\(store.calendar.component(.day, from: day))")
+            .font(SkeuFont.at(SkeuToggle.label * textScale, weight: isChosen ? .semibold : .regular))
+            .foregroundStyle(isPast ? skeu.inkFaint : skeu.ink)
+            .frame(width: size, height: size)
+            .background {
+                if isChosen {
+                    Circle().fill(.clear).skeuGlass(Circle(), height: size, prominent: true)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .skeuPress { if !isPast { onPick(day) } }
+            .opacity(isPast ? 0.45 : 1)
+            .accessibilityAddTraits(isChosen ? [.isButton, .isSelected] : .isButton)
     }
 }

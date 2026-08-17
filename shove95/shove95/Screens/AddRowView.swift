@@ -43,6 +43,10 @@ struct AddRowView: View {
     @State private var showCamera = false
     @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
+    /// Held until commit, like the buffered photos: there is nothing to
+    /// schedule until the task exists (founder bug report 2026-08-17).
+    @State private var pendingDay: Date?
+    @State private var showDayPicker = false
     @State private var photoTarget: TaskItem?
 
     /// Return commits instead of adding a line.
@@ -76,6 +80,20 @@ struct AddRowView: View {
         )
     }
 
+    /// Split out: the add row's body is long enough that inlining this put the
+    /// type checker over its budget.
+    private var calendarControl: some View {
+        CalendarGlyph()
+            // Lit once a day is chosen, so the row says it is carrying one
+            // before the task exists to show it.
+            .fill(pendingDay == nil ? Win95.text : Win95.accent)
+            .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+            .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+            .contentShape(Rectangle())
+            .onTapGesture { SkeuHaptic.press(); showDayPicker = true }
+            .accessibilityLabel("Schedule")
+    }
+
     /// Creates the task and clears the row. Safe to call from a binding setter:
     /// the store write and the focus change are deferred a runloop turn, since
     /// both land mid-update otherwise and SwiftUI drops them.
@@ -93,9 +111,12 @@ struct AddRowView: View {
         text = ""
         Task { @MainActor in
             let task = store.addTask(title: title, in: bucket)
-            // The pin is applied AFTER the task exists, and through the
-            // coordinator rather than the store, so composing a task while
-            // another one holds the pin still asks before replacing it.
+            // The date is applied AFTER the task exists, for the same reason
+            // the photos are: there is nothing to schedule until then.
+            if let task, let pendingDay {
+                store.schedule(task, on: pendingDay)
+            }
+            pendingDay = nil
             // Keyboard DISMISSES on commit (2026-08-04): a field that stays
             // open reads as "still typing" and hides the list you just added to.
             focused = false
@@ -151,6 +172,9 @@ struct AddRowView: View {
             // section, and that is the only door (founder direction
             // 2026-08-17).
 
+            // The calendar, AFTER the camera — see the skeu add row.
+            // Placed below in source order so it lands to the right.
+
             // Same bare theme-coloured glyph an existing task's photo control
             // uses — appears only while composing, matching the skeu row.
             if focused {
@@ -164,6 +188,12 @@ struct AddRowView: View {
                     .disabled(!canAttach)
                     .accessibilityLabel("Add photo to new task")
             }
+
+            // The calendar, AFTER the camera. Editing a task puts it there,
+            // and a control that changes sides between writing and editing is
+            // a control you have to look for twice (founder bug report
+            // 2026-08-17).
+            if focused, bucket == .general { calendarControl }
         }
         .padding(.trailing, Win95.Px.grid * pixel)
         .frame(minHeight: Win95.rowHeight(pixel))
@@ -175,6 +205,13 @@ struct AddRowView: View {
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
+        .sheet(isPresented: $showDayPicker) {
+            Win95DayPickerSheet(current: pendingDay) { day in
+                showDayPicker = false
+                pendingDay = day
+            }
+            .presentationDetents([.medium, .large])
+        }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
                 showCamera = false

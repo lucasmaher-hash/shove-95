@@ -60,6 +60,8 @@ struct TaskRowView: View {
     @State private var pressedThumb: Int?
     /// The photo waiting on a yes — see the viewer's bin.
     @State private var pendingPhotoDelete: Int?
+    /// True while the day list is up.
+    @State private var showDayPicker = false
     /// One photo per edit session: the plus disappears after a pick and
     /// returns the next time the task enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -274,8 +276,23 @@ struct TaskRowView: View {
                     DateChip(label: chip)
                         .allowsHitTesting(false)
                 }
+
+                // The calendar, only in Soon and only while editing (founder
+                // direction 2026-08-17). Asked of the TASK, not the screen: a
+                // row does not know which tab is showing, and its date already
+                // answers the question.
+                if isEditing,
+                   task.bucket(now: store.now(), calendar: store.calendar) == .general {
+                    CalendarGlyph()
+                        .fill(Win95.accent)
+                        .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+                        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                        .contentShape(Rectangle())
+                        .onTapGesture { SkeuHaptic.press(); showDayPicker = true }
+                        .accessibilityLabel("Schedule")
+                }
             }
-            .frame(width: Win95.Px.grid * 8 * pixel, alignment: .trailing)
+            .frame(width: Win95.Px.grid * 16 * pixel, alignment: .trailing)
         }
         // Pinned to the first line's band, however tall the row grows.
         .frame(height: Win95.rowHeight(pixel), alignment: .trailing)
@@ -638,5 +655,108 @@ private struct PhotoViewer: View {
         // Swallow taps so only the ✕ and the background close the window.
         .contentShape(Rectangle())
         .onTapGesture {}
+    }
+}
+
+
+// MARK: - Day picker
+
+/// The next four weeks, one row per day, in this look's parts. See
+/// `DayPickerRange` for why a list rather than a month grid.
+struct Win95DayPickerSheet: View {
+    @Environment(\.pixel) private var pixel
+    @Environment(\.win95Scheme) private var scheme
+    @Environment(AppSettings.self) private var settings
+    @Environment(TaskStore.self) private var store
+    let current: Date?
+    let onPick: (Date) -> Void
+
+    private var chosen: Date? { current.map { store.calendar.startOfDay(for: $0) } }
+    private var today: Date { store.calendar.startOfDay(for: store.now()) }
+
+    var body: some View {
+        ZStack {
+            Color(hex: scheme.surface).ignoresSafeArea()
+
+            SunkenWell {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
+                        shortcuts
+                        ForEach(DayPickerRange.monthStarts(now: today, calendar: store.calendar),
+                                id: \.self) { month in
+                            monthBlock(month)
+                        }
+                    }
+                    .padding(Win95.Px.grid * 2 * pixel)
+                }
+            }
+            .padding(Win95.Px.grid * 2 * pixel)
+        }
+    }
+
+    private var shortcuts: some View {
+        let tomorrow = store.calendar.date(byAdding: .day, value: 1, to: today) ?? today
+
+        return HStack(spacing: Win95.Px.grid * 2 * pixel) {
+            Win95Button(action: { onPick(today) }, compact: true) {
+                TypedText(text: "Today", face: settings.face, role: .content)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+            Win95Button(action: { onPick(tomorrow) }, compact: true) {
+                TypedText(text: "Tomorrow", face: settings.face, role: .content)
+                    .font(W95Font.standard(pixel))
+                    .foregroundStyle(Win95.text)
+            }
+        }
+    }
+
+    private func monthBlock(_ month: Date) -> some View {
+        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+            TypedText(text: DayPickerRange.title(for: month, calendar: store.calendar),
+                      face: settings.face, role: .chrome)
+                .font(W95Font.standard(pixel))
+                .foregroundStyle(Win95.text)
+
+            HStack(spacing: 0) {
+                ForEach(DayPickerRange.weekdayHeaders, id: \.self) { day in
+                    Text(day)
+                        .font(W95Font.small(pixel))
+                        .foregroundStyle(Win95.textMuted)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            let cells = DayPickerRange.grid(for: month, calendar: store.calendar)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7),
+                      spacing: pixel) {
+                ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                    if let day { dayCell(day) } else { Color.clear.frame(height: 1) }
+                }
+            }
+        }
+    }
+
+    private func dayCell(_ day: Date) -> some View {
+        let isChosen = day == chosen
+        // A day already gone is not a schedule, it is a mistake waiting to
+        // happen — shown, so the month reads as a month, but not tappable.
+        let isPast = day < today
+
+        return Text("\(store.calendar.component(.day, from: day))")
+            .font(W95Font.standard(pixel))
+            .foregroundStyle(isChosen ? Color(hex: scheme.selectionText)
+                                      : (isPast ? Win95.textMuted : Win95.text))
+            .frame(maxWidth: .infinity)
+            .frame(height: Win95.Px.grid * 7 * pixel)
+            // The 1995 way to say "this one": the selection bar, not a tick.
+            .background(isChosen ? Color(hex: scheme.selectionBG) : .clear)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard !isPast else { return }
+                SkeuHaptic.selection()
+                onPick(day)
+            }
+            .accessibilityAddTraits(isChosen ? [.isButton, .isSelected] : .isButton)
     }
 }
