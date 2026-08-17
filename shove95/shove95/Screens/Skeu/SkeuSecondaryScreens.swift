@@ -380,6 +380,22 @@ struct SkeuHowToView: View {
     var body: some View {
         SkeuSheet(title: "How to use", onClose: onClose) {
             LazyVStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                // The shape of the app: its own panel, and untitled, because
+                // these are not a category — see HowToContent.
+                SkeuPanel {
+                    VStack(alignment: .leading, spacing: SkeuSpace.md) {
+                        ForEach(HowTo.essentials) { item in
+                            row(item)
+                        }
+                    }
+                }
+
+                // The GAP, and it is the whole point of the split: what
+                // follows is lookup, not more of the same. A rule would say
+                // "another section"; empty ground says "you can stop here"
+                // (founder direction 2026-08-17).
+                Color.clear.frame(height: SkeuSpace.xl)
+
                 ForEach(HowTo.sections) { section in
                     SkeuPanel(title: section.title) {
                         VStack(alignment: .leading, spacing: SkeuSpace.md) {

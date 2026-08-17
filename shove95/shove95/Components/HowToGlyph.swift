@@ -107,6 +107,33 @@ struct HowToGlyph: View {
                 path.move(to: CGPoint(x: w * 0.16, y: h * 0.5))
                 path.addLine(to: CGPoint(x: w * 0.84, y: h * 0.5))
 
+            case .calendar:
+                // A page with its two hangers and the week rule under them.
+                path.addRoundedRect(in: CGRect(x: w * 0.10, y: h * 0.20,
+                                               width: w * 0.80, height: h * 0.66),
+                                    cornerSize: CGSize(width: w * 0.10, height: w * 0.10))
+                path.move(to: CGPoint(x: w * 0.10, y: h * 0.40))
+                path.addLine(to: CGPoint(x: w * 0.90, y: h * 0.40))
+                for x in [w * 0.32, w * 0.68] {
+                    path.move(to: CGPoint(x: x, y: h * 0.12))
+                    path.addLine(to: CGPoint(x: x, y: h * 0.28))
+                }
+                // One day marked, because that is what the control is for.
+                fills.append(dot(at: CGPoint(x: w * 0.5, y: h * 0.63), r: w * 0.09))
+
+            case .fold:
+                // A heading with its chevron, and the rows tucking away under
+                // it — the same shape the section headings wear.
+                path.move(to: CGPoint(x: w * 0.06, y: h * 0.26))
+                path.addLine(to: CGPoint(x: w * 0.62, y: h * 0.26))
+                path.move(to: CGPoint(x: w * 0.74, y: h * 0.18))
+                path.addLine(to: CGPoint(x: w * 0.86, y: h * 0.30))
+                path.addLine(to: CGPoint(x: w * 0.98, y: h * 0.18))
+                path.move(to: CGPoint(x: w * 0.06, y: h * 0.60))
+                path.addLine(to: CGPoint(x: w * 0.80, y: h * 0.60))
+                path.move(to: CGPoint(x: w * 0.06, y: h * 0.84))
+                path.addLine(to: CGPoint(x: w * 0.52, y: h * 0.84))
+
             case .camera:
                 path.addRoundedRect(in: CGRect(x: w * 0.08, y: h * 0.26,
                                                width: w * 0.84, height: h * 0.52),

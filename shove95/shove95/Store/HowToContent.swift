@@ -11,6 +11,17 @@
 //  something up scans the pictures first and only reads the line under the one
 //  that matches (founder direction 2026-08-16).
 //
+//  TWO PARTS, and the split is the point (founder direction 2026-08-17).
+//  `essentials` is the shape of the app: the line tasks travel along, the one
+//  live thing, and the workspaces holding it all. Someone who reads only that
+//  can use shove95. Everything else is lookup — real, but nothing you need
+//  before you start — and sits below a clear gap so it reads as reference
+//  rather than as more of the same.
+//
+//  The result lines were roughly twice this long and the screen read as a
+//  manual. Every one of them is now the shortest true sentence: five words is
+//  a glance, twelve is reading (founder direction, same day).
+//
 //  ONE source for both looks. The two screens that render this have already
 //  drifted once elsewhere in the app — the VoiceOver row logic is written
 //  twice and no longer agrees with itself — and help that disagrees with
@@ -22,8 +33,12 @@ import Foundation
 enum HowTo {
     /// The pictogram beside an item. Drawn, not lettered: these have to read
     /// in the Win95 look too, where SF Symbols are prohibited (design.md §9).
+    ///
+    /// A VOCABULARY, not a list of what is currently used — a case with no
+    /// item pointing at it costs nothing and lets the content above change
+    /// without anyone opening the drawing code.
     enum Glyph: String {
-        case line           // the three dated tabs, as a row of steps
+        case line           // the dated tabs, as a row of steps
         case swipeRight
         case swipeLeft
         case clock
@@ -33,6 +48,8 @@ enum HowTo {
         case drag
         case plus
         case camera
+        case calendar
+        case fold           // a section heading that opens and shuts
         case pin
         case lockScreen
         case workspace
@@ -53,54 +70,36 @@ enum HowTo {
         var id: String { title }
     }
 
-    static let sections: [Section] = [
-        Section(title: "The three tabs", items: [
-            Item(glyph: .line, action: "Today · Tomorrow · General",
-                 result: "One line. A task moves along it one step at a time."),
-            Item(glyph: .swipeRight, action: "Swipe right",
-                 result: "One step later. From General it springs back."),
-            Item(glyph: .swipeLeft, action: "Swipe left",
-                 result: "One step earlier. From Today it springs back."),
-            Item(glyph: .clock, action: "Overdue",
-                 result: "Rolls into Today by itself, and says how long it waited."),
-        ]),
+    /// The top of the screen, above the gap. No heading: these are not a
+    /// category, they are the app.
+    static let essentials: [Item] = [
+        Item(glyph: .line, action: "Today · Tomorrow · Soon",
+             result: "Swipe a task right for later, left for earlier."),
+        Item(glyph: .pin, action: "The ring, bottom left",
+             result: "One live thing, on your Lock Screen."),
+        Item(glyph: .workspace, action: "The name, top left",
+             result: "Separate lists. Live is shared."),
+    ]
 
+    /// Everything below the gap: true, and lookup.
+    static let sections: [Section] = [
         Section(title: "A task", items: [
-            Item(glyph: .tick, action: "Tap the circle",
-                 result: "Ticks it off. It sinks to the bottom."),
-            Item(glyph: .caret, action: "Tap the text",
-                 result: "Edits in place. Return commits."),
-            Item(glyph: .hold, action: "Press and hold",
-                 result: "The row menu: move, flag, delete."),
-            Item(glyph: .drag, action: "Hold, then drag",
-                 result: "Reorders by hand, and it stays where you put it."),
+            Item(glyph: .tick, action: "Tap the circle", result: "Ticks it off."),
+            Item(glyph: .caret, action: "Tap the text", result: "Return commits."),
+            Item(glyph: .hold, action: "Press and hold", result: "Move, flag, delete."),
+            Item(glyph: .drag, action: "Hold, then drag", result: "Reorder by hand."),
+            Item(glyph: .photo, action: "A thumbnail", result: "Opens it. Remove it there."),
         ]),
 
         Section(title: "Adding", items: [
-            Item(glyph: .plus, action: "The bottom row",
-                 result: "Type, press Return."),
-            Item(glyph: .camera, action: "The camera",
-                 result: "Attaches photos while you write."),
+            Item(glyph: .plus, action: "The add row", result: "Type, press Return."),
+            Item(glyph: .camera, action: "The camera", result: "Attach a photo."),
+            Item(glyph: .calendar, action: "The calendar", result: "Give it a day."),
         ]),
 
-        Section(title: "Live", items: [
-            Item(glyph: .pin, action: "The ring, bottom left",
-                 result: "Its own tab, for the one thing you are doing now."),
-            Item(glyph: .plus, action: "Go Live",
-                 result: "Type it, and it goes straight to the Lock Screen."),
-            Item(glyph: .lockScreen, action: "There it has a tick",
-                 result: "So it finishes without opening the app."),
-            Item(glyph: .caret, action: "The Live switch",
-                 result: "Takes it off the Lock Screen. The text stays put."),
-        ]),
-
-        Section(title: "Elsewhere", items: [
-            Item(glyph: .workspace, action: "The name, top left",
-                 result: "Switches workspace. The live note is shared across all."),
-            Item(glyph: .undo, action: "After a move",
-                 result: "A bar offers to undo it, then retires."),
-            Item(glyph: .photo, action: "A thumbnail",
-                 result: "Opens the photo. It can be removed there."),
+        Section(title: "In Soon", items: [
+            Item(glyph: .fold, action: "Tap a heading", result: "Folds that day away."),
+            Item(glyph: .clock, action: "Overdue", result: "Rolls into Today by itself."),
         ]),
     ]
 }

@@ -21,6 +21,19 @@ struct HowToView: View {
             SunkenWell {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Win95.Px.grid * 5 * pixel) {
+                        // The shape of the app, unlabelled — see HowToContent.
+                        VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
+                            ForEach(HowTo.essentials) { item in
+                                row(item)
+                            }
+                        }
+
+                        // The GAP, and it is the whole point of the split: what
+                        // follows is lookup, not more of the same. A rule would
+                        // say "another section"; empty ground says "you can stop
+                        // here" (founder direction 2026-08-17).
+                        Color.clear.frame(height: Win95.Px.grid * 6 * pixel)
+
                         ForEach(HowTo.sections) { section in
                             VStack(alignment: .leading, spacing: Win95.Px.grid * 2 * pixel) {
                                 Text(section.title)
