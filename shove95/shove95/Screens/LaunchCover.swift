@@ -23,6 +23,12 @@
 //  The word does not move. It is the fixed point the chevron departs from,
 //  and that is what makes the growth read as distance rather than as a zoom.
 //
+//  The chevron does not STOP (founder direction 2026-08-17, third pass). It
+//  keeps going past the edge, and the blue thins out around it while it is
+//  still travelling, so the list is already there by the time the mark has
+//  gone. Nothing waits for anything: the cover doesn't finish and then leave,
+//  it leaves as part of finishing.
+//
 
 import SwiftUI
 
@@ -43,13 +49,13 @@ struct LaunchCover: View {
     /// False for one frame, then true — the whole choreography hangs off it.
     @State private var arrived = false
 
-    /// How far right the chevron goes.
-    private var travel: CGFloat { Win95.Px.grid * 13 * pixel }
+    /// How far right the chevron goes — off the edge, not up to it.
+    private var travel: CGFloat { Win95.Px.grid * 58 * pixel }
     /// How far left the whole mark starts, so the chevron has room to run.
     private var lead: CGFloat { Win95.Px.grid * 11 * pixel }
     /// The chevron's size at rest and at the end. Deliberately extreme.
     private var startScale: CGFloat { 0.16 }
-    private var endScale: CGFloat { 1.9 }
+    private var endScale: CGFloat { 3.8 }
 
     var body: some View {
         ZStack {
@@ -79,6 +85,15 @@ struct LaunchCover: View {
             // to run to, and a mark that begins centred would end off-screen.
             .offset(x: -lead)
         }
+        // The blue thins WHILE the chevron is still running, not after it has
+        // landed. A cover that completes its animation and only then fades is
+        // two events; this is one.
+        .opacity(arrived || reduceMotion ? 0 : 1)
+        .animation(veil, value: arrived)
+        // Once it is on its way out it stops taking touches. The app removes
+        // it a moment later, and a transparent sheet swallowing taps in
+        // between would read as the app being frozen.
+        .allowsHitTesting(!arrived)
         // A beat before it moves, so the mark is READ standing still first.
         // Straight into the travel and there is nothing to have departed
         // from.
@@ -96,6 +111,14 @@ struct LaunchCover: View {
         reduceMotion
             ? .easeOut(duration: 0.01)
             : .spring(response: 1.15, dampingFraction: 0.74)
+    }
+
+    /// Starts late and runs long, so the blue is still readable through the
+    /// first half of the flight and gone by the end of it.
+    private var veil: Animation {
+        reduceMotion
+            ? .easeOut(duration: 0.5).delay(0.6)
+            : .easeIn(duration: 1.3).delay(1.0)
     }
 }
 
