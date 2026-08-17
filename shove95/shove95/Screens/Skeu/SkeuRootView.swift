@@ -975,7 +975,6 @@ private struct SkeuTaskRow: View {
 
     var body: some View {
         row
-            .offset(x: dragOffset)
             // §8.5: Reduce Motion drops the SCALE but keeps the depth cue —
             // the depth change is the affordance, not decoration. The swipe's
             // own translation is the gesture itself and always follows.
@@ -1001,6 +1000,19 @@ private struct SkeuTaskRow: View {
                     .animation(SkeuMotion.tint, value: isMarked)
                     .allowsHitTesting(false)
             }
+            // The SLIDE comes after the mark, so the mark slides with it.
+            //
+            // `offset` moves what is drawn, not the layout frame a background
+            // is measured against, so a background attached after it stays
+            // exactly where it was: the row travelled out from under its own
+            // lit slat and left it standing (founder bug report 2026-08-17).
+            // Win95 never had this because its row and its ground are the same
+            // painted rectangle.
+            //
+            // The gesture catcher below DOES stay put, on purpose — the touch
+            // area belongs to the row's place in the list, not to how far the
+            // finger has carried it.
+            .offset(x: dragOffset)
             // Touch sandwich: the catcher sits below the content, so the
             // checkbox's own tap gesture wins its touches and everything else
             // lands in the state machine.
