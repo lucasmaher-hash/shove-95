@@ -207,7 +207,12 @@ struct SkeuLiveSection: View {
         .padding(.horizontal, SkeuSpace.lg)
         .frame(height: buttonH)
         .frame(maxWidth: .infinity)
-        .skeuGlass(Capsule(), height: buttonH, prominent: on)
+        // Prominent in BOTH states. `prominent: on` drew the capsule itself at
+        // a weaker glass step when off air, so the frame washed out alongside
+        // its label even after the opacity was moved off it (founder bug
+        // report 2026-08-17). The state is carried entirely by the mark and
+        // the word now; the button looks like a button either way.
+        .skeuGlass(Capsule(), height: buttonH, prominent: true)
         .contentShape(Capsule())
         .skeuPress {
             withAnimation(SkeuMotion.tint) { store.setLiveOnLockScreen(!on) }
