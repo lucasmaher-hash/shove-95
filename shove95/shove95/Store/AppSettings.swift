@@ -145,6 +145,33 @@ final class AppSettings {
         return decoded.map { ($0.id, $0.name) }
     }
 
+    /// Which sections of Soon are folded shut. A nil day is General.
+    ///
+    /// VIEW state rather than a preference, and it lives here anyway: it has
+    /// to survive both a tab change and a design change, and each look builds
+    /// its own coordinators — this is the one object both roots already read.
+    /// Deliberately NOT persisted. A list that comes back folded after a
+    /// relaunch looks like a list that lost something.
+    private var collapsedSections: Set<String> = []
+
+    private func sectionKey(_ day: Date?) -> String {
+        guard let day else { return "general" }
+        return String(Int(day.timeIntervalSinceReferenceDate))
+    }
+
+    func isCollapsed(_ day: Date?) -> Bool {
+        collapsedSections.contains(sectionKey(day))
+    }
+
+    func toggleCollapsed(_ day: Date?) {
+        let key = sectionKey(day)
+        if collapsedSections.contains(key) {
+            collapsedSections.remove(key)
+        } else {
+            collapsedSections.insert(key)
+        }
+    }
+
     init() {
 
         // Skeu on a fresh install (founder direction 2026-08-17). Anyone who

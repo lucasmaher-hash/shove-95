@@ -353,10 +353,12 @@ struct SkeuRootView: View {
                     // day rather than as a section of its own. The founder
                     // reversed that decision (founder direction 2026-08-17).
                     // Shown even when empty: the section still has its add row.
-                    sectionHeading("General", rule: false)
-                    ForEach(sections.undated, id: \.id) { task in
-                        taskRow(task)
-                            .id(task.id.uuidString)
+                    sectionHeading("General", day: nil)
+                    if !settings.isCollapsed(nil) {
+                        ForEach(sections.undated, id: \.id) { task in
+                            taskRow(task)
+                                .id(task.id.uuidString)
+                        }
                     }
                     // Every section ends in its own add row, which stamps that
                     // section's date on what it creates (founder direction
@@ -365,16 +367,24 @@ struct SkeuRootView: View {
                     // watching the task appear in General was the app
                     // disagreeing with its own layout. Soon therefore has NO
                     // trailing add row — the last day's is the bottom one.
-                    SkeuAddRow(bucket: bucket, day: nil)
-                        .id(EditingCoordinator.addRowID(for: nil))
+                    //
+                    // The add row folds away with its section: a section shut
+                    // is a section with nothing showing, and a stray capture
+                    // row under a closed heading belongs to nothing visible.
+                    if !settings.isCollapsed(nil) {
+                        SkeuAddRow(bucket: bucket, day: nil)
+                            .id(EditingCoordinator.addRowID(for: nil))
+                    }
                     ForEach(sections.days, id: \.day) { section in
                         dayHeading(section.day)
-                        ForEach(section.tasks, id: \.id) { task in
-                            taskRow(task)
-                                .id(task.id.uuidString)
+                        if !settings.isCollapsed(section.day) {
+                            ForEach(section.tasks, id: \.id) { task in
+                                taskRow(task)
+                                    .id(task.id.uuidString)
+                            }
+                            SkeuAddRow(bucket: bucket, day: section.day)
+                                .id(EditingCoordinator.addRowID(for: section.day))
                         }
-                        SkeuAddRow(bucket: bucket, day: section.day)
-                            .id(EditingCoordinator.addRowID(for: section.day))
                     }
                 } else {
                     ForEach(active, id: \.id) { task in
@@ -934,50 +944,56 @@ extension SkeuRootView {
         withAnimation(SkeuMotion.layout) { showLive = true }
     }
 
-    /// A section's name. Sits in the list's own margin, not in a slat: it is a
-    /// label ON the page, not a thing that can be acted on.
+    /// A section's name, and the control that folds it shut.
     ///
-    /// `rule` draws the line that closes off the section ABOVE. The topmost
-    /// section has nothing above it to be parted from, so it does without one
-    /// (founder direction 2026-08-17).
-    private func sectionHeading(_ title: String, rule: Bool) -> some View {
+    /// The accent rule that used to sit above each heading is gone: the band
+    /// already says where one section ends and the next begins, and two
+    /// devices for one boundary is one too many (founder direction
+    /// 2026-08-17).
+    private func sectionHeading(_ title: String, day: Date?) -> some View {
+        let collapsed = settings.isCollapsed(day)
+        let shape = RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
+
         // Set ABOVE the task text, not below it. A heading that names a run of
         // tasks has to outrank them, and this was an eyebrow in `inkFaint` —
         // the quietest type in the look — which left the day a task belonged
         // to harder to read than the task (founder direction 2026-08-17).
-        VStack(alignment: .leading, spacing: 0) {
-            if rule {
-                Rectangle()
-                    .fill(skeu.accent)
-                    .frame(height: 1)
-                    .padding(.horizontal, SkeuSpace.md)
-                    .padding(.top, SkeuSpace.xl)
-            }
-
+        return HStack(spacing: SkeuSpace.sm) {
             Text(title)
                 .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
                 .foregroundStyle(skeu.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, SkeuSpace.md)
-                .padding(.vertical, SkeuSpace.sm)
-                // A band, so a heading is not just larger text but a different
-                // KIND of thing from the rows under it (founder direction
-                // 2026-08-17). A TINT, not a surface: the accent at low
-                // strength, the same device the selected segment uses. A lit
-                // slat here would make the label look pressable.
-                .background {
-                    RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
-                        .fill(skeu.accent.opacity(0.12))
-                }
-                .padding(.horizontal, SkeuSpace.xs)
-                .padding(.top, SkeuSpace.xl)
-                .padding(.bottom, SkeuSpace.xs)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(SkeuFont.at(labelSize, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(skeu.inkMuted)
+                .rotationEffect(.degrees(collapsed ? 0 : 90))
+                .animation(SkeuMotion.layout, value: collapsed)
         }
+        .padding(.horizontal, SkeuSpace.md)
+        .padding(.vertical, SkeuSpace.sm)
+        .frame(minHeight: SkeuControl.minTouch)
+        // A band, so a heading is not just larger text but a different KIND of
+        // thing from the rows under it (founder direction 2026-08-17). A TINT,
+        // not a surface: the accent at low strength, the same device the
+        // selected segment uses. A lit slat here would read as a pill.
+        .background { shape.fill(skeu.accent.opacity(0.12)) }
+        .contentShape(shape)
+        .skeuPress {
+            withAnimation(SkeuMotion.layout) { settings.toggleCollapsed(day) }
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("\(title), \(collapsed ? "collapsed" : "expanded")")
+        .padding(.horizontal, SkeuSpace.xs)
+        .padding(.top, SkeuSpace.xl)
+        .padding(.bottom, SkeuSpace.xs)
     }
 
     /// One scheduled day's name.
     private func dayHeading(_ day: Date) -> some View {
-        sectionHeading(DayHeading.label(for: day, calendar: .current), rule: true)
+        sectionHeading(DayHeading.label(for: day, calendar: .current), day: day)
     }
 
     /// Resolves the slide direction BEFORE the selection moves, so the

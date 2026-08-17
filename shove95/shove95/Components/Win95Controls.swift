@@ -93,7 +93,14 @@ struct Win95Checkbox: View {
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
             }
         }
-        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel)) // ≥44pt tap target
+        // ≥44pt tap target, with the BOX on its leading edge rather than
+        // centred: the box's visible edge is the left edge of every task, and
+        // centring pushed it ten points right of the line the title, the
+        // headings and the taskbar all stand on (founder bug report
+        // 2026-08-17). The slack all lies to the right, where the row text
+        // covers reaching for it anyway.
+        .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel),
+               alignment: .leading)
         .contentShape(Rectangle())
         // `toggle`, matching the skeu tick — a box that fills is a different
         // event from a button that is pressed.

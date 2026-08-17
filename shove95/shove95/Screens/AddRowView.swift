@@ -165,7 +165,10 @@ struct AddRowView: View {
                 .fill(Win95.well)
                 .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                 .bevelSunken(pixel)
-                .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+                // Leading, like Win95Checkbox — the box edge is the row's left
+                // line, and it has to be the same line on every row.
+                .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel),
+                       alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture { focused = true }
                 .accessibilityHidden(true)
@@ -220,7 +223,8 @@ struct AddRowView: View {
             // 2026-08-17).
             if focused, bucket == .general { calendarControl }
         }
-        .padding(.trailing, Win95.Px.grid * pixel)
+        // No trailing padding of its own — the list's inset IS the margin,
+        // same as the task rows above it.
         .frame(minHeight: Win95.rowHeight(pixel))
         .background {
             GeometryReader { proxy in

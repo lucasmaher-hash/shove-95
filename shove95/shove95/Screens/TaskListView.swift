@@ -35,47 +35,68 @@ struct TaskListView: View {
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
     @State private var keyboardTop: CGFloat = .infinity
 
-    /// A section's name. A pixel label on the well, not a row: it is something
-    /// to read, not something to act on.
+    /// A section's name, and the control that folds it shut.
     ///
-    /// `rule` draws the line that closes off the section ABOVE. The topmost
-    /// section has nothing above it to be parted from, so it does without one
-    /// (founder direction 2026-08-17).
-    private func sectionHeading(_ title: String, rule: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if rule {
-                Rectangle()
-                    .fill(Win95.accent)
-                    .frame(height: pixel)
-                    .padding(.top, Win95.Px.grid * 3 * pixel)
-            }
+    /// The accent rule that used to sit above each heading is gone: the band
+    /// already says where one section ends and the next begins, and two
+    /// devices for one boundary is one too many (founder direction
+    /// 2026-08-17).
+    private func sectionHeading(_ title: String, day: Date?) -> some View {
+        let collapsed = settings.isCollapsed(day)
 
+        return HStack(spacing: Win95.Px.grid * pixel) {
             TypedText(text: title, face: settings.face, role: .chrome)
                 .font(W95Font.heading(pixel))
                 .foregroundStyle(Win95.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // Inside the widened frame, so the text stays where it was
-                // while its band runs past it — one grid unit of that is the
-                // list's own inset, given back below.
-                .padding(.horizontal, Win95.Px.grid * 4 * pixel)
-                .padding(.vertical, Win95.Px.grid * pixel)
-                // A band, so a heading is not just larger text but a different
-                // KIND of thing from the rows under it (founder direction
-                // 2026-08-17). The window's surface against the list's well:
-                // the two tones the look already owns.
-                .background(Win95.surface)
-                .padding(.top, Win95.Px.grid * 3 * pixel)
+
+            Spacer(minLength: 0)
+
+            // The calendar's chevron, stood on end. Rotating a pixel shape by
+            // EXACTLY 90° maps the grid onto itself, so both resting states
+            // are still whole pixels; only the travel between them is off the
+            // grid, and travel is what the founder asked to see.
+            PixelChevron(pointsLeft: false)
+                .fill(Win95.text)
+                .frame(width: Win95.Px.checkbox * pixel * 0.7,
+                       height: Win95.Px.checkbox * pixel * 0.7)
+                .rotationEffect(.degrees(collapsed ? 0 : 90))
+                .animation(.spring(duration: 0.28), value: collapsed)
         }
-        // Out to the screen edge. The list insets its rows by one grid unit,
-        // and a rule that stops where the rows stop reads as another row
-        // rather than as the break between two sections (founder direction
-        // 2026-08-17). Given back here so the heading spans the whole well.
+        // The WINDOW margin, so the heading's text starts exactly where the
+        // checkboxes do. It stood at four grid units, which put "General" on
+        // no line anything else in the window used (founder bug report
+        // 2026-08-17, second report — the first fix aligned the chrome and
+        // then this band arrived carrying its own number).
+        .padding(.horizontal, Win95.Px.windowMargin * pixel)
+        .padding(.vertical, Win95.Px.grid * pixel)
+        .frame(minHeight: Win95.rowHeight(pixel))
+        // Out to the screen edge. The list insets its rows by one grid unit;
+        // a band that stops where the rows stop reads as one more row rather
+        // than as the break between two sections (founder direction
+        // 2026-08-17). Widened BEFORE the fill, or the fill would keep the
+        // narrower frame.
         .padding(.horizontal, -(Win95.Px.grid * pixel))
+        // A band, so a heading is not just larger text but a different KIND of
+        // thing from the rows under it. The window's surface against the
+        // list's well: the two tones the look already owns.
+        .background(Win95.surface)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            SkeuHaptic.selection()
+            withAnimation(.spring(duration: 0.3)) { settings.toggleCollapsed(day) }
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("\(title), \(collapsed ? "collapsed" : "expanded")")
+        .padding(.top, Win95.Px.grid * 3 * pixel)
+        // A gap under the band. An edited row paints its own highlight, and
+        // butted straight against the heading's the two read as one block
+        // (founder bug report 2026-08-17).
+        .padding(.bottom, Win95.Px.grid * pixel)
     }
 
     /// One scheduled day's name.
     private func dayHeading(_ day: Date) -> some View {
-        sectionHeading(DayHeading.label(for: day, calendar: .current), rule: true)
+        sectionHeading(DayHeading.label(for: day, calendar: .current), day: day)
     }
 
     var body: some View {
@@ -104,10 +125,12 @@ struct TaskListView: View {
                     // day rather than as a section of its own. The founder
                     // reversed that decision (founder direction 2026-08-17).
                     // Shown even when empty: the section still has its add row.
-                    sectionHeading("General", rule: false)
-                    ForEach(sections.undated, id: \.id) { task in
-                        TaskRowView(task: task)
-                            .id(task.id.uuidString)
+                    sectionHeading("General", day: nil)
+                    if !settings.isCollapsed(nil) {
+                        ForEach(sections.undated, id: \.id) { task in
+                            TaskRowView(task: task)
+                                .id(task.id.uuidString)
+                        }
                     }
                     // Every section ends in its own add row, which stamps that
                     // section's date on what it creates (founder direction
@@ -116,16 +139,24 @@ struct TaskListView: View {
                     // watching the task appear in General was the app
                     // disagreeing with its own layout. Soon therefore has NO
                     // trailing add row — the last day's is the bottom one.
-                    AddRowView(bucket: bucket, day: nil)
-                        .id(EditingCoordinator.addRowID(for: nil))
+                    //
+                    // The add row folds away with its section: a section shut
+                    // is a section with nothing showing, and a stray capture
+                    // row under a closed heading belongs to nothing visible.
+                    if !settings.isCollapsed(nil) {
+                        AddRowView(bucket: bucket, day: nil)
+                            .id(EditingCoordinator.addRowID(for: nil))
+                    }
                     ForEach(sections.days, id: \.day) { section in
                         dayHeading(section.day)
-                        ForEach(section.tasks, id: \.id) { task in
-                            TaskRowView(task: task)
-                                .id(task.id.uuidString)
+                        if !settings.isCollapsed(section.day) {
+                            ForEach(section.tasks, id: \.id) { task in
+                                TaskRowView(task: task)
+                                    .id(task.id.uuidString)
+                            }
+                            AddRowView(bucket: bucket, day: section.day)
+                                .id(EditingCoordinator.addRowID(for: section.day))
                         }
-                        AddRowView(bucket: bucket, day: section.day)
-                            .id(EditingCoordinator.addRowID(for: section.day))
                     }
                 } else {
                     ForEach(active, id: \.id) { task in

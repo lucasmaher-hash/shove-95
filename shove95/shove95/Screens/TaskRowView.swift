@@ -218,7 +218,10 @@ struct TaskRowView: View {
 
             trailingColumn
         }
-        .padding(.trailing, Win95.Px.grid * pixel)
+        // NO trailing padding of the row's own: the list already insets its
+        // rows by the window margin, and this extra unit put the chips and
+        // controls on a different right-hand line from the gear, the taskbar
+        // and the headings (founder bug report 2026-08-17).
         .frame(maxWidth: .infinity, minHeight: Win95.rowHeight(pixel))
     }
 
@@ -350,7 +353,6 @@ struct TaskRowView: View {
             Spacer(minLength: 0)
         }
         .padding(.leading, Win95.rowHeight(pixel) + Win95.Px.grid * pixel)
-        .padding(.trailing, Win95.Px.grid * pixel)
         .padding(.bottom, Win95.Px.grid * pixel)
     }
 
