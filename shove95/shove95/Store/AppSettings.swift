@@ -24,6 +24,7 @@ final class AppSettings {
         static let currentWorkspace = "settings.workspace.current"
         static let language = "settings.language"
         static let colorSlot = "settings.color.slot"
+        static let onboarded = "settings.onboarded"
         static let sharedSlot = "settings.color.shared"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
         static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
@@ -143,6 +144,14 @@ final class AppSettings {
               let decoded = try? JSONDecoder().decode([Legacy].self, from: data)
         else { return [] }
         return decoded.map { ($0.id, $0.name) }
+    }
+
+    /// Whether the first-run walkthrough has already been through. Persisted,
+    /// unlike the folded sections below: it is a fact about this install, not
+    /// a view state, and it must survive a relaunch or the app would greet
+    /// every cold start as a first one.
+    var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: Key.onboarded) {
+        didSet { UserDefaults.standard.set(hasOnboarded, forKey: Key.onboarded) }
     }
 
     /// Which sections of Soon are folded shut. A nil day is General.

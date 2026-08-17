@@ -79,6 +79,7 @@ struct TitleBar: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("Workspace: \(workspace)")
                 .accessibilityHint("Switches workspace")
+                .onboardingTarget(.workspace)
 
                 Spacer(minLength: 0)
 
@@ -334,6 +335,7 @@ struct Taskbar: View {
             // would, and the row has no width to spare for both.
             LiveTaskbarButton(isActive: showLive, onAir: liveOnAir,
                               action: onSelectLive)
+                .onboardingTarget(.liveButton)
             // Two grid units — enough to say "not with those", and no more.
             // It briefly carried everything the squared button gave up, which
             // left a canyon between the two groups; the width went to the

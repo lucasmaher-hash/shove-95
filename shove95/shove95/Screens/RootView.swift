@@ -24,6 +24,8 @@ struct RootView: View {
     @Environment(AppSettings.self) private var settings
     @State private var menu = MenuCoordinator()
     @State private var editing = EditingCoordinator()
+    /// The first run, held over this screen — see Onboarding.swift.
+    @State private var onboarding = OnboardingCoordinator()
 
     /// Which way the last tab change travelled — decided before `selected`
     /// moves, so both halves of the transition agree on a direction.
@@ -52,6 +54,30 @@ struct RootView: View {
             showLive = false
             selected = bucket
         }
+    }
+
+    /// What the walkthrough counts. Asked of the BUCKETS rather than the
+    /// store's own list, which is private to it: a growing total means a task
+    /// was written, and a shrinking Today means one was shoved out of it.
+    private var taskTally: (all: Int, today: Int) {
+        let today = store.tasks(in: .today).active.count
+        let all = today
+            + store.tasks(in: .tomorrow).active.count
+            + store.tasks(in: .general).active.count
+        return (all, today)
+    }
+
+    private func advanceOnboarding() {
+        let tally = taskTally
+        withAnimation(.easeOut(duration: 0.25)) {
+            onboarding.next(taskCount: tally.all, todayCount: tally.today)
+        }
+        if !onboarding.isRunning { settings.hasOnboarded = true }
+    }
+
+    private func endOnboarding() {
+        withAnimation(.easeOut(duration: 0.25)) { onboarding.finish() }
+        settings.hasOnboarded = true
     }
 
     /// Moving to Live. It used to be written straight through a binding with
@@ -132,6 +158,23 @@ struct RootView: View {
         // `showSettings` and slam the Settings window shut on every pick.
         .id(settings.scheme.id + settings.face.rawValue)
         .background(Win95.surface)
+        // The walkthrough. Gathered here because the tagged controls are
+        // spread across the title bar, the list and the taskbar, and only
+        // their common ancestor sees all three.
+        //
+        // Split into a modifier of its own: inlined, the four clauses put the
+        // body over the type checker's budget.
+        .modifier(OnboardingHost(onboarding: onboarding,
+                                 tally: { taskTally },
+                                 hasOnboarded: settings.hasOnboarded,
+                                 overlay: { step in
+            AnyView(Win95OnboardingOverlay(
+                step: step,
+                target: onboarding.targets[step.target],
+                onNext: { advanceOnboarding() },
+                onSkip: { endOnboarding() }
+            ))
+        }))
         // The taskbar is window furniture — it stays docked at the bottom
         // instead of riding up with the keyboard.
         .ignoresSafeArea(.keyboard, edges: .bottom)

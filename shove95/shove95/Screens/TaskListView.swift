@@ -167,9 +167,12 @@ struct TaskListView: View {
                         }
                     }
                 } else {
-                    ForEach(active, id: \.id) { task in
+                    ForEach(Array(active.enumerated()), id: \.element.id) { index, task in
                         TaskRowView(task: task)
                             .id(task.id.uuidString)
+                            // The walkthrough points at the FIRST row, which is
+                            // the one it just asked you to write.
+                            .onboardingTarget(index == 0 ? .taskRow : .none)
                     }
                 }
 
@@ -183,6 +186,7 @@ struct TaskListView: View {
                 if bucket != .general {
                     AddRowView(bucket: bucket)
                         .id(EditingCoordinator.addRowID)
+                        .onboardingTarget(.addRow)
                 }
             }
             // The WINDOW margin — the same line the title bar and the taskbar

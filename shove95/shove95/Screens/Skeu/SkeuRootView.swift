@@ -160,6 +160,8 @@ struct SkeuRootView: View {
     /// mechanism the Win95 root uses.
     @State private var goingRight = true
     @State private var menu = MenuCoordinator()
+    /// The first run, held over this screen — see Onboarding.swift.
+    @State private var onboarding = OnboardingCoordinator()
     /// Which field is open and where its bottom edge sits — the same
     /// coordinator the Win95 list uses, so both looks lift fields identically.
     @State private var editing = EditingCoordinator()
@@ -265,6 +267,19 @@ struct SkeuRootView: View {
         .animation(SkeuMotion.present, value: menu.pendingLive?.id)
         .environment(menu)
         .environment(editing)
+        // The walkthrough — see Onboarding.swift. Same host as the Win95 root;
+        // the looks differ in the overlay and nothing else.
+        .modifier(OnboardingHost(onboarding: onboarding,
+                                 tally: { taskTally },
+                                 hasOnboarded: settings.hasOnboarded,
+                                 overlay: { step in
+            AnyView(SkeuOnboardingOverlay(
+                step: step,
+                target: onboarding.targets[step.target],
+                onNext: { advanceOnboarding() },
+                onSkip: { endOnboarding() }
+            ))
+        }))
         // The store's queries are scoped to the active workspace. The Win95
         // root does this sync when IT is mounted; in skeu mode this view is
         // the one that has to keep the scope pointed at the user's pick.
@@ -290,6 +305,7 @@ struct SkeuRootView: View {
     private var workspaceBar: some View {
         HStack(alignment: .top, spacing: 0) {
             SkeuWorkspacePill()
+                .onboardingTarget(.workspace)
 
             Spacer(minLength: SkeuSpace.sm)
 
@@ -390,9 +406,12 @@ struct SkeuRootView: View {
                         }
                     }
                 } else {
-                    ForEach(active, id: \.id) { task in
+                    ForEach(Array(active.enumerated()), id: \.element.id) { index, task in
                         taskRow(task)
                             .id(task.id.uuidString)
+                            // The walkthrough points at the FIRST row, which is
+                            // the one it just asked you to write.
+                            .onboardingTarget(index == 0 ? .taskRow : nil)
                     }
                 }
 
@@ -407,6 +426,7 @@ struct SkeuRootView: View {
                 if bucket != .general {
                     SkeuAddRow(bucket: bucket)
                         .id(EditingCoordinator.addRowID)
+                        .onboardingTarget(.addRow)
                 }
             }
             .padding(.vertical, SkeuSpace.lg)
@@ -872,6 +892,7 @@ extension SkeuRootView {
             .skeuPress(haptic: false) { selectLive() }
             .accessibilityAddTraits(showLive ? [.isButton, .isSelected] : .isButton)
             .accessibilityLabel("Live")
+            .onboardingTarget(.liveButton)
     }
 
     /// Split out because the whole button in one expression put the type
@@ -931,6 +952,30 @@ extension SkeuRootView {
                 .accessibilityLabel(settings.name(for: line))
             }
         }
+    }
+
+    /// What the walkthrough counts. Asked of the BUCKETS rather than the
+    /// store's own list, which is private to it: a growing total means a task
+    /// was written, and a shrinking Today means one was shoved out of it.
+    private var taskTally: (all: Int, today: Int) {
+        let today = store.tasks(in: .today).active.count
+        let all = today
+            + store.tasks(in: .tomorrow).active.count
+            + store.tasks(in: .general).active.count
+        return (all, today)
+    }
+
+    private func advanceOnboarding() {
+        let tally = taskTally
+        withAnimation(SkeuMotion.layout) {
+            onboarding.next(taskCount: tally.all, todayCount: tally.today)
+        }
+        if !onboarding.isRunning { settings.hasOnboarded = true }
+    }
+
+    private func endOnboarding() {
+        withAnimation(SkeuMotion.layout) { onboarding.finish() }
+        settings.hasOnboarded = true
     }
 
     /// Live comes in from the LEFT, because that is where its frame is.
