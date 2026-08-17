@@ -437,10 +437,24 @@ struct TaskRowView: View {
 
     /// Swipe left = pull forward (toward Today), right = defer (toward
     /// General) — content follows the finger, matching the taskbar's order.
+    /// Swiping LEFT out of Today lands in Live.
+    ///
+    /// That end of the line used to rubber-band against nothing, and Live sits
+    /// exactly there in the bar — one frame left of Today. So the gesture is
+    /// already the right shape; it just had no destination until now (founder
+    /// direction 2026-08-17).
+    private var pullGoesLive: Bool { currentBucket == .today }
+
+    /// A dead end only if the step is impossible AND Live is not the answer.
+    private func isDeadEnd(_ direction: StepDirection) -> Bool {
+        if direction == .pullOne, pullGoesLive { return false }
+        return currentBucket.steppedOnce(direction) == nil
+    }
+
     private func swipeChanged(_ dx: CGFloat) {
         guard !task.isCompleted else { return }
         let direction: StepDirection = dx < 0 ? .pullOne : .deferOne
-        if currentBucket.steppedOnce(direction) == nil {
+        if isDeadEnd(direction) {
             // Dead end: rubber-band + one light haptic.
             dragOffset = snapped(dx * Self.rubberResistance)
             if abs(dx) > 20, !rubberBandBuzzed {
@@ -475,7 +489,7 @@ struct TaskRowView: View {
         let overThreshold = abs(dx) > bar || abs(velocity) > Self.commitVelocity
         let sameSign = (dx < 0) == (velocity < 0) || abs(velocity) < 50
 
-        guard currentBucket.steppedOnce(direction) != nil, overThreshold, sameSign else {
+        guard !isDeadEnd(direction), overThreshold, sameSign else {
             withAnimation(.spring(duration: 0.3)) { dragOffset = 0 }
             return
         }
@@ -489,7 +503,14 @@ struct TaskRowView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(150))
             withAnimation(.spring(duration: 0.25)) {
-                _ = store.step(task, direction: direction) // destination unused here
+                if direction == .pullOne, pullGoesLive {
+                    // Asks first when something already holds Live; if it is
+                    // cancelled the row simply comes back, because the task
+                    // never left Today.
+                    menu.goLive(task, store: store)
+                } else {
+                    _ = store.step(task, direction: direction)
+                }
             }
             dragOffset = 0 // row identity survives the move
         }

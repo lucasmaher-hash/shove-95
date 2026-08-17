@@ -102,7 +102,8 @@ struct RootView: View {
                 }
             }
 
-            Taskbar(selected: tabSelection, showLive: $showLive)
+            Taskbar(selected: tabSelection, showLive: $showLive,
+                    liveOnAir: store.liveNote()?.isPinned == true)
         }
         // Win95 palettes are read through static accessors, so the chrome is
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the

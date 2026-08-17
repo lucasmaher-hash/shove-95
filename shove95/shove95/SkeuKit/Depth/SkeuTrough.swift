@@ -50,6 +50,15 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
     /// Multiplies the inner shadows' alphas. Below 1 for large troughs, where
     /// the same weights read as gloom rather than depth.
     var shadeScale: Double = 1.0
+    /// How far the fill's TOP tone moves toward the floor tone, 0…1.
+    ///
+    /// `fillStop` shortened how much of the box the dark end covered; this is
+    /// how dark that end is in the first place. The founder asked twice —
+    /// the second time to say the first answer had changed the wrong thing
+    /// (2026-08-17). A tall trough wants both: a short ramp AND a gentler
+    /// tone at its head, because the same lip weight that reads as an edge on
+    /// a 51pt bar reads as a shadow across a 260pt panel.
+    var fillLift: Double = 0
 
     /// The main-screen frame states the same shadows at a 148.2pt trough
     /// height; every offset below is that height's fraction, so they scale.
@@ -60,7 +69,9 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
             .background {
                 shape.fill(
                     LinearGradient(
-                        stops: [.init(color: skeu.recess, location: 0),
+                        stops: [.init(color: skeu.recess.mix(with: skeu.recessBottom,
+                                                             by: fillLift),
+                                      location: 0),
                                 .init(color: skeu.recessBottom,
                                       location: min(1, max(0.01, fillStop)))],
                         startPoint: .top, endPoint: .bottom)
@@ -125,8 +136,9 @@ extension View {
     /// `height` scales the transcribed inset shadows — pass the real height.
     func skeuTrough<S: InsettableShape>(_ shape: S, height: CGFloat = 56,
                                         fillStop: CGFloat = 1.0,
-                                        shadeScale: Double = 1.0) -> some View {
-        modifier(SkeuTrough(shape: shape, height: height,
-                            fillStop: fillStop, shadeScale: shadeScale))
+                                        shadeScale: Double = 1.0,
+                                        fillLift: Double = 0) -> some View {
+        modifier(SkeuTrough(shape: shape, height: height, fillStop: fillStop,
+                            shadeScale: shadeScale, fillLift: fillLift))
     }
 }

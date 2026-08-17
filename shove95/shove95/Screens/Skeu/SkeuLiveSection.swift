@@ -119,7 +119,8 @@ struct SkeuLiveSection: View {
         // rest, and the inner shadows come down to two thirds. At full weight
         // over 260pt the upper half read as gloom rather than a lip (founder
         // bug report 2026-08-17).
-        .skeuTrough(shape, height: 64, fillStop: 0.26, shadeScale: 0.65)
+        .skeuTrough(shape, height: 64, fillStop: 0.26, shadeScale: 0.65,
+                    fillLift: 0.55)
         .padding(.horizontal, SkeuSpace.xl)
     }
 

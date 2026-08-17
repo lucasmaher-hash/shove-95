@@ -279,12 +279,14 @@ struct Taskbar: View {
     /// from the three, the way the skeu bar keeps Live in its own frame —
     /// Live is not a slice of the date line the others divide up.
     @Binding var showLive: Bool
+    /// True while something is on the Lock Screen — the mark breathes then.
+    var liveOnAir: Bool
 
     var body: some View {
         HStack(spacing: pixel) {
             // Its own button, squared and wordless: the mark says what a label
             // would, and the row has no width to spare for both.
-            LiveTaskbarButton(isActive: showLive) {
+            LiveTaskbarButton(isActive: showLive, onAir: liveOnAir) {
                 var t = Transaction()
                 t.disablesAnimations = true
                 withTransaction(t) { showLive = true }
@@ -342,10 +344,14 @@ private struct LiveTaskbarButton: View {
     @Environment(\.pixel) private var pixel
     @Environment(\.win95Scheme) private var scheme
     let isActive: Bool
+    let onAir: Bool
     var action: () -> Void
 
     var body: some View {
         PixelLiveGlyph(pixel: pixel, tint: Color(hex: scheme.text))
+            // Breathes while something IS live — the same pulse the skeu bar
+            // shows, and the same one the pinned row used to carry.
+            .skeuPulse(onAir, dark: scheme.isDark)
             // SQUARE, not oblong: it holds a mark rather than a word, and a
             // word-shaped frame around a mark reads as a button missing its
             // label (founder direction 2026-08-17).
