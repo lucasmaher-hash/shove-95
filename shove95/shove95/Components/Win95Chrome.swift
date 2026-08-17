@@ -206,6 +206,31 @@ struct DownArrowGlyph: Shape {
     }
 }
 
+/// Pixel chevron for stepping through months, on an 8×8 grid: two staircases
+/// of single cells meeting at the point. Drawn rather than rotated — a rotated
+/// shape lands on fractional pixels at every scale step, which is the whole
+/// reason this look draws its own glyphs (design.md §9).
+struct PixelChevron: Shape {
+    /// `true` points left (back a month), `false` right.
+    var pointsLeft: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 8
+        var path = Path()
+        // Four cells down to the point, four back up: rows 0...7, the column
+        // stepping in to the tip at rows 3/4 and out again.
+        for row in 0..<8 {
+            // 0,1,2,3,3,2,1,0 — how far this row has travelled toward the tip.
+            let depth = row < 4 ? row : 7 - row
+            // The TIP is where depth is greatest, so it must be the smallest x
+            // when pointing left and the largest when pointing right.
+            let x = pointsLeft ? CGFloat(3 - depth) : CGFloat(3 + depth)
+            path.addRect(CGRect(x: x * u, y: CGFloat(row) * u, width: u * 2, height: u))
+        }
+        return path
+    }
+}
+
 /// Pixel ✕ for window close controls.
 struct CloseGlyph: Shape {
     func path(in rect: CGRect) -> Path {

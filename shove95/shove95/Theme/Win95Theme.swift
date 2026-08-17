@@ -160,6 +160,7 @@ extension Win95 {
         static let thumbnail: CGFloat       = 32  // photo thumbnail (64pt @2×)
         static let fontStandard: CGFloat    = 11  // W95FA standard size
         static let fontSmall: CGFloat       = 8   // taskbar clock well
+        static let fontHeading: CGFloat     = 15  // section headings, above standard
     }
 
     /// Deliberate deviation from the 1995 spec (design.md §4): Apple's 44pt tap

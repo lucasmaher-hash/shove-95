@@ -98,11 +98,19 @@ struct AddRowView: View {
     /// type checker over its budget.
     private var calendarControl: some View {
         CalendarGlyph()
-            // Lit once a day is chosen, so the row says it is carrying one
-            // before the task exists to show it.
-            .fill(effectiveDay == nil ? Win95.text : Win95.accent)
+            // The camera's ink, never the accent. It used to light up once a
+            // day was chosen, which made two controls standing side by side
+            // look like different KINDS of thing; the row already says which
+            // day it belongs to, since its heading is directly above it
+            // (founder direction 2026-08-17).
+            .fill(Win95.accent)
             .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
             .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+            // Faded alongside the camera until there is something to attach a
+            // date TO, so the pair reads as one band of controls rather than
+            // one live and one asleep (founder direction 2026-08-17). Still
+            // tappable — a day chosen before the text is kept.
+            .opacity(canAttach ? 1 : 0.3)
             .contentShape(Rectangle())
             .onTapGesture { SkeuHaptic.press(); showDayPicker = true }
             .accessibilityLabel("Schedule")
@@ -227,7 +235,7 @@ struct AddRowView: View {
                 showDayPicker = false
                 pendingDay = picked
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in

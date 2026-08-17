@@ -79,6 +79,15 @@ enum W95Font {
         sized(Win95.Px.fontSmall * pixel, role: role)
     }
 
+    /// Section headings: 15px × pixel scale, ABOVE standard rather than below
+    /// it. A heading that names a run of tasks has to outrank them, and this
+    /// one was set in `small` — the quietest size in the app — which left the
+    /// day a task belonged to harder to read than the task (founder direction
+    /// 2026-08-17).
+    static func heading(_ pixel: CGFloat, role: TextRole = .chrome) -> Font {
+        sized(Win95.Px.fontHeading * pixel, role: role)
+    }
+
     /// The system face is set a touch smaller: W95FA is a bitmap recreation
     /// whose glyphs fill their em box, so matching the raw point size makes
     /// the system face look oversized next to the same layout.

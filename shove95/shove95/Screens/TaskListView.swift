@@ -39,8 +39,8 @@ struct TaskListView: View {
     /// to read, not something to act on.
     private func sectionHeading(_ title: String) -> some View {
         TypedText(text: title, face: settings.face, role: .chrome)
-            .font(W95Font.small(pixel))
-            .foregroundStyle(Win95.textMuted)
+            .font(W95Font.heading(pixel))
+            .foregroundStyle(Win95.text)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Win95.Px.grid * 3 * pixel)
             .padding(.bottom, Win95.Px.grid * pixel)

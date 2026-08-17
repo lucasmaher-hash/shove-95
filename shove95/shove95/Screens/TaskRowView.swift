@@ -134,6 +134,18 @@ struct TaskRowView: View {
             Button("Photo Library") { showPhotoPicker = true }
             Button("Cancel", role: .cancel) {}
         }
+        // The calendar in the editing row set this flag and nothing listened:
+        // the Win95 row had the control but never the sheet, so scheduling an
+        // existing task was only ever possible in skeu (found while fixing the
+        // control's placement, 2026-08-17). Undo IS recorded here — unlike the
+        // add row, this task exists and genuinely moves.
+        .sheet(isPresented: $showDayPicker) {
+            Win95DayPickerSheet(current: task.dueDate) { picked in
+                showDayPicker = false
+                store.schedule(task, on: picked)
+            }
+            .presentationDetents([.large])
+        }
         .onChange(of: pickedItem) { _, item in
             guard let item else { return }
             Task { @MainActor in
@@ -259,7 +271,15 @@ struct TaskRowView: View {
             // 2026-08-17).
 
 
-            Group {
+            // An HStack, NOT a Group. A modifier on a Group is applied to each
+            // CHILD separately, so the width below gave the camera its own
+            // 128pt trailing-aligned column and the calendar another one — the
+            // two controls ended up a whole column apart, with the camera
+            // stranded in the middle of the row (founder bug report
+            // 2026-08-17). The pair belongs side by side at the trailing edge;
+            // the fixed width is there so the text does not shift when a chip
+            // becomes a camera.
+            HStack(spacing: 0) {
                 if isEditing && !addedPhotoThisEdit {
                     // Add-photo plus: a bare glyph in the theme colour, not a
                     // button. One photo per edit session — the plus retires
@@ -674,6 +694,14 @@ struct Win95DayPickerSheet: View {
     private var chosen: Date? { current.map { store.calendar.startOfDay(for: $0) } }
     private var today: Date { store.calendar.startOfDay(for: store.now()) }
 
+    /// Which month is on show. The sheet pages rather than scrolls, so this is
+    /// the only thing that moves — see DayPicker.swift.
+    @State private var monthIndex = 0
+
+    private var months: [Date] {
+        DayPickerRange.monthStarts(now: today, calendar: store.calendar)
+    }
+
     var body: some View {
         ZStack {
             Color(hex: scheme.surface).ignoresSafeArea()
@@ -682,9 +710,8 @@ struct Win95DayPickerSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
                         shortcuts
-                        ForEach(DayPickerRange.monthStarts(now: today, calendar: store.calendar),
-                                id: \.self) { month in
-                            monthBlock(month)
+                        if monthIndex < months.count {
+                            monthBlock(months[monthIndex])
                         }
                     }
                     .padding(Win95.Px.grid * 2 * pixel)
@@ -711,12 +738,44 @@ struct Win95DayPickerSheet: View {
         }
     }
 
-    private func monthBlock(_ month: Date) -> some View {
-        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+    /// The month's name between two chevrons, holding still above the grid.
+    private func monthHeader(_ month: Date) -> some View {
+        HStack(spacing: 0) {
+            chevron(pointsLeft: true, enabled: monthIndex > 0) { monthIndex -= 1 }
+
             TypedText(text: DayPickerRange.title(for: month, calendar: store.calendar),
                       face: settings.face, role: .chrome)
-                .font(W95Font.standard(pixel))
+                .font(W95Font.heading(pixel))
                 .foregroundStyle(Win95.text)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+
+            chevron(pointsLeft: false,
+                    enabled: monthIndex < DayPickerRange.months - 1) { monthIndex += 1 }
+        }
+    }
+
+    /// Faded rather than hidden at the ends of the range: a control that
+    /// vanishes moves the month's name, and the name is what you are reading.
+    private func chevron(pointsLeft: Bool, enabled: Bool,
+                         step: @escaping () -> Void) -> some View {
+        PixelChevron(pointsLeft: pointsLeft)
+            .fill(Win95.text)
+            .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
+            .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
+            .opacity(enabled ? 1 : 0.25)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard enabled else { return }
+                SkeuHaptic.selection()
+                step()
+            }
+            .accessibilityLabel(pointsLeft ? "Previous month" : "Next month")
+    }
+
+    private func monthBlock(_ month: Date) -> some View {
+        VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
+            monthHeader(month)
 
             HStack(spacing: 0) {
                 ForEach(DayPickerRange.weekdayHeaders, id: \.self) { day in

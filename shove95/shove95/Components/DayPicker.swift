@@ -9,9 +9,13 @@
 //  see it. The two shortcuts stay above it because "today" and "tomorrow" are
 //  answers people give without thinking about dates at all.
 //
-//  Months are STACKED and scrolled rather than paged with arrows. Paging needs
-//  two more controls and a sense of where you are; stacking needs neither, and
-//  the horizon here is a few months, not a few years.
+//  ONE month at a time, stepped with a chevron either side of its name
+//  (founder direction 2026-08-17, revising the second build). They were
+//  stacked and scrolled before, on the reasoning that paging needs two more
+//  controls and a sense of where you are — but a stack puts the month name in
+//  the scroll's path, so the label telling you WHICH month you are looking at
+//  slides away exactly when you are hunting for a date. Paged, the name holds
+//  still above the grid and the two controls are the sense of place.
 //
 //  There is no "no date" row. A date can be changed — by picking another day,
 //  or by swiping the task to Today or Tomorrow — but taking one off entirely
@@ -24,8 +28,12 @@ import Shove95Kit
 
 /// The days a month grid draws, shared by both looks so they cannot drift.
 enum DayPickerRange {
-    /// How many months the sheet offers, starting with the current one.
-    static let months = 4
+    /// How many months the chevrons reach, counting the current one: this
+    /// month plus a year ahead. Backwards is not offered at all — Soon holds
+    /// only days still to come, and a date behind you rolls the task straight
+    /// into Today as overdue, which is never what picking a day meant
+    /// (founder direction 2026-08-17).
+    static let months = 13
 
     /// Weekday headers, Monday first — the founder's reference starts the week
     /// on Monday, and so does most of Europe. Locale-independent like every

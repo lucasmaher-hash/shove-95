@@ -615,24 +615,6 @@ private struct SkeuAddRow: View {
             // 2026-08-17).
 
 
-            // The calendar, AFTER the camera. Editing a task puts it there,
-            // and a control that changes sides between writing and editing is
-            // a control you have to look for twice (founder bug report
-            // 2026-08-17).
-            if addFocused, bucket == .general {
-                Image(systemName: "calendar")
-                    .font(SkeuFont.at(glyphSize, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    // Lit once a day is chosen, so the row says it is carrying
-                    // one before the task exists to show it.
-                    .foregroundStyle(effectiveDay == nil ? skeu.ink : skeu.accent)
-                    .frame(width: glyphBox, height: glyphBox)
-                    .frame(width: SkeuControl.minTouch, height: rowH)
-                    .contentShape(Rectangle())
-                    .onTapGesture { SkeuHaptic.press(); showAddDayPicker = true }
-                    .accessibilityLabel("Schedule")
-            }
-
             if addFocused {
                 Button {
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -654,6 +636,30 @@ private struct SkeuAddRow: View {
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
                 .accessibilityLabel("Add photo to new task")
             }
+
+            // The calendar, AFTER the camera — which is where editing a task
+            // puts it. It used to sit BEFORE the camera here, so the pair
+            // swapped sides between writing a task and editing one, and you
+            // had to look for the same control twice (founder bug report
+            // 2026-08-17).
+            //
+            // Drawn in the same ink as the camera, never in the accent. It
+            // used to light up once a day was chosen; that made two controls
+            // standing side by side look like different KINDS of thing, and
+            // the row already says which day it belongs to — its heading is
+            // directly above it (founder direction 2026-08-17).
+            if addFocused, bucket == .general {
+                Image(systemName: "calendar")
+                    .font(SkeuFont.at(glyphSize, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(skeu.ink)
+                    .frame(width: glyphBox, height: glyphBox)
+                    .frame(width: SkeuControl.minTouch, height: rowH)
+                    .contentShape(Rectangle())
+                    .onTapGesture { SkeuHaptic.press(); showAddDayPicker = true }
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    .accessibilityLabel("Schedule")
+            }
         }
         .padding(.leading, SkeuSpace.xs)
         .padding(.trailing, F.padTrail)
@@ -672,7 +678,7 @@ private struct SkeuAddRow: View {
                 showAddDayPicker = false
                 pendingDay = picked
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
@@ -922,10 +928,13 @@ extension SkeuRootView {
     /// A section's name. Sits in the list's own margin, not in a slat: it is a
     /// label ON the page, not a thing that can be acted on.
     private func sectionHeading(_ title: String) -> some View {
+        // Set ABOVE the task text, not below it. A heading that names a run of
+        // tasks has to outrank them, and this was an eyebrow in `inkFaint` —
+        // the quietest type in the look — which left the day a task belonged
+        // to harder to read than the task (founder direction 2026-08-17).
         Text(title)
-            .font(SkeuFont.eyebrow)
-            .tracking(0.8)
-            .foregroundStyle(skeu.inkFaint)
+            .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
+            .foregroundStyle(skeu.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, SkeuSpace.xl)
             .padding(.bottom, SkeuSpace.xs)
@@ -1296,7 +1305,7 @@ private struct SkeuTaskRow: View {
                     showDayPicker = false
                     withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
                 }
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
             }
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
             .fullScreenCover(isPresented: $showCamera) {
@@ -1900,6 +1909,14 @@ private struct SkeuDayPickerSheet: View {
     private var chosen: Date? { current.map { store.calendar.startOfDay(for: $0) } }
     private var today: Date { store.calendar.startOfDay(for: store.now()) }
 
+    /// Which month is on show. The sheet pages rather than scrolls, so this is
+    /// the only thing that moves — see DayPicker.swift.
+    @State private var monthIndex = 0
+
+    private var months: [Date] {
+        DayPickerRange.monthStarts(now: today, calendar: store.calendar)
+    }
+
     var body: some View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
@@ -1907,9 +1924,8 @@ private struct SkeuDayPickerSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: SkeuSpace.lg) {
                     shortcuts
-                    ForEach(DayPickerRange.monthStarts(now: today, calendar: store.calendar),
-                            id: \.self) { month in
-                        monthBlock(month)
+                    if monthIndex < months.count {
+                        monthBlock(months[monthIndex])
                     }
                 }
                 .padding(.horizontal, SkeuSpace.xl)
@@ -1943,12 +1959,40 @@ private struct SkeuDayPickerSheet: View {
             .accessibilityAddTraits(day == chosen ? [.isButton, .isSelected] : .isButton)
     }
 
+    /// The month's name between two chevrons, holding still above the grid.
+    private func monthHeader(_ month: Date) -> some View {
+        HStack(spacing: 0) {
+            chevron("chevron.left", enabled: monthIndex > 0) { monthIndex -= 1 }
+
+            Text(DayPickerRange.title(for: month, calendar: store.calendar))
+                .font(SkeuFont.at(SkeuToggle.label * textScale * 1.32, weight: .semibold))
+                .foregroundStyle(skeu.ink)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+
+            chevron("chevron.right",
+                    enabled: monthIndex < DayPickerRange.months - 1) { monthIndex += 1 }
+        }
+    }
+
+    /// Faded rather than hidden at the ends of the range: a control that
+    /// vanishes moves the month's name, and the name is what you are reading.
+    private func chevron(_ symbol: String, enabled: Bool,
+                         step: @escaping () -> Void) -> some View {
+        Image(systemName: symbol)
+            .font(SkeuFont.at(SkeuToggle.label * textScale, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(skeu.ink)
+            .frame(width: SkeuControl.minTouch, height: SkeuControl.minTouch)
+            .opacity(enabled ? 1 : 0.25)
+            .contentShape(Rectangle())
+            .skeuPress { if enabled { step() } }
+            .accessibilityLabel(symbol == "chevron.left" ? "Previous month" : "Next month")
+    }
+
     private func monthBlock(_ month: Date) -> some View {
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            Text(DayPickerRange.title(for: month, calendar: store.calendar))
-                .font(SkeuFont.eyebrow)
-                .tracking(0.8)
-                .foregroundStyle(skeu.inkFaint)
+            monthHeader(month)
 
             HStack(spacing: 0) {
                 ForEach(DayPickerRange.weekdayHeaders, id: \.self) { day in
