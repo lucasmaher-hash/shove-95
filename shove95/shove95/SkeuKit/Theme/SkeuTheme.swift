@@ -51,6 +51,18 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
         light: .derived(from: Color(hex: 0xC96F60), accent: Color(hex: 0x8E3324)),
         dark: .derived(from: Color(hex: 0xC96F60), accent: Color(hex: 0x8E3324), dark: true))
 
+    /// The colour this theme shows in the PICKER.
+    ///
+    /// Not `light.material` — that is the surface the app is painted in, and
+    /// at 0.62 of the seed's saturation it is deliberately quiet. Five quiet
+    /// surfaces side by side read as five greys with a hint of something
+    /// (founder direction 2026-08-17). The swatch says what the theme IS, so
+    /// it takes the seed at full strength; nothing the app paints changes.
+    var swatch: Color {
+        let s = light.material.hsb
+        return Color(h: s.h, s: min(s.s * 2.1, 0.82), b: min(s.b * 1.02, 0.94))
+    }
+
     static let all: [SkeuTheme] = [cream, clay, moss, slate, ember]
 
     static func named(_ id: String) -> SkeuTheme {

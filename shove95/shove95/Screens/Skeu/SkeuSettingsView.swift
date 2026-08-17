@@ -413,7 +413,7 @@ struct SkeuSettingsView: View {
                               in group: Namespace.ID,
                               action: @escaping () -> Void) -> some View {
         SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill",
-                    fill: theme.light.material) {
+                    fill: theme.swatch) {
             Text(" ").skeuSegmentLabel(textScale)
         }
         .skeuPress(haptic: false) {

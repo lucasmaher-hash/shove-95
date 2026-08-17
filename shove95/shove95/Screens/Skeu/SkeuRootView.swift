@@ -966,6 +966,20 @@ private struct SkeuTaskRow: View {
             // own translation is the gesture itself and always follows.
             .scaleEffect(reduceMotion ? 1 : (isPressing ? 0.97 : 1), anchor: .center)
             .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.press, value: isPressing)
+            // The whole row lifts in tone under a hold, as the Win95 row does
+            // (founder direction 2026-08-17). Toward the LIGHT in the dark and
+            // toward the dark in the light — either way it moves away from the
+            // page, so the row reads as picked up rather than merely smaller.
+            //
+            // Behind the content and in front of the catcher: the gesture
+            // machine must keep receiving the touch that caused this.
+            .background {
+                RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
+                    .fill(skeu.isDark ? skeu.materialTop : skeu.recess)
+                    .opacity(isPressing ? (skeu.isDark ? 0.55 : 0.35) : 0)
+                    .animation(SkeuMotion.tint, value: isPressing)
+                    .allowsHitTesting(false)
+            }
             // Touch sandwich: the catcher sits below the content, so the
             // checkbox's own tap gesture wins its touches and everything else
             // lands in the state machine.
