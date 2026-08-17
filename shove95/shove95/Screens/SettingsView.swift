@@ -473,6 +473,19 @@ private struct LanguageSection: View {
                         guard isFocused, !isOpen else { return }
                         isOpen = true
                     }
+            // DOCKED to the keyboard, not laid out under the field.
+            //
+            // Inline, the list opened into a page that the keyboard had
+            // already covered — the field it belongs to sat just above the
+            // keyboard, so its own choices landed behind it and you scrolled
+            // blind (founder direction 2026-08-17). A keyboard toolbar is the
+            // one placement that needs no arithmetic: iOS puts it exactly on
+            // top of the keyboard and moves it when the keyboard moves.
+                    .toolbar {
+                        ToolbarItem(placement: .keyboard) {
+                            if isOpen { list.padding(.horizontal, Win95.Px.grid * pixel) }
+                        }
+                    }
 
                 Win95Button(action: toggle, compact: true, width: buttonColumn) {
                     TypedText(text: isOpen ? "Done" : "Edit", face: settings.face, role: .content)
@@ -481,8 +494,6 @@ private struct LanguageSection: View {
                 }
                 .accessibilityLabel(isOpen ? "Close language list" : "Choose language")
             }
-
-            if isOpen { list }
         }
     }
 

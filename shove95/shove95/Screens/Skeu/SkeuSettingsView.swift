@@ -655,6 +655,19 @@ private struct SkeuLanguageRow: View {
                         guard isFocused, !isOpen else { return }
                         withAnimation(SkeuMotion.layout) { isOpen = true }
                     }
+            // DOCKED to the keyboard, not laid out under the field.
+            //
+            // Inline, the list opened into a page that the keyboard had
+            // already covered — the field it belongs to sat just above the
+            // keyboard, so its own choices landed behind it and you scrolled
+            // blind (founder direction 2026-08-17). A keyboard toolbar is the
+            // one placement that needs no arithmetic: iOS puts it exactly on
+            // top of the keyboard and moves it when the keyboard moves.
+                    .toolbar {
+                        ToolbarItem(placement: .keyboard) {
+                            if isOpen { list.padding(.horizontal, SkeuSpace.md) }
+                        }
+                    }
 
                 SkeuRowButton(title: isOpen ? "Done" : "Edit") {
                     SkeuHaptic.press()
@@ -668,14 +681,12 @@ private struct SkeuLanguageRow: View {
                 }
                 .accessibilityLabel(isOpen ? "Close language list" : "Choose language")
             }
-
-            if isOpen { list }
         }
     }
 
     /// Sits in a trough like every other well on this screen, and is bounded
-    /// so the sheet stays scrollable — a list grown to thirty rows would push
-    /// Data off the bottom and swallow the outer scroll.
+    /// so it leaves the page it is floating over visible — the field it
+    /// belongs to has to stay on screen above it.
     private var list: some View {
         ScrollView {
             VStack(spacing: 0) {
