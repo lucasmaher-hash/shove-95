@@ -30,6 +30,11 @@ struct TitleBar: View {
     /// True while the workspace dropdown is open — the label shrinks slightly
     /// for the duration, like a held control (founder direction 2026-08-04).
     var workspaceMenuOpen: Bool = false
+    /// Whether there is anywhere for the workspace menu to GO. With one
+    /// workspace there is nothing to pick, and an arrow that opens a list of
+    /// nothing is a promise the app cannot keep (founder direction
+    /// 2026-08-17).
+    var hasOtherWorkspaces: Bool = true
     var onWorkspace: (() -> Void)? = nil
     /// `true` renders a close ✕ instead of the settings gear.
     var isClose: Bool = false
@@ -52,7 +57,8 @@ struct TitleBar: View {
                         .font(W95Font.standard(pixel, role: .chrome))
                         .foregroundStyle(Color(hex: scheme.selectionText))
                         .lineLimit(1)
-                    DownArrowGlyph()
+                    if hasOtherWorkspaces {
+                        DownArrowGlyph()
                         .fill(Color(hex: scheme.selectionText))
                         .frame(width: 7 * pixel, height: 4 * pixel)
                         // Turns over while the menu is open, matching the skeu
@@ -60,6 +66,7 @@ struct TitleBar: View {
                         // at what it will do next, in both looks.
                         .rotationEffect(.degrees(workspaceMenuOpen ? 180 : 0))
                         .animation(.spring(duration: 0.28), value: workspaceMenuOpen)
+                    }
                 }
                 .scaleEffect(workspaceMenuOpen ? 0.92 : 1, anchor: .leading)
                 .animation(.spring(duration: 0.22), value: workspaceMenuOpen)

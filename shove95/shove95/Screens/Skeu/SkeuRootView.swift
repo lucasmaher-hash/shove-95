@@ -926,11 +926,17 @@ private struct SkeuWorkspacePill: View {
                     // Two strokes, nothing else — no circle, no glass of its
                     // own. It rides inside the pill it controls, the same way
                     // the Win95 ▼ rides inside the title bar it controls.
-                    ChevronGlyph()
-                        .stroke(skeu.ink,
-                                style: StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round))
-                        .frame(width: label * 0.55, height: label * 0.32)
-                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                    // Only when there is somewhere to go. One workspace means
+                    // nothing to pick, and an arrow onto an empty list is a
+                    // promise the app cannot keep (founder direction
+                    // 2026-08-17).
+                    if !others.isEmpty {
+                        ChevronGlyph()
+                            .stroke(skeu.ink,
+                                    style: StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round))
+                            .frame(width: label * 0.55, height: label * 0.32)
+                            .rotationEffect(.degrees(isOpen ? 180 : 0))
+                    }
                 }
                 .foregroundStyle(skeu.ink)
                 .frame(height: rowHeight)

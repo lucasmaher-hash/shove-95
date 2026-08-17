@@ -50,6 +50,7 @@ struct RootView: View {
                 title: showLive ? "Live" : settings.name(for: selected),
                 workspace: currentWorkspaceName,
                 workspaceMenuOpen: showWorkspaceMenu,
+                hasOtherWorkspaces: store.workspaces().count > 1,
                 onWorkspace: {
                     withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
                         showWorkspaceMenu.toggle()
