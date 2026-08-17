@@ -265,15 +265,33 @@ struct Taskbar: View {
     // after every scheme/appearance change (founder bug report 2026-08-14).
     @Environment(\.win95Scheme) private var scheme
     @Binding var selected: Bucket
+    /// True while the Live section holds the screen. Its button sits apart
+    /// from the three, the way the skeu bar keeps Live in its own frame —
+    /// Live is not a slice of the date line the others divide up.
+    @Binding var showLive: Bool
 
     var body: some View {
         HStack(spacing: pixel) {
+            // Its own button, squared and wordless: the mark says what a label
+            // would, and the row has no width to spare for both.
+            LiveTaskbarButton(isActive: showLive) {
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) { showLive = true }
+            }
+            // A gap wider than the one between the three, so the eye reads
+            // "this one is not with those" without a divider.
+            Spacer(minLength: 0).frame(width: Win95.Px.grid * pixel)
+
             ForEach(Bucket.line, id: \.self) { bucket in
-                TaskbarButton(bucket: bucket, isActive: bucket == selected) {
+                TaskbarButton(bucket: bucket, isActive: !showLive && bucket == selected) {
                     // Instant switch — appearance never animates (design.md §8).
                     var t = Transaction()
                     t.disablesAnimations = true
-                    withTransaction(t) { selected = bucket }
+                    withTransaction(t) {
+                        showLive = false
+                        selected = bucket
+                    }
                 }
             }
         }
@@ -297,6 +315,29 @@ struct Taskbar: View {
                 Rectangle().fill(Color(hex: scheme.light)).frame(height: pixel)
             }
         }
+    }
+}
+
+/// The Live button: square, wordless, and bevelled like its neighbours.
+///
+/// A circle cannot be drawn in whole pixels, so the mark is `PixelLiveGlyph`
+/// on an 11×11 grid — the same ring-and-core the skeu bar shows, quantised
+/// (founder direction 2026-08-17).
+private struct LiveTaskbarButton: View {
+    @Environment(\.pixel) private var pixel
+    @Environment(\.win95Scheme) private var scheme
+    let isActive: Bool
+    var action: () -> Void
+
+    var body: some View {
+        PixelLiveGlyph(pixel: pixel, tint: Color(hex: scheme.text))
+            .frame(width: Win95.Px.grid * 9 * pixel)
+            .frame(maxHeight: .infinity)
+            .modifier(TaskbarBevel(isActive: isActive, pixel: pixel))
+            .contentShape(Rectangle())
+            .onTapGesture { SkeuHaptic.selection(); action() }
+            .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
+            .accessibilityLabel("Live")
     }
 }
 

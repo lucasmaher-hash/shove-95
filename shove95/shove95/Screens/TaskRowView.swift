@@ -253,29 +253,10 @@ struct TaskRowView: View {
             // grammar of it: while you are working on a task you can always
             // reach for it, and afterwards it is only there when it means
             // something (founder direction 2026-08-16).
-            if isEditing || task.isPinned {
-                PinGlyph(isPinned: task.isPinned)
-                    // While EDITING it is a control you can reach for, so it
-                    // wears plain text colour whether or not it holds — the
-                    // state is in the glyph's shape (struck ring → solid
-                    // core), never in its tint (N2). It was reaching for
-                    // `shadow` when unpinned, which is a bevel tone and went
-                    // near-black on a dark scheme. Outside editing this glyph
-                    // only appears BECAUSE it holds, so there it keeps the
-                    // accent that marks it (founder direction 2026-08-16).
-                    .fill(isEditing ? Win95.text : Win95.accent)
-                    // Breathes while it holds — see SkeuPulse. After the fill,
-                    // because a Shape has to become a View first.
-                    .skeuPulse(task.isPinned && !isEditing, dark: scheme.isDark)
-                    .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
-                    .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
-                    .contentShape(Rectangle())
-                    .onTapGesture { pins.toggle(task, store: store) }
-                    .accessibilityLabel(task.isPinned
-                                        ? "Unpin from Lock Screen"
-                                        : "Pin to Lock Screen")
-                    .accessibilityAddTraits(task.isPinned ? [.isButton, .isSelected] : .isButton)
-            }
+            // NO pin here. A task becomes live by being typed into the Live
+            // section, and that is the only door (founder direction
+            // 2026-08-17).
+
 
             Group {
                 if isEditing && !addedPhotoThisEdit {

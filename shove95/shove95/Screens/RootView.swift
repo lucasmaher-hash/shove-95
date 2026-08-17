@@ -17,6 +17,8 @@ struct RootView: View {
     /// Owned by AppShell — see that file for why the sheet cannot live here.
     @Binding var showSettings: Bool
     @State private var showWorkspaceMenu = false
+    /// True when the Live section holds the well instead of a task list.
+    @State private var showLive = false
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -46,7 +48,7 @@ struct RootView: View {
     var body: some View {
         VStack(spacing: 0) {
             TitleBar(
-                title: settings.name(for: selected),
+                title: showLive ? "Live" : settings.name(for: selected),
                 workspace: currentWorkspaceName,
                 workspaceMenuOpen: showWorkspaceMenu,
                 onWorkspace: {
@@ -68,8 +70,14 @@ struct RootView: View {
             // the frame reads as fixed and the content as moving through it.
             SunkenWell {
                 ZStack {
-                    TaskListView(bucket: selected)
-                        .id(selected)
+                    Group {
+                        if showLive {
+                            LiveSectionView()
+                        } else {
+                            TaskListView(bucket: selected)
+                        }
+                    }
+                        .id(showLive ? "live" : selected.rawValue)
                         .transition(.asymmetric(
                             insertion: .move(edge: goingRight ? .trailing : .leading),
                             removal: .move(edge: goingRight ? .leading : .trailing)
@@ -95,7 +103,7 @@ struct RootView: View {
                 }
             }
 
-            Taskbar(selected: tabSelection)
+            Taskbar(selected: tabSelection, showLive: $showLive)
         }
         // Win95 palettes are read through static accessors, so the chrome is
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the
@@ -147,17 +155,6 @@ struct RootView: View {
         .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
         .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
-        // Only one task may be pinned, so pinning a second one asks first —
-        // silently dropping the earlier pin would read as a bug.
-        .overlay {
-            if let pending = pins.replacement {
-                Win95PinReplaceDialog(outgoing: pending.outgoingTitle) {
-                    pins.confirm(store: store)
-                } onCancel: {
-                    pins.cancel()
-                }
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).
