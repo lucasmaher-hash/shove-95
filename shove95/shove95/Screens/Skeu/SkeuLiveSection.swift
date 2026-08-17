@@ -188,6 +188,10 @@ struct SkeuLiveSection: View {
                 .font(SkeuFont.at(SkeuToggle.label * textScale, weight: .medium))
                 .foregroundStyle(on ? skeu.ink : skeu.inkMuted)
         }
+        // The MARK and the WORD breathe together, the same breath the tab
+        // shows (founder direction 2026-08-17). The glass holds still: the
+        // button is not what is on air, its contents are what say so.
+        .skeuPulse(on)
         .padding(.horizontal, SkeuSpace.lg)
         .frame(height: buttonH)
         .frame(maxWidth: .infinity)

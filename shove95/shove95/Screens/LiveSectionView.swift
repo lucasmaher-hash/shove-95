@@ -115,6 +115,9 @@ struct LiveSectionView: View {
                             .font(W95Font.standard(pixel))
                             .foregroundStyle(Win95.text)
                     }
+                    // Mark and word together — see SkeuLiveSection. The bevel
+                    // holds still; the button is not what is on air.
+                    .skeuPulse(note.isPinned, dark: scheme.isDark)
                 }
 
                 // The BIN, not the word: a mark needs no button-width, and
