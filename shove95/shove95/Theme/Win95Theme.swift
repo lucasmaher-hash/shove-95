@@ -117,7 +117,14 @@ extension Win95 {
         static let buttonMinHeight: CGFloat = 23
         static let buttonCompact: CGFloat   = 16  // Default/Delete in Settings
         static let checkbox: CGFloat        = 12
-        static let titleBar: CGFloat        = 18
+        /// Raised from 18 (founder direction 2026-08-17). The controls are
+        /// 14 spec px tall, so at 18 there were two left over — a hairline
+        /// above and below, which reads as the ✕ touching the roof rather
+        /// than sitting in the bar. At 22 there are four either side.
+        ///
+        /// This is also the +20% the founder asked for across every screen's
+        /// top section: one figure drives all of them.
+        static let titleBar: CGFloat        = 22
         static let titleBarControlW: CGFloat = 16
         static let titleBarControlH: CGFloat = 14
         static let taskbar: CGFloat         = 28

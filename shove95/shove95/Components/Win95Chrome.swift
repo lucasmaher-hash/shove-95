@@ -117,9 +117,9 @@ struct TitleBar: View {
             .padding(.trailing, pixel * 2)
             .accessibilityLabel(isClose ? "Close" : "Settings")
         }
-        // A gap above and below the controls, so they sit IN the bar rather
-        // than filling it (founder direction 2026-08-17).
-        .padding(.vertical, pixel)
+        // No padding here: the frame below is FIXED, so anything added
+        // inside it is simply squeezed back out. The gap above and below the
+        // controls comes from the bar's own height — see Px.titleBar.
         .frame(height: Win95.Px.titleBar * pixel)
         .background(
             LinearGradient(colors: [Color(hex: scheme.titleA), Color(hex: scheme.titleB)],
