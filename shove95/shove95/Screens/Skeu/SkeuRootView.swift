@@ -228,7 +228,17 @@ struct SkeuRootView: View {
                 // frame reads as fixed and the content as moving through it
                 // (the Win95 root's rule, matched here).
                 ZStack {
+                    // The MARGIN is on the list, the CLIP is on the screen.
+                    //
+                    // Both used to sit outside: clipping first and padding
+                    // after put the clip rect a margin in from each edge, so a
+                    // swiped row hit an invisible wall and stopped with a
+                    // strip of page still showing beside it (founder bug
+                    // report 2026-08-17). The rows are still inset — they just
+                    // no longer run out of screen before they run out of
+                    // screen.
                     taskList
+                        .padding(.horizontal, F.margin)
                         .id(bucket)
                         .transition(.asymmetric(
                             insertion: .move(edge: goingRight ? .trailing : .leading),
@@ -237,7 +247,6 @@ struct SkeuRootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped() // contents travel; the window never does
-                .padding(.horizontal, F.margin)
                 // The undo panel FLOATS over the list rather than taking
                 // layout space, so it can come and go without shifting the
                 // rows — and it sits above the tab bar, not inside it. Outside
@@ -283,7 +292,8 @@ struct SkeuRootView: View {
         // day boundary silently passes — a DATA bug, not a cosmetic one.
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
-            store.runDayRolloverPassIfNeeded()
+            store.runDayRolloverPassIfNeeded(
+                timeRules: settings.timeRulesEnabled(for: .today))
         }
     }
 

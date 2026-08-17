@@ -142,7 +142,8 @@ struct shove95App: App {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 // Day-rollover placement pass — cheap and idempotent (PRD §2).
-                store.runDayRolloverPassIfNeeded()
+                store.runDayRolloverPassIfNeeded(
+                    timeRules: settings.timeRulesEnabled(for: .today))
                 sync.refreshAccountStatus()
             }
         }

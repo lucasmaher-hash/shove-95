@@ -26,6 +26,7 @@ final class AppSettings {
         static let colorSlot = "settings.color.slot"
         static let sharedSlot = "settings.color.shared"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
+        static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
     }
 
     /// The chosen interface language, as a BCP-47 code.
@@ -122,6 +123,9 @@ final class AppSettings {
 
     /// Custom tab labels. Empty string = use the built-in name.
     private var customNames: [Bucket: String]
+    /// Per tab, whether its time rules apply. Absent means on — see
+    /// `timeRulesEnabled(for:)`.
+    private var timeRules: [Bucket: Bool] = [:]
 
     /// Which workspace this DEVICE is looking at. Deliberately not synced —
     /// the workspaces themselves are records now, but where you happen to be
@@ -168,6 +172,14 @@ final class AppSettings {
         }
         customNames = names
 
+        var rules: [Bucket: Bool] = [:]
+        for bucket in Bucket.line {
+            if let stored = UserDefaults.standard.object(forKey: Key.timeRules(bucket)) as? Bool {
+                rules[bucket] = stored
+            }
+        }
+        timeRules = rules
+
         currentWorkspaceID = UserDefaults.standard.string(forKey: Key.currentWorkspace)
             ?? Workspace.defaultID
 
@@ -193,6 +205,26 @@ final class AppSettings {
 
     /// The label to show for a bucket — the user's name if set, else the default.
     /// Bucket semantics never change; only the label does.
+    /// Whether a tab's TIME RULES apply.
+    ///
+    /// Off means the tab moves nothing (founder direction, settled
+    /// 2026-08-17): no rollover at midnight, no pull into Today, no overdue
+    /// mark. Tasks stay exactly where they were put. The tab keeps its name
+    /// and behaves the way General does today.
+    ///
+    /// General is the one tab this cannot be turned on for — it has no time
+    /// rules to switch off, so the control would be a lie.
+    func timeRulesEnabled(for bucket: Bucket) -> Bool {
+        guard bucket != .general else { return false }
+        return timeRules[bucket] ?? true
+    }
+
+    func setTimeRules(_ enabled: Bool, for bucket: Bucket) {
+        guard bucket != .general else { return }
+        timeRules[bucket] = enabled
+        UserDefaults.standard.set(enabled, forKey: Key.timeRules(bucket))
+    }
+
     func name(for bucket: Bucket) -> String {
         customNames[bucket] ?? bucket.displayName
     }

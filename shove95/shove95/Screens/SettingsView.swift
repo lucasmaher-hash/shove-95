@@ -35,6 +35,8 @@ struct SettingsView: View {
     @State private var showArchive = false
     @State private var showAbout = false
     @State private var showHowTo = false
+    /// The tab whose menu is open, if any.
+    @State private var tabMenuFor: Bucket?
     var onClose: () -> Void
 
     var body: some View {
@@ -58,7 +60,9 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: rowGap) {
                                 ForEach(Bucket.line, id: \.self) { bucket in
                                     NameField(bucket: bucket,
-                                              buttonColumn: buttonColumn)
+                                              buttonColumn: buttonColumn) {
+                                        tabMenuFor = bucket
+                                    }
                                 }
                             }
                         }
@@ -93,6 +97,13 @@ struct SettingsView: View {
         .background(Win95.surface)
         // In from the left edge, or down from the title bar — the same two
         // ways out the skeu sheets take. See SwipeToDismiss.
+        // The tab menu, over the whole window — it is a decision about the
+        // tab, not another control in the list.
+        .overlay {
+            if let bucket = tabMenuFor {
+                Win95TabMenu(bucket: bucket) { tabMenuFor = nil }
+            }
+        }
         .swipeToDismiss(headerHeight: Win95.Px.titleBar * pixel,
                         // CLEAR, not a colour. The skeu sheets get away with
                         // their canvas because the screen behind them is that
@@ -615,6 +626,9 @@ private struct NameField: View {
     let bucket: Bucket
     /// Shared with Workspaces, so every field on the screen ends at the same x.
     let buttonColumn: CGFloat
+    /// Opens the tab's own menu. The field renames; this is everything else
+    /// about the tab (founder direction 2026-08-17).
+    let onEdit: () -> Void
 
     @State private var draft = ""
     @FocusState private var focused: Bool
@@ -643,12 +657,13 @@ private struct NameField: View {
             // geometry: a raised square. A circle cannot be drawn in whole
             // pixels, and whole pixels are the one thing this look does not
             // bend (founder direction 2026-08-17).
-            Win95Button(action: { focused = true },
-                        compact: true,
-                        width: Win95.rowHeight(pixel)) {
+            Win95Button(action: {
+                focused = false
+                onEdit()
+            }, compact: true, width: Win95.rowHeight(pixel)) {
                 PixelPencil(pixel: pixel)
             }
-            .accessibilityLabel("Rename \(bucket.displayName)")
+            .accessibilityLabel("Settings for \(settings.name(for: bucket))")
 
             Win95Button(action: {
                 focused = false
@@ -805,5 +820,90 @@ private struct WorkspaceRow: View {
     private func commit() {
         store.renameWorkspace(workspace, to: draft)
         draft = workspace.name
+    }
+}
+
+
+// MARK: - Tab menu
+
+/// One tab's own settings, over the window. Today it holds a single decision;
+/// it is a menu rather than a switch in the row because that decision is about
+/// the TAB, and the row is about its name.
+///
+/// The skeu twin is `SkeuTabMenu` — same decision, same wording, this look's
+/// parts (C4).
+private struct Win95TabMenu: View {
+    @Environment(\.pixel) private var pixel
+    /// Read so a face change re-renders this view — see `\.appFace`.
+    @Environment(\.appFace) private var face
+    @Environment(AppSettings.self) private var settings
+    let bucket: Bucket
+    let onClose: () -> Void
+
+    private var enabled: Bool { settings.timeRulesEnabled(for: bucket) }
+
+    var body: some View {
+        ZStack {
+            // The scrim cancels, and it is `darkShadow` rather than black so
+            // it re-tints with the palette — see Win95PinReplaceDialog.
+            Win95.darkShadow.opacity(0.4)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onClose)
+
+            VStack(spacing: 0) {
+                TitleBar(title: settings.name(for: bucket),
+                         isClose: true, onSettings: onClose)
+
+                VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
+                    if bucket == .general {
+                        // Honest rather than disabled-and-silent: General has
+                        // no time rules, so there is nothing here to switch.
+                        Text("General never moves anything on its own. There is no time rule here to turn off.")
+                            .font(W95Font.standard(pixel))
+                            .foregroundStyle(Win95.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        HStack(spacing: Win95.Px.grid * pixel) {
+                            Win95Checkbox(isChecked: enabled) { toggle() }
+                            TypedText(text: "Time rules", face: settings.face, role: .content)
+                                .font(W95Font.standard(pixel))
+                                .foregroundStyle(Win95.text)
+                        }
+                        // The label is part of the control, the way a Win95
+                        // checkbox has always worked.
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: toggle)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(enabled ? [.isButton, .isSelected] : .isButton)
+
+                        Text(enabled
+                             ? "Tasks roll over at midnight, arrive in Today when their day comes, and are marked when they are late."
+                             : "Nothing moves on its own. Tasks stay where you put them, like General.")
+                            .font(W95Font.small(pixel))
+                            .foregroundStyle(Win95.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack {
+                        Spacer(minLength: 0)
+                        Win95Button(action: onClose, compact: true,
+                                    width: Win95.Px.grid * 14 * pixel) {
+                            Text("OK")
+                                .font(W95Font.small(pixel))
+                                .foregroundStyle(Win95.text)
+                        }
+                    }
+                }
+                .padding(Win95.Px.grid * 3 * pixel)
+            }
+            .background(Win95.surface)
+            .bevelRaised(pixel)
+            .padding(.horizontal, Win95.Px.grid * 6 * pixel)
+        }
+    }
+
+    private func toggle() {
+        settings.setTimeRules(!enabled, for: bucket)
     }
 }

@@ -98,6 +98,8 @@ struct SkeuSettingsView: View {
     /// The workspace waiting on a yes. Its tasks are not destroyed either way
     /// — they fold into the default — but the label is gone for good.
     @State private var pendingDelete: Workspace?
+    /// The tab whose menu is open, if any.
+    @State private var timeRulesFor: Bucket?
     @State private var newWorkspace = ""
     @FocusState private var addWorkspaceFocused: Bool
     // One namespace per toggle row: the gliding pill must travel WITHIN its
@@ -212,6 +214,15 @@ struct SkeuSettingsView: View {
                 .ignoresSafeArea(.container, edges: .bottom)
             }
         }
+        // The tab menu, over the whole sheet rather than inside a card — it
+        // is a decision about the tab, not another control in the list.
+        .overlay {
+            if let bucket = timeRulesFor {
+                SkeuTabMenu(bucket: bucket) {
+                    withAnimation(SkeuMotion.layout) { timeRulesFor = nil }
+                }
+            }
+        }
         // In from the left edge, or down from the header — see SwipeToDismiss.
         // The band covers the title AND its ✕, with the header's own padding
         // either side — measured from below the safe area.
@@ -268,7 +279,7 @@ struct SkeuSettingsView: View {
         card("Tab names") {
             VStack(spacing: SkeuSpace.sm) {
                 ForEach(Bucket.line, id: \.self) { bucket in
-                    SkeuNameField(bucket: bucket)
+                    SkeuNameField(bucket: bucket) { timeRulesFor = bucket }
                 }
             }
         }
@@ -555,6 +566,9 @@ private struct SkeuNameField: View {
     @Environment(\.skeuFace) private var face
     @Environment(AppSettings.self) private var settings
     let bucket: Bucket
+    /// Opens the tab's own menu. The field renames; this is everything else
+    /// about the tab (founder direction 2026-08-17).
+    let onEdit: () -> Void
 
     @State private var draft = ""
     @FocusState private var focused: Bool
@@ -595,9 +609,10 @@ private struct SkeuNameField: View {
                 .contentShape(Circle())
                 .skeuPress {
                     SkeuHaptic.press()
-                    focused = true
+                    focused = false
+                    onEdit()
                 }
-                .accessibilityLabel("Rename \(bucket.displayName)")
+                .accessibilityLabel("Settings for \(settings.name(for: bucket))")
 
             // Fades when the name already IS the default — a control that
             // would do nothing shouldn't invite a press.
@@ -834,5 +849,94 @@ private struct SkeuWorkspaceRow: View {
     private func commit() {
         store.renameWorkspace(workspace, to: draft)
         draft = workspace.name
+    }
+}
+
+
+// MARK: - Tab menu
+
+/// One tab's own settings, over the sheet. Today it holds a single decision;
+/// it is a menu rather than a switch in the row because that decision is about
+/// the TAB, and the row is about its name.
+private struct SkeuTabMenu: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @Environment(AppSettings.self) private var settings
+    let bucket: Bucket
+    let onClose: () -> Void
+
+    /// The gliding pill's namespace — both segments share it.
+    @Namespace private var pill
+
+    private var enabled: Bool { settings.timeRulesEnabled(for: bucket) }
+
+    var body: some View {
+        ZStack {
+            // Tapping off closes it — the same way every other overlay here
+            // behaves.
+            skeu.shadow.opacity(0.45)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onClose)
+
+            SkeuCard {
+                VStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                    Text(settings.name(for: bucket))
+                        .font(SkeuFont.at(G.label * textScale * 1.25, weight: .semibold))
+                        .foregroundStyle(skeu.ink)
+
+                    if bucket == .general {
+                        // Honest rather than disabled-and-silent: General has
+                        // no time rules, so there is nothing here to switch.
+                        Text("General never moves anything on its own. There is no time rule here to turn off.")
+                            .font(SkeuFont.at(G.label * textScale))
+                            .foregroundStyle(skeu.inkFaint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Time rules")
+                            .font(SkeuFont.at(G.label * textScale, weight: .medium))
+                            .foregroundStyle(skeu.ink)
+
+                        SkeuSegmentedTrough {
+                            HStack(spacing: 0) {
+                                choice("On", isOn: true)
+                                choice("Off", isOn: false)
+                            }
+                        }
+
+                        Text(enabled
+                             ? "Tasks roll over at midnight, arrive in Today when their day comes, and are marked when they are late."
+                             : "Nothing moves on its own. Tasks stay where you put them, like General.")
+                            .font(SkeuFont.at(G.label * textScale * 0.92))
+                            .foregroundStyle(skeu.inkFaint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    SkeuRowButton(title: "Done", action: onClose)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityLabel("Close tab settings")
+                }
+            }
+            .padding(.horizontal, SkeuTopBar.margin)
+        }
+        .transition(.opacity)
+    }
+
+    private func choice(_ title: String, isOn: Bool) -> some View {
+        SkeuSegment(isSelected: enabled == isOn,
+                    namespace: pill,
+                    geometryID: "tab.timeRules") {
+            Text(title)
+                .font(SkeuFont.at(G.label * textScale, weight: .medium))
+                .foregroundStyle(skeu.ink)
+                .frame(maxWidth: .infinity)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            SkeuHaptic.press()
+            withAnimation(SkeuMotion.layout) {
+                settings.setTimeRules(isOn, for: bucket)
+            }
+        }
     }
 }

@@ -556,7 +556,12 @@ final class TaskStore {
     /// Day-rollover placement pass (PRD §3). Runs on app-active and
     /// significant-time-change. Idempotent: the `overduePlaced` flag guards
     /// every task, so re-running is free and dragged tasks are never touched.
-    func runDayRolloverPassIfNeeded() {
+    ///
+    /// `timeRules` is Today's own switch (see `AppSettings.timeRulesEnabled`).
+    /// Off, the pass does not run at all: nothing rolls over, nothing is
+    /// marked overdue, and a task stays where it was put.
+    func runDayRolloverPassIfNeeded(timeRules: Bool = true) {
+        guard timeRules else { return }
         let now = now()
         let visibleToday = tasks(in: .today).active
         for (task, order) in Placement.rolloverPlacements(visibleToday: visibleToday, now: now, calendar: calendar) {

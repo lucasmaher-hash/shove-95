@@ -161,7 +161,8 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).
-            store.runDayRolloverPassIfNeeded()
+            store.runDayRolloverPassIfNeeded(
+                timeRules: settings.timeRulesEnabled(for: .today))
         }
         .onChange(of: showSettings) { _, open in
             if open { closeWorkspaceMenu() }
