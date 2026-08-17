@@ -54,56 +54,65 @@ struct SwipeToDismiss: ViewModifier {
     private static let edge: CGFloat = 24
 
     @State private var offset: CGSize = .zero
+    /// The status-bar inset, measured rather than assumed. `startLocation` is
+    /// global and counts it; the header band is stated from below it.
+    @State private var topInset: CGFloat = 0
 
     func body(content: Content) -> some View {
-        GeometryReader { proxy in
-            let band = proxy.safeAreaInsets.top + headerHeight
-
-            ZStack {
-                backdrop.ignoresSafeArea()
-
-                content
-                    .offset(x: offset.width, y: offset.height)
-            }
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 12, coordinateSpace: .global)
-                    .onChanged { value in
-                        switch mode(for: value, band: band) {
-                        case .horizontal:
-                            offset = CGSize(width: max(0, value.translation.width), height: 0)
-                        case .vertical:
-                            offset = CGSize(width: 0, height: max(0, value.translation.height))
-                        case .none:
-                            offset = .zero
-                        }
-                    }
-                    .onEnded { value in
-                        let mode = mode(for: value, band: band)
-                        let travelled = mode == .horizontal
-                            ? value.translation.width : value.translation.height
-                        let speed = mode == .horizontal
-                            ? value.predictedEndTranslation.width - value.translation.width
-                            : value.predictedEndTranslation.height - value.translation.height
-                        let committed = mode != .none
-                            && (travelled > Self.distance || speed > Self.velocity)
-
-                        if committed {
-                            SkeuHaptic.press()
-                            onDismiss()
-                        }
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                            offset = .zero
-                        }
-                    }
-            )
+        ZStack {
+            backdrop.ignoresSafeArea()
+            content.offset(x: offset.width, y: offset.height)
         }
-        .ignoresSafeArea()
+        // The measurement lives in a BACKGROUND, not around the content.
+        // Wrapping the content in an ignoresSafeArea GeometryReader pulled
+        // every sheet up under the status bar — the header slid off the top on
+        // all four screens in both looks (founder bug report 2026-08-17).
+        // A background reader takes no layout part and reports the real inset.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { topInset = proxy.safeAreaInsets.top }
+                    .onChange(of: proxy.safeAreaInsets.top) { _, new in topInset = new }
+            }
+            .ignoresSafeArea()
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12, coordinateSpace: .global)
+                .onChanged { value in
+                    switch mode(for: value) {
+                    case .horizontal:
+                        offset = CGSize(width: max(0, value.translation.width), height: 0)
+                    case .vertical:
+                        offset = CGSize(width: 0, height: max(0, value.translation.height))
+                    case .none:
+                        offset = .zero
+                    }
+                }
+                .onEnded { value in
+                    let mode = mode(for: value)
+                    let travelled = mode == .horizontal
+                        ? value.translation.width : value.translation.height
+                    let speed = mode == .horizontal
+                        ? value.predictedEndTranslation.width - value.translation.width
+                        : value.predictedEndTranslation.height - value.translation.height
+                    let committed = mode != .none
+                        && (travelled > Self.distance || speed > Self.velocity)
+
+                    if committed {
+                        SkeuHaptic.press()
+                        onDismiss()
+                    }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        offset = .zero
+                    }
+                }
+        )
     }
 
     private enum Mode { case horizontal, vertical, none }
 
-    private func mode(for value: DragGesture.Value, band: CGFloat) -> Mode {
+    private func mode(for value: DragGesture.Value) -> Mode {
+        let band = topInset + headerHeight
         let dx = value.translation.width, dy = value.translation.height
         // Started at the leading edge and travelling right — "back".
         if value.startLocation.x <= Self.edge, dx > abs(dy) { return .horizontal }
