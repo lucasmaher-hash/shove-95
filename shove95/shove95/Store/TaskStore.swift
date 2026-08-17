@@ -604,7 +604,8 @@ final class TaskStore {
         make("From yesterday", bucket: .today, daysAgo: 1)
         make("From last week", bucket: .today, daysAgo: 8)
         make("Call dentist", bucket: .tomorrow)
-        make("File taxes", bucket: .week)
+        // Dated four days out: General by tab now, still dated, still chipped.
+        make("File taxes", bucket: .general, daysAgo: -4)
         make("Build portfolio", bucket: .general)
         revision += 1
     }
@@ -618,7 +619,8 @@ final class TaskStore {
     func seedDemo() {
         let today = DateEngine.startOfToday(now: now(), calendar: calendar)
         let tomorrow = DateEngine.startOfTomorrow(now: now(), calendar: calendar)
-        let week = DateEngine.targetDate(for: .week, now: now(), calendar: calendar)
+        // Four days out — General by tab, but it keeps its day.
+        let week = calendar.date(byAdding: .day, value: 4, to: today)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
         let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
 

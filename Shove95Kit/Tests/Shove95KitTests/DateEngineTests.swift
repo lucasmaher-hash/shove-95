@@ -16,38 +16,6 @@ enum Fixed {
     }
 }
 
-@Suite("Week horizon (Sunday assignment, Sat/Sun rollover)")
-struct WeekHorizonTests {
-    let cal = Fixed.calendar
-
-    @Test func mondayPointsAtThisSunday() {
-        let horizon = DateEngine.weekHorizon(now: Fixed.date(2026, 8, 3), calendar: cal)
-        #expect(horizon == Fixed.date(2026, 8, 9, 0, 0))
-    }
-
-    @Test func thursdayPointsAtThisSunday() {
-        let horizon = DateEngine.weekHorizon(now: Fixed.date(2026, 8, 6), calendar: cal)
-        #expect(horizon == Fixed.date(2026, 8, 9, 0, 0))
-    }
-
-    @Test func fridayStillPointsAtThisSunday() {
-        // Tomorrow is Saturday; Sunday is still after tomorrow → reachable.
-        let horizon = DateEngine.weekHorizon(now: Fixed.date(2026, 8, 7), calendar: cal)
-        #expect(horizon == Fixed.date(2026, 8, 9, 0, 0))
-    }
-
-    @Test func saturdayRollsToNextSunday() {
-        // Sunday IS tomorrow → Week means next week (locked Q4-A).
-        let horizon = DateEngine.weekHorizon(now: Fixed.date(2026, 8, 8), calendar: cal)
-        #expect(horizon == Fixed.date(2026, 8, 16, 0, 0))
-    }
-
-    @Test func sundayRollsToNextSunday() {
-        let horizon = DateEngine.weekHorizon(now: Fixed.date(2026, 8, 9), calendar: cal)
-        #expect(horizon == Fixed.date(2026, 8, 16, 0, 0))
-    }
-}
-
 @Suite("Bucketing (total mapping, overdue rolls forward)")
 struct BucketingTests {
     let cal = Fixed.calendar
@@ -57,11 +25,11 @@ struct BucketingTests {
         #expect(DateEngine.bucket(for: nil, now: mondayNoon, calendar: cal) == .general)
     }
 
-    @Test func todayTomorrowWeekBoundaries() {
+    @Test func todayTomorrowGeneralBoundaries() {
         #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 3, 0, 0), now: mondayNoon, calendar: cal) == .today)
         #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 4, 0, 0), now: mondayNoon, calendar: cal) == .tomorrow)
-        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 5, 0, 0), now: mondayNoon, calendar: cal) == .week)
-        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 9, 0, 0), now: mondayNoon, calendar: cal) == .week)
+        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 5, 0, 0), now: mondayNoon, calendar: cal) == .general)
+        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 9, 0, 0), now: mondayNoon, calendar: cal) == .general)
     }
 
     @Test func pastDatesFallIntoToday() {
@@ -83,16 +51,17 @@ struct BucketingTests {
         #expect(DateEngine.bucket(for: tuesday, now: Fixed.date(2026, 8, 4, 0, 0), calendar: cal) == .today)
     }
 
-    @Test func datesBeyondHorizonStayVisibleInWeek() {
+    /// A date months out is still General, and still dated. Nothing can fall
+    /// out of the tabs — the mapping stays total with three buckets.
+    @Test func datesFarOutStayVisibleInGeneral() {
         // Total mapping: nothing can ever vanish (safety deviation noted in DateEngine).
-        #expect(DateEngine.bucket(for: Fixed.date(2026, 9, 20, 0, 0), now: mondayNoon, calendar: cal) == .week)
+        #expect(DateEngine.bucket(for: Fixed.date(2026, 9, 20, 0, 0), now: mondayNoon, calendar: cal) == .general)
     }
 
-    @Test func saturdayTomorrowVsWeekSplit() {
+    @Test func saturdayTomorrowVsGeneralSplit() {
         let saturday = Fixed.date(2026, 8, 8)
         #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 9, 0, 0), now: saturday, calendar: cal) == .tomorrow)
-        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 10, 0, 0), now: saturday, calendar: cal) == .week)
-        #expect(DateEngine.targetDate(for: .week, now: saturday, calendar: cal) == Fixed.date(2026, 8, 16, 0, 0))
+        #expect(DateEngine.bucket(for: Fixed.date(2026, 8, 10, 0, 0), now: saturday, calendar: cal) == .general)
     }
 }
 
@@ -104,7 +73,6 @@ struct TargetDateTests {
     @Test func targets() {
         #expect(DateEngine.targetDate(for: .today, now: mondayNoon, calendar: cal) == Fixed.date(2026, 8, 3, 0, 0))
         #expect(DateEngine.targetDate(for: .tomorrow, now: mondayNoon, calendar: cal) == Fixed.date(2026, 8, 4, 0, 0))
-        #expect(DateEngine.targetDate(for: .week, now: mondayNoon, calendar: cal) == Fixed.date(2026, 8, 9, 0, 0))
         #expect(DateEngine.targetDate(for: .general, now: mondayNoon, calendar: cal) == nil)
     }
 }

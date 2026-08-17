@@ -1,11 +1,15 @@
 import Foundation
 
-/// The four time buckets, ordered as the line `today → tomorrow → week → general`.
+/// The three time buckets, ordered as the line `today → tomorrow → general`.
+///
+/// `week` was removed on 2026-08-17 (founder direction). It was never storage
+/// — a task dated four days out simply reports `general` now and KEEPS its
+/// date, so the chip still says "Fri" and the rollover still walks it into
+/// Tomorrow and then Today when its day arrives. Nothing was lost but a tab.
 /// Buckets are *filters over a task's date*, never storage (PRD §3).
 public enum Bucket: String, CaseIterable, Sendable, Codable {
     case today
     case tomorrow
-    case week
     case general
 
     /// The line, in order. `CaseIterable` order is the source of truth.
@@ -15,7 +19,6 @@ public enum Bucket: String, CaseIterable, Sendable, Codable {
         switch self {
         case .today: "Today"
         case .tomorrow: "Tomorrow"
-        case .week: "Week"
         case .general: "General"
         }
     }
@@ -25,7 +28,6 @@ public enum Bucket: String, CaseIterable, Sendable, Codable {
         switch self {
         case .today: "Tod"
         case .tomorrow: "Tom"
-        case .week: "Wk"
         case .general: "Gen"
         }
     }
@@ -67,22 +69,17 @@ extension Bucket {
     /// (`<` toward Today, `>` toward General); one arrow for the nearer shown
     /// destination, two for the further. Locked table from PRD §3:
     ///
-    ///   today    → `> Week`, `>> General`
-    ///   tomorrow → `> General`
-    ///   week     → `< Today`
-    ///   general  → `< Tomorrow`, `<< Today`
+    ///   today    → `>> General`
+    ///   tomorrow → (nothing: both neighbours are one swipe away)
+    ///   general  → `<< Today`
     public var menuDestinations: [MenuDestination] {
         switch self {
         case .today:
-            [MenuDestination(label: "> Week", bucket: .week),
-             MenuDestination(label: ">> General", bucket: .general)]
+            [MenuDestination(label: ">> General", bucket: .general)]
         case .tomorrow:
-            [MenuDestination(label: "> General", bucket: .general)]
-        case .week:
-            [MenuDestination(label: "< Today", bucket: .today)]
+            []
         case .general:
-            [MenuDestination(label: "< Tomorrow", bucket: .tomorrow),
-             MenuDestination(label: "<< Today", bucket: .today)]
+            [MenuDestination(label: "<< Today", bucket: .today)]
         }
     }
 }
