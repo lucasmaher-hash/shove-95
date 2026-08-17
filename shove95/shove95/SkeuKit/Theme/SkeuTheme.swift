@@ -89,8 +89,10 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
     /// hue would be exactly the "just grey" the founder rejected.
     static let silver = SkeuTheme(
         id: "silver", name: "Silver",
-        light: .derived(from: Color(hex: 0xB9BEC6), accent: Color(hex: 0x5A6472)),
-        dark: .derived(from: Color(hex: 0xB9BEC6), accent: Color(hex: 0x5A6472), dark: true))
+        light: .derived(from: Color(hex: 0xDCDEE1), accent: Color(hex: 0x555B63),
+                        metallic: true),
+        dark: .derived(from: Color(hex: 0xDCDEE1), accent: Color(hex: 0x9AA3AE),
+                       dark: true, metallic: true))
 
     static let all: [SkeuTheme] = [cream, clay, moss, slate, ember, silver]
 

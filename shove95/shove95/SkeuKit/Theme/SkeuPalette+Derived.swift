@@ -18,9 +18,20 @@ extension SkeuPalette {
     ///   - accentSeed: optional action colour; defaults to a deepened, more
     ///     saturated seed
     ///   - dark: build the dark-mode variant
+    /// - Parameter metallic: widens the gradient between a surface's top and
+    ///   bottom stops and pulls almost all the colour out of it.
+    ///
+    ///   Metal is not a hue, it is a RANGE. Silver built as an ordinary seed
+    ///   came out indistinguishable from Slate — 0.0016 apart in hue, 0.016 in
+    ///   saturation, and the ladder clamps every light surface to the same
+    ///   0.88 brightness anyway, so nothing was left to tell them apart
+    ///   (founder bug report 2026-08-17). What separates the two is that a
+    ///   metal surface travels from near-white to clearly dark across itself
+    ///   while a painted one barely moves.
     static func derived(from seed: Color,
                         accent accentSeed: Color? = nil,
-                        dark: Bool = false) -> SkeuPalette {
+                        dark: Bool = false,
+                        metallic: Bool = false) -> SkeuPalette {
 
         let s = seed.hsb
         let acc = (accentSeed ?? seed.shifted(sat: +0.22, bri: -0.24)).hsb
@@ -40,7 +51,11 @@ extension SkeuPalette {
             // that would otherwise be pushed into white, where the rim light
             // has nowhere left to go.
             let b = min(s.b * 1.22, 0.88)
-            let sat = s.s * 0.62
+            let sat = s.s * (metallic ? 0.18 : 0.62)
+            // The sheen: how far a surface travels from its top stop to its
+            // bottom one. A painted surface barely moves; metal swings.
+            let lift = metallic ? 1.14 : 1.06
+            let fall = metallic ? 0.74 : 0.86
 
             return SkeuPalette(
                 canvas:         Color(h: s.h, s: min(sat * 1.15, 1), b: b * 0.955),
@@ -50,8 +65,8 @@ extension SkeuPalette {
                 // Held off white deliberately. `edgeLight` is white, and the
                 // old `× 1.10` clamped this stop to white as well at a light
                 // base — a white rim on a white surface is not a rim.
-                materialTop:    Color(h: s.h, s: sat * 0.78, b: min(b * 1.06, 0.94)),
-                materialBottom: Color(h: s.h, s: min(sat * 1.18, 1), b: b * 0.86),
+                materialTop:    Color(h: s.h, s: sat * 0.78, b: min(b * lift, metallic ? 0.99 : 0.94)),
+                materialBottom: Color(h: s.h, s: min(sat * 1.18, 1), b: b * fall),
 
                 // Trough BRIGHTNESS ratios come from the reference: near wall at
                 // 0.76× the base, floor at 0.955×, contour at 0.59×.
@@ -138,9 +153,9 @@ extension SkeuPalette {
             canvas:         Color(h: s.h, s: min(s.s * 1.25, 1), b: 0.19),
             canvasAlt:      Color(h: s.h, s: min(s.s * 1.25, 1), b: 0.19),
 
-            material:       Color(h: s.h, s: min(s.s * 1.25, 1), b: 0.19),
-            materialTop:    Color(h: s.h, s: min(s.s * 1.10, 1), b: 0.26),
-            materialBottom: Color(h: s.h, s: min(s.s * 1.35, 1), b: 0.14),
+            material:       Color(h: s.h, s: metallic ? 0.05 : min(s.s * 1.25, 1), b: metallic ? 0.22 : 0.19),
+            materialTop:    Color(h: s.h, s: metallic ? 0.04 : min(s.s * 1.10, 1), b: metallic ? 0.40 : 0.26),
+            materialBottom: Color(h: s.h, s: metallic ? 0.07 : min(s.s * 1.35, 1), b: metallic ? 0.11 : 0.14),
 
             recess:         Color(h: s.h, s: min(s.s * 1.40, 1), b: 0.11),
             recessBottom:   Color(h: s.h, s: min(s.s * 1.15, 1), b: 0.23),
