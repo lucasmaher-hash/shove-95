@@ -216,7 +216,11 @@ final class TaskStore {
     /// whose contents were never accepted.
     @discardableResult
     func addWorkspace(named raw: String) -> Workspace? {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Bounded like tab names: a workspace name rides in the home
+        // screen's pill, and an unbounded one carried the settings gear off
+        // the edge (founder bug report 2026-08-17).
+        let name = String(raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(AppSettings.maxNameLength))
         guard !name.isEmpty, !workspaceNameIsTaken(name) else { return nil }
         let workspace = Workspace(id: UUID().uuidString, name: name)
         context.insert(workspace)
@@ -228,7 +232,11 @@ final class TaskStore {
     /// back to the name that is still in force.
     @discardableResult
     func renameWorkspace(_ workspace: Workspace, to raw: String) -> Bool {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Bounded like tab names: a workspace name rides in the home
+        // screen's pill, and an unbounded one carried the settings gear off
+        // the edge (founder bug report 2026-08-17).
+        let name = String(raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(AppSettings.maxNameLength))
         guard !name.isEmpty, name != workspace.name else { return false }
         guard !workspaceNameIsTaken(name, excluding: workspace) else { return false }
         workspace.name = name

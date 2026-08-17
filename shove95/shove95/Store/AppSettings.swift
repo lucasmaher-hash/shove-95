@@ -158,7 +158,12 @@ final class AppSettings {
         var names: [Bucket: String] = [:]
         for bucket in Bucket.line {
             if let value = UserDefaults.standard.string(forKey: Key.name(bucket)), !value.isEmpty {
-                names[bucket] = value
+                // Trimmed on LOAD as well as on entry. The limit arrived after
+                // these were stored, and a name saved before it existed would
+                // otherwise sit in the bar for ever — too long to fit, with no
+                // way to shorten it but retyping it (founder bug report
+                // 2026-08-17).
+                names[bucket] = String(value.prefix(Self.maxNameLength))
             }
         }
         customNames = names
