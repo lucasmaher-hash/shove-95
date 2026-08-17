@@ -875,49 +875,60 @@ private struct SkeuTabMenu: View {
         ZStack {
             // Tapping off closes it — the same way every other overlay here
             // behaves.
-            skeu.shadow.opacity(0.45)
+            // 0.45 over a dark canvas was barely a veil — the page read
+            // straight through it (founder bug report 2026-08-17).
+            skeu.shadow.opacity(0.72)
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
                 .onTapGesture(perform: onClose)
 
-            SkeuCard {
-                VStack(alignment: .leading, spacing: SkeuSpace.lg) {
-                    Text(settings.name(for: bucket))
-                        .font(SkeuFont.at(G.label * textScale * 1.25, weight: .semibold))
+            // NOT SkeuCard — that is a fixed-height ROW (67pt), and this is a
+            // container. Wrapped in one, the title, the label, the
+            // explanation and the button were all crushed into a single band
+            // beside the toggle (founder bug report 2026-08-17). The
+            // confirmation dialog's surface is the right one: a card at the
+            // top of the depth ladder, floating above what it covers.
+            VStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                Text(settings.name(for: bucket))
+                    .font(SkeuFont.title3)
+                    .foregroundStyle(skeu.ink)
+
+                if bucket == .general {
+                    // Honest rather than disabled-and-silent: General has no
+                    // time rules, so there is nothing here to switch.
+                    Text("General never moves anything on its own. There is no time rule here to turn off.")
+                        .font(SkeuFont.callout)
+                        .foregroundStyle(skeu.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Time rules")
+                        .font(SkeuFont.callout)
                         .foregroundStyle(skeu.ink)
 
-                    if bucket == .general {
-                        // Honest rather than disabled-and-silent: General has
-                        // no time rules, so there is nothing here to switch.
-                        Text("General never moves anything on its own. There is no time rule here to turn off.")
-                            .font(SkeuFont.at(G.label * textScale))
-                            .foregroundStyle(skeu.inkFaint)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        Text("Time rules")
-                            .font(SkeuFont.at(G.label * textScale, weight: .medium))
-                            .foregroundStyle(skeu.ink)
-
-                        SkeuSegmentedTrough {
-                            HStack(spacing: 0) {
-                                choice("On", isOn: true)
-                                choice("Off", isOn: false)
-                            }
+                    SkeuSegmentedTrough {
+                        HStack(spacing: 0) {
+                            choice("On", isOn: true)
+                            choice("Off", isOn: false)
                         }
-
-                        Text(enabled
-                             ? "Tasks roll over at midnight, arrive in Today when their day comes, and are marked when they are late."
-                             : "Nothing moves on its own. Tasks stay where you put them, like General.")
-                            .font(SkeuFont.at(G.label * textScale * 0.92))
-                            .foregroundStyle(skeu.inkFaint)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    SkeuRowButton(title: "Done", action: onClose)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .accessibilityLabel("Close tab settings")
+                    Text(enabled
+                         ? "Tasks roll over at midnight, arrive in Today when their day comes, and are marked when they are late."
+                         : "Nothing moves on its own. Tasks stay where you put them, like General.")
+                        .font(SkeuFont.at(G.label * textScale * 0.92))
+                        .foregroundStyle(skeu.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                SkeuRowButton(title: "Done", action: onClose)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityLabel("Close tab settings")
             }
-            .padding(.horizontal, SkeuTopBar.margin)
+            .padding(SkeuSpace.xl)
+            .frame(maxWidth: 340)
+            .skeuSurface(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
+                         depth: .overlay)
+            .padding(.horizontal, SkeuSpace.xl)
         }
         .transition(.opacity)
     }

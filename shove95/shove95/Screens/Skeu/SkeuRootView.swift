@@ -228,17 +228,7 @@ struct SkeuRootView: View {
                 // frame reads as fixed and the content as moving through it
                 // (the Win95 root's rule, matched here).
                 ZStack {
-                    // The MARGIN is on the list, the CLIP is on the screen.
-                    //
-                    // Both used to sit outside: clipping first and padding
-                    // after put the clip rect a margin in from each edge, so a
-                    // swiped row hit an invisible wall and stopped with a
-                    // strip of page still showing beside it (founder bug
-                    // report 2026-08-17). The rows are still inset — they just
-                    // no longer run out of screen before they run out of
-                    // screen.
                     taskList
-                        .padding(.horizontal, F.margin)
                         .id(bucket)
                         .transition(.asymmetric(
                             insertion: .move(edge: goingRight ? .trailing : .leading),
@@ -372,6 +362,16 @@ struct SkeuRootView: View {
                     .id(EditingCoordinator.addRowID)
             }
             .padding(.vertical, SkeuSpace.lg)
+            // The MARGIN is on the ROWS, not on anything that clips.
+            //
+            // A ScrollView clips to its own bounds, so every enclosing inset
+            // was also a wall: a swiped row stopped a margin short of the
+            // screen with a strip of page still showing beside it (founder
+            // bug report 2026-08-17, twice — the first fix moved the padding
+            // off the outer clip and left this one in place). The rows are
+            // inset exactly as before; nothing between them and the screen
+            // edge is.
+            .padding(.horizontal, F.margin)
         }
         // Follow the add row down as the list grows. Committing a task inserts
         // it exactly where the add row was standing, which pushes the add row

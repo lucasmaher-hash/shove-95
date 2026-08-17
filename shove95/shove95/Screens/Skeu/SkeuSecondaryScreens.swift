@@ -92,7 +92,12 @@ private struct SkeuSheet<Content: View>: View {
                         // Clears the home indicator by padding, since the
                         // scroll view now runs past the safe area — the same
                         // fix the settings sheet took (2026-08-16).
-                        .padding(.bottom, SkeuSpace.xxl + 34)
+                        //
+                        // The SAME clearance settings uses, no more. These
+                        // three carried an extra band that read as a strip cut
+                        // off the bottom of the page (founder bug report
+                        // 2026-08-17).
+                        .padding(.bottom, SkeuSpace.md + 34)
                 }
                 .ignoresSafeArea(.container, edges: .bottom)
                 .scrollBounceBehavior(.always, axes: .vertical)
