@@ -55,7 +55,7 @@ struct SkeuMenu: View {
                         }
                     }
                 }
-                item("Go Live") {
+                item("Go Live", mark: true) {
                     withAnimation(.spring(duration: 0.25)) {
                         menu.goLive(task, store: store)
                     }
@@ -98,13 +98,26 @@ struct SkeuMenu: View {
         .shadow(color: drop(0.16), radius: 40, x: -12, y: 26)
     }
 
+    /// `mark` puts the Live ring before the label.
+    ///
+    /// The move rows carry chevrons that say how FAR along the line they go.
+    /// Live is not on that line, so it has no distance to state — it gets the
+    /// same mark the tab wears instead, which says where rather than how far
+    /// (founder direction 2026-08-17).
     private func item(_ label: String, destructive: Bool = false,
+                      mark: Bool = false,
                       action: @escaping () -> Void) -> some View {
-        Text(label)
-            .font(SkeuFont.at(M.label))
-            .tracking(-0.02 * M.label)
-            .foregroundStyle(destructive ? skeu.critical : skeu.ink)
-            .lineLimit(1)
+        HStack(spacing: SkeuSpace.sm) {
+            if mark {
+                LiveGlyph(tint: skeu.ink, lineWidth: 1.4)
+                    .frame(width: M.label * 0.82, height: M.label * 0.82)
+            }
+            Text(label)
+                .font(SkeuFont.at(M.label))
+                .tracking(-0.02 * M.label)
+                .foregroundStyle(destructive ? skeu.critical : skeu.ink)
+                .lineLimit(1)
+        }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, SkeuSpace.md)
             .frame(minHeight: M.itemHeight)

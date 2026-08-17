@@ -107,7 +107,7 @@ struct Win95Menu: View {
                         }
                     }
                 }
-                item("Go Live") {
+                item("Go Live", mark: true) {
                     withAnimation(.spring(duration: 0.25)) {
                         menu.goLive(task, store: store)
                     }
@@ -128,11 +128,19 @@ struct Win95Menu: View {
         .bevelRaised(pixel)
     }
 
+    /// `mark` puts the Live ring before the label — see SkeuMenu for why the
+    /// move rows get chevrons and this one gets a mark.
     private func item(_ label: String, destructive: Bool = false,
+                      mark: Bool = false,
                       action: @escaping () -> Void) -> some View {
-        Text(label)
-            .font(W95Font.standard(pixel))
-            .foregroundStyle(destructive ? Win95.important : Win95.text)
+        HStack(spacing: Win95.Px.grid * pixel) {
+            if mark {
+                PixelLiveGlyph(pixel: pixel, tint: Win95.text)
+            }
+            Text(label)
+                .font(W95Font.standard(pixel))
+                .foregroundStyle(destructive ? Win95.important : Win95.text)
+        }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Win95.Px.grid * pixel)
             .frame(minHeight: Win95.rowHeight(pixel))
