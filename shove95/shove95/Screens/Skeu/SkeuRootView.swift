@@ -297,13 +297,7 @@ struct SkeuRootView: View {
 
             // The gear stands in for the frame's ✚ — this screen still has to
             // reach Settings, and there is nowhere else yet.
-            Button {
-                // Half a turn on every press (founder direction 2026-08-17).
-                // Accumulated rather than toggled between two values, so the
-                // gear keeps turning the same way instead of rocking back.
-                withAnimation(SkeuMotion.layout) { gearTurns += 1 }
-                showSettings = true
-            } label: {
+            Group {
                 // Shared with the ✕ that closes every sheet — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
                 // Pixel under Retro and Blend, the system symbol under
@@ -313,10 +307,15 @@ struct SkeuRootView: View {
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(Double(gearTurns) * 180))
                     .skeuGlass(Circle(), height: size)
-                    .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            // Half a turn on every press (founder direction 2026-08-17),
+            // accumulated rather than toggled so it keeps turning one way.
+            .skeuPress {
+                withAnimation(SkeuMotion.layout) { gearTurns += 1 }
+                showSettings = true
+            }
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
+            .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Settings")
         }
     }
@@ -704,7 +703,7 @@ struct SkeuRootView: View {
                         .skeuSegmentLabel(textScale)
                         .foregroundStyle(skeu.ink)
                 }
-                .onTapGesture { select(line) }
+                .skeuPress(haptic: false) { select(line) }
                 // Same contract as the Win95 taskbar button: the FULL name is
                 // the label even when the visible text is short, and selection
                 // is a trait rather than something you have to see (FR-016).

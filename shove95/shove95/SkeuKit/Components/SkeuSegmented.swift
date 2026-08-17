@@ -156,6 +156,11 @@ struct SkeuSegment<Content: View>: View {
                         Color.clear
                             .skeuGlass(Capsule(), height: pill)
                             .matchedGeometryEffect(id: geometryID, in: namespace)
+                            // The pill already glides; without this it simply
+                            // stops, and the glide read as the whole event.
+                            // Swelling on arrival gives the journey an end and
+                            // matches what a pressed control does.
+                            .skeuLanding(isSelected, active: isSelected)
                     }
                 }
             }

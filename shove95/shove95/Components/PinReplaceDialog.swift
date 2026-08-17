@@ -145,11 +145,7 @@ struct SkeuPinReplaceDialog: View {
             .padding(.horizontal, SkeuSpace.lg)
             .frame(height: height)
             .skeuGlass(Capsule(), height: height)
-            .contentShape(Capsule())
-            .onTapGesture {
-                SkeuHaptic.press()
-                action()
-            }
+            .skeuPress { action() }
             .accessibilityAddTraits(.isButton)
     }
 }

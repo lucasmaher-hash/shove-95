@@ -332,10 +332,7 @@ struct SkeuSettingsView: View {
 
             Spacer(minLength: SkeuSpace.sm)
 
-            Button {
-                SkeuHaptic.press()
-                onClose()
-            } label: {
+            Group {
                 // Same size, same glyph weight and same corner as the gear
                 // this sheet opened from — see SkeuTopBar.
                 let size = SkeuTopBar.control * chromeScale
@@ -343,10 +340,10 @@ struct SkeuSettingsView: View {
                                 size: SkeuTopBar.icon * chromeScale, tint: skeu.ink)
                     .frame(width: size, height: size)
                     .skeuGlass(Circle(), height: size)
-                    .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            .skeuPress { onClose() }
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
+            .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Close settings")
         }
     }
@@ -394,7 +391,10 @@ struct SkeuSettingsView: View {
                 .skeuSegmentLabel(textScale, role: .content)
                 .foregroundStyle(selected ? skeu.ink : skeu.inkMuted)
         }
-        .onTapGesture {
+        // Swells on every press, including when it is ALREADY the answer —
+        // acknowledging the touch is the difference between "that did nothing"
+        // and "that is already chosen" (founder direction 2026-08-17).
+        .skeuPress(haptic: false) {
             SkeuHaptic.selection()
             withAnimation(SkeuMotion.layout) { action() }
         }
@@ -416,7 +416,7 @@ struct SkeuSettingsView: View {
                     fill: theme.light.material) {
             Text(" ").skeuSegmentLabel(textScale)
         }
-        .onTapGesture {
+        .skeuPress(haptic: false) {
             SkeuHaptic.selection()
             withAnimation(SkeuMotion.layout) { action() }
         }
@@ -469,9 +469,7 @@ struct SkeuSettingsView: View {
             .padding(.horizontal, G.pillPadH)
             .frame(height: pillH)
             .skeuGlass(Capsule(), height: pillH)
-            .contentShape(Capsule())
-            .onTapGesture {
-                SkeuHaptic.press()
+            .skeuPress {
                 action()
             }
             .accessibilityAddTraits(.isButton)
@@ -511,8 +509,7 @@ private struct SkeuRowButton: View {
             .minimumScaleFactor(0.6)
             .frame(width: G.rowButtonW * chromeScale, height: height)
             .skeuGlass(Capsule(), height: height, prominent: prominent)
-            .contentShape(Capsule())
-            .onTapGesture(perform: action)
+            .skeuPress(action)
             .accessibilityAddTraits(.isButton)
     }
 }
@@ -707,8 +704,7 @@ private struct SkeuLanguageRow: View {
         }
         .padding(.horizontal, SkeuSpace.lg)
         .frame(minHeight: G.rowButtonH * chromeScale)
-        .contentShape(Rectangle())
-        .onTapGesture {
+        .skeuPress(haptic: false) {
             SkeuHaptic.selection()
             settings.languageCode = language.code
             withAnimation(SkeuMotion.layout) { isOpen = false }

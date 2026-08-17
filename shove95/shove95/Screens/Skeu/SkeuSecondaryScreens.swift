@@ -64,16 +64,13 @@ private struct SkeuSheet<Content: View>: View {
 
                     Spacer(minLength: SkeuSpace.sm)
 
-                    Button {
-                        SkeuHaptic.press()
-                        onClose()
-                    } label: {
+                    Button(action: {}) {
                         SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
                                         size: SkeuTopBar.icon * chromeScale,
                                         tint: skeu.ink)
                             .frame(width: closeSize, height: closeSize)
                             .skeuGlass(Circle(), height: closeSize)
-                            .contentShape(Circle())
+                            .skeuPress { onClose() }
                     }
                     .buttonStyle(.plain)
                     .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
