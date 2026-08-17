@@ -235,7 +235,6 @@ struct AddRowView: View {
                 showDayPicker = false
                 pendingDay = picked
             }
-            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in

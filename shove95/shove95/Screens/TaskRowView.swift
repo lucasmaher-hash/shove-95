@@ -144,7 +144,6 @@ struct TaskRowView: View {
                 showDayPicker = false
                 store.schedule(task, on: picked)
             }
-            .presentationDetents([.large])
         }
         .onChange(of: pickedItem) { _, item in
             guard let item else { return }
@@ -702,39 +701,73 @@ struct Win95DayPickerSheet: View {
         DayPickerRange.monthStarts(now: today, calendar: store.calendar)
     }
 
+    /// The sheet's own height, measured from what it holds. A `.medium` detent
+    /// cut the last week off the month; `.large` fixed that by taking the whole
+    /// screen, which is far more room than a month needs (founder direction
+    /// 2026-08-17). Measured, the sheet is exactly as tall as the calendar.
+    @State private var sheetHeight: CGFloat = 520
+
     var body: some View {
-        ZStack {
+        // NO sunken well. The sheet already arrives as a rounded card, and a
+        // bevelled panel inside it read as two frames stacked — pointy corners
+        // sitting inside round ones (founder direction 2026-08-17).
+        ZStack(alignment: .top) {
             Color(hex: scheme.surface).ignoresSafeArea()
 
-            SunkenWell {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
-                        shortcuts
-                        if monthIndex < months.count {
-                            monthBlock(months[monthIndex])
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
+                    shortcuts
+                    if monthIndex < months.count {
+                        monthBlock(months[monthIndex])
                     }
-                    .padding(Win95.Px.grid * 2 * pixel)
+                }
+                .padding(Win95.Px.grid * 4 * pixel)
+                // In a BACKGROUND, never as a wrapper: a GeometryReader that
+                // wraps content lays it out rather than measuring it, which is
+                // how four screens once lost their headers under the status bar.
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .task { sheetHeight = proxy.size.height + bottomSlack }
+                            .onChange(of: proxy.size.height) { _, h in
+                                sheetHeight = h + bottomSlack
+                            }
+                    }
                 }
             }
-            .padding(Win95.Px.grid * 2 * pixel)
+            .scrollBounceBehavior(.basedOnSize)
         }
+        .presentationDetents([.height(sheetHeight)])
     }
 
+    /// Room under the grid for the home indicator, so the last week is not
+    /// sitting on the bezel.
+    private var bottomSlack: CGFloat { Win95.Px.grid * 5 * pixel }
+
+    /// Stacked, not side by side — the skeu sheet has always read as a column
+    /// and these are the same two answers (founder direction 2026-08-17).
+    ///
+    /// Both carry the row menu's arrows, which say how far along the line the
+    /// task travels: `<` one step toward Today, `<<` two. The picker only ever
+    /// opens on a task in Soon, so Tomorrow is one step back and Today is two —
+    /// the same grammar, and the same shove, as holding a row down.
     private var shortcuts: some View {
         let tomorrow = store.calendar.date(byAdding: .day, value: 1, to: today) ?? today
 
-        return HStack(spacing: Win95.Px.grid * 2 * pixel) {
-            Win95Button(action: { onPick(today) }, compact: true) {
-                TypedText(text: "Today", face: settings.face, role: .content)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-            }
-            Win95Button(action: { onPick(tomorrow) }, compact: true) {
-                TypedText(text: "Tomorrow", face: settings.face, role: .content)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-            }
+        return VStack(spacing: Win95.Px.grid * 2 * pixel) {
+            shortcut("<< Today", day: today)
+            shortcut("< Tomorrow", day: tomorrow)
+        }
+    }
+
+    private func shortcut(_ label: String, day: Date) -> some View {
+        Win95Button(action: { onPick(day) }, compact: true) {
+            TypedText(text: label, face: settings.face, role: .content)
+                .font(W95Font.standard(pixel))
+                .foregroundStyle(Win95.text)
+                // Inside the label, so the bevel grows with it — a frame on the
+                // outside would leave the button at its text's size.
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -807,7 +840,9 @@ struct Win95DayPickerSheet: View {
             .foregroundStyle(isChosen ? Color(hex: scheme.selectionText)
                                       : (isPast ? Win95.textMuted : Win95.text))
             .frame(maxWidth: .infinity)
-            .frame(height: Win95.Px.grid * 7 * pixel)
+            // Six of these stack up, so every spare pixel here is six on the
+            // sheet's height. Still clear of the 44pt floor.
+            .frame(height: Win95.Px.grid * 6 * pixel)
             // The 1995 way to say "this one": the selection bar, not a tick.
             .background(isChosen ? Color(hex: scheme.selectionBG) : .clear)
             .contentShape(Rectangle())

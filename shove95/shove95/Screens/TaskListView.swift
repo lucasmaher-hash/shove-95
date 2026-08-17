@@ -37,19 +37,33 @@ struct TaskListView: View {
 
     /// A section's name. A pixel label on the well, not a row: it is something
     /// to read, not something to act on.
-    private func sectionHeading(_ title: String) -> some View {
-        TypedText(text: title, face: settings.face, role: .chrome)
-            .font(W95Font.heading(pixel))
-            .foregroundStyle(Win95.text)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, Win95.Px.grid * 3 * pixel)
-            .padding(.bottom, Win95.Px.grid * pixel)
-            .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+    ///
+    /// `rule` draws the line that closes off the section ABOVE. The topmost
+    /// section has nothing above it to be parted from, so it does without one
+    /// (founder direction 2026-08-17).
+    private func sectionHeading(_ title: String, rule: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if rule {
+                Rectangle()
+                    .fill(Win95.accent)
+                    .frame(height: pixel)
+                    .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+                    .padding(.top, Win95.Px.grid * 3 * pixel)
+            }
+
+            TypedText(text: title, face: settings.face, role: .chrome)
+                .font(W95Font.heading(pixel))
+                .foregroundStyle(Win95.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, Win95.Px.grid * 3 * pixel)
+                .padding(.bottom, Win95.Px.grid * pixel)
+                .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+        }
     }
 
     /// One scheduled day's name.
     private func dayHeading(_ day: Date) -> some View {
-        sectionHeading(DayHeading.label(for: day, calendar: .current))
+        sectionHeading(DayHeading.label(for: day, calendar: .current), rule: true)
     }
 
     var body: some View {
@@ -78,7 +92,7 @@ struct TaskListView: View {
                     // day rather than as a section of its own. The founder
                     // reversed that decision (founder direction 2026-08-17).
                     // Shown even when empty: the section still has its add row.
-                    sectionHeading("General")
+                    sectionHeading("General", rule: false)
                     ForEach(sections.undated, id: \.id) { task in
                         TaskRowView(task: task)
                             .id(task.id.uuidString)

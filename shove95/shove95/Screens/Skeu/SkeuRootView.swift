@@ -353,7 +353,7 @@ struct SkeuRootView: View {
                     // day rather than as a section of its own. The founder
                     // reversed that decision (founder direction 2026-08-17).
                     // Shown even when empty: the section still has its add row.
-                    sectionHeading("General")
+                    sectionHeading("General", rule: false)
                     ForEach(sections.undated, id: \.id) { task in
                         taskRow(task)
                             .id(task.id.uuidString)
@@ -678,7 +678,6 @@ private struct SkeuAddRow: View {
                 showAddDayPicker = false
                 pendingDay = picked
             }
-            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
@@ -927,23 +926,37 @@ extension SkeuRootView {
 
     /// A section's name. Sits in the list's own margin, not in a slat: it is a
     /// label ON the page, not a thing that can be acted on.
-    private func sectionHeading(_ title: String) -> some View {
+    ///
+    /// `rule` draws the line that closes off the section ABOVE. The topmost
+    /// section has nothing above it to be parted from, so it does without one
+    /// (founder direction 2026-08-17).
+    private func sectionHeading(_ title: String, rule: Bool) -> some View {
         // Set ABOVE the task text, not below it. A heading that names a run of
         // tasks has to outrank them, and this was an eyebrow in `inkFaint` —
         // the quietest type in the look — which left the day a task belonged
         // to harder to read than the task (founder direction 2026-08-17).
-        Text(title)
-            .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
-            .foregroundStyle(skeu.ink)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, SkeuSpace.xl)
-            .padding(.bottom, SkeuSpace.xs)
-            .padding(.horizontal, SkeuSpace.md)
+        VStack(alignment: .leading, spacing: 0) {
+            if rule {
+                Rectangle()
+                    .fill(skeu.accent)
+                    .frame(height: 1)
+                    .padding(.horizontal, SkeuSpace.md)
+                    .padding(.top, SkeuSpace.xl)
+            }
+
+            Text(title)
+                .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
+                .foregroundStyle(skeu.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, SkeuSpace.xl)
+                .padding(.bottom, SkeuSpace.xs)
+                .padding(.horizontal, SkeuSpace.md)
+        }
     }
 
     /// One scheduled day's name.
     private func dayHeading(_ day: Date) -> some View {
-        sectionHeading(DayHeading.label(for: day, calendar: .current))
+        sectionHeading(DayHeading.label(for: day, calendar: .current), rule: true)
     }
 
     /// Resolves the slide direction BEFORE the selection moves, so the
@@ -1305,7 +1318,6 @@ private struct SkeuTaskRow: View {
                     showDayPicker = false
                     withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
                 }
-                .presentationDetents([.large])
             }
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
             .fullScreenCover(isPresented: $showCamera) {
@@ -1917,8 +1929,14 @@ private struct SkeuDayPickerSheet: View {
         DayPickerRange.monthStarts(now: today, calendar: store.calendar)
     }
 
+    /// The sheet's own height, measured from what it holds. A `.medium` detent
+    /// cut the last week off the month; `.large` fixed that by taking the whole
+    /// screen, which is far more room than a month needs (founder direction
+    /// 2026-08-17). Measured, the sheet is exactly as tall as the calendar.
+    @State private var sheetHeight: CGFloat = 520
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             skeu.canvas.ignoresSafeArea()
 
             ScrollView {
@@ -1930,19 +1948,42 @@ private struct SkeuDayPickerSheet: View {
                 }
                 .padding(.horizontal, SkeuSpace.xl)
                 .padding(.vertical, SkeuSpace.lg)
+                // In a BACKGROUND, never as a wrapper: a GeometryReader that
+                // wraps content lays it out rather than measuring it, which is
+                // how four screens once lost their headers under the status bar.
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .task { sheetHeight = proxy.size.height + bottomSlack }
+                            .onChange(of: proxy.size.height) { _, h in
+                                sheetHeight = h + bottomSlack
+                            }
+                    }
+                }
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
+        .presentationDetents([.height(sheetHeight)])
     }
+
+    /// Room under the grid for the home indicator, so the last week is not
+    /// sitting on the bezel.
+    private var bottomSlack: CGFloat { SkeuSpace.lg + 34 }
 
     /// Today and Tomorrow, above the grid. They are answers people give
     /// without thinking about dates, so they should not require finding one.
+    ///
+    /// Both carry the row menu's arrows, which say how far along the line the
+    /// task travels: `<` one step toward Today, `<<` two. The picker only ever
+    /// opens on a task in Soon, so Tomorrow is one step back and Today is two —
+    /// the same grammar, and the same shove, as holding a row down.
     private var shortcuts: some View {
         let height = SkeuToggle.height * chromeScale
         let tomorrow = store.calendar.date(byAdding: .day, value: 1, to: today) ?? today
 
         return VStack(spacing: SkeuSpace.xs) {
-            shortcut("Today", day: today, height: height)
-            shortcut("Tomorrow", day: tomorrow, height: height)
+            shortcut("<< Today", day: today, height: height)
+            shortcut("< Tomorrow", day: tomorrow, height: height)
         }
     }
 
