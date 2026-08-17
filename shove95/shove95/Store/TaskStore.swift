@@ -531,6 +531,24 @@ final class TaskStore {
         return task
     }
 
+    /// Writes the box: renames the note that is there, or makes one.
+    ///
+    /// Renaming rather than replacing matters — the note keeps its identity,
+    /// so editing the text does not knock it off the Lock Screen and back on
+    /// (founder direction 2026-08-17).
+    @discardableResult
+    func writeLiveNote(_ raw: String) -> TaskItem? {
+        let title = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return nil }
+        if let note = liveNote() {
+            guard note.title != title else { return note }
+            note.title = title
+            commit()
+            return note
+        }
+        return setLiveNote(title)
+    }
+
     /// Removes the live note entirely — the bin in the Live section.
     func clearLiveNote() {
         let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })

@@ -32,7 +32,6 @@ struct SkeuLiveSection: View {
     /// What is being typed before it becomes the note. Empty when a note
     /// already exists — the box shows that instead.
     @State private var draft = ""
-    @State private var typing = false
     @State private var pendingDelete = false
     @FocusState private var focused: Bool
 
@@ -83,31 +82,30 @@ struct SkeuLiveSection: View {
     private var box: some View {
         let shape = RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
 
-        return Group {
-            if let note {
-                Text(note.title)
-                    .font(SkeuFont.at(textSize, weight: .medium))
-                    .foregroundStyle(skeu.ink)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if typing {
-                TextField("", text: $draft,
-                          prompt: Text("What are you doing?")
+        return TextField("", text: $draft,
+                         prompt: Text("What are you doing?")
                             .foregroundStyle(skeu.inkFaint),
-                          axis: .vertical)
-                    .font(SkeuFont.at(textSize, weight: .medium))
-                    .foregroundStyle(skeu.ink)
-                    .multilineTextAlignment(.center)
-                    .focused($focused)
-                    .submitLabel(.done)
-                    .onSubmit(commit)
-            } else {
-                // Nothing at all. An empty box with a prompt in it would be a
-                // field you cannot type in — the Go Live button below is what
-                // opens this.
-                Color.clear.frame(height: 1)
+                         axis: .vertical)
+            .font(SkeuFont.at(textSize, weight: .medium))
+            .foregroundStyle(skeu.ink)
+            .multilineTextAlignment(.center)
+            .focused($focused)
+            // Return CLOSES the field, having written what is in it. The
+            // keyboard's blue key is the way out of a box that is otherwise
+            // always open (founder direction 2026-08-17).
+            .submitLabel(.done)
+            .onSubmit { commit(); focused = false }
+            // Leaving by any other route writes too — tapping away from a
+            // half-typed thought should not throw it away.
+            .onChange(of: focused) { _, isFocused in
+                if !isFocused { commit() }
             }
-        }
+            // The box shows what IS live whenever you are not the one
+            // changing it, so a note arriving from another device lands here.
+            .task(id: note?.id) { if !focused { draft = note?.title ?? "" } }
+            .onChange(of: note?.title) { _, new in
+                if !focused { draft = new ?? "" }
+            }
         .frame(maxWidth: .infinity)
         .padding(SkeuSpace.xl)
         .frame(minHeight: 260 * chromeScale)
@@ -133,16 +131,23 @@ struct SkeuLiveSection: View {
             if note != nil {
                 liveSwitch
                 bin
-            } else if typing {
-                pill(label: "Go", filled: !draft.isEmpty) { commit() }
             } else {
-                pill(label: "Go Live", filled: false) {
-                    withAnimation(SkeuMotion.layout) { typing = true }
-                    focused = true
+                // The field is always open, so this is not "start typing" any
+                // more — it is "send what I typed", and before that it is the
+                // thing that puts the cursor in the box.
+                pill(label: draft.isEmpty ? "Go Live" : "Go",
+                     filled: !draft.isEmpty) {
+                    if draft.isEmpty { focused = true } else { commit(); focused = false }
                 }
             }
         }
-        .padding(.horizontal, SkeuSpace.xl)
+        // TWO THIRDS of the screen, centred. Run edge to edge these two read
+        // as a bar across the bottom of the section rather than as the pair of
+        // controls belonging to the box above them (founder direction
+        // 2026-08-17).
+        .containerRelativeFrame(.horizontal, alignment: .center) { width, _ in
+            width * 0.68
+        }
         .animation(SkeuMotion.layout, value: note?.id)
     }
 
@@ -203,17 +208,12 @@ struct SkeuLiveSection: View {
 
     private func commit() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
-            withAnimation(SkeuMotion.layout) { typing = false }
-            focused = false
-            return
-        }
+        guard !text.isEmpty else { return }
+        // Renames what is there rather than replacing it, so editing the text
+        // of something already live does not flick it off the Lock Screen and
+        // back on. Silent when nothing changed.
+        guard text != note?.title else { return }
         SkeuHaptic.success()
-        withAnimation(SkeuMotion.layout) {
-            store.setLiveNote(text)
-            draft = ""
-            typing = false
-        }
-        focused = false
+        withAnimation(SkeuMotion.layout) { store.writeLiveNote(text) }
     }
 }

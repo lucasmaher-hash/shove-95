@@ -23,7 +23,6 @@ struct LiveSectionView: View {
     @Environment(TaskStore.self) private var store
 
     @State private var draft = ""
-    @State private var typing = false
     @State private var pendingDelete = false
     @FocusState private var focused: Bool
 
@@ -60,28 +59,22 @@ struct LiveSectionView: View {
     // MARK: The box
 
     private var box: some View {
-        Group {
-            if let note {
-                TypedText(text: note.title, face: settings.face, role: .content)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if typing {
-                TextField("What are you doing?", text: $draft, axis: .vertical)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-                    .multilineTextAlignment(.center)
-                    .focused($focused)
-                    .submitLabel(.done)
-                    .onSubmit(commit)
-            } else {
-                // Empty on purpose — the Go Live button below is what opens
-                // this, so a prompt sitting here would be a field you cannot
-                // type in.
-                Color.clear.frame(height: pixel)
+        TextField("What are you doing?", text: $draft, axis: .vertical)
+            .font(W95Font.standard(pixel))
+            .foregroundStyle(Win95.text)
+            .multilineTextAlignment(.center)
+            .focused($focused)
+            // Return CLOSES the field, having written what is in it — see
+            // SkeuLiveSection for why the box is always open.
+            .submitLabel(.done)
+            .onSubmit { commit(); focused = false }
+            .onChange(of: focused) { _, isFocused in
+                if !isFocused { commit() }
             }
-        }
+            .task(id: note?.id) { if !focused { draft = note?.title ?? "" } }
+            .onChange(of: note?.title) { _, new in
+                if !focused { draft = new ?? "" }
+            }
         .frame(maxWidth: .infinity)
         .padding(Win95.Px.grid * 3 * pixel)
         .frame(minHeight: Win95.Px.grid * 34 * pixel)
@@ -108,18 +101,22 @@ struct LiveSectionView: View {
                     }
                 }
 
+                // The BIN, not the word: a mark needs no button-width, and
+                // this look already draws one on its photo viewer's title bar
+                // (founder direction 2026-08-17).
                 Win95Button(action: { pendingDelete = true }) {
-                    Text("Delete")
-                        .font(W95Font.standard(pixel))
-                        .foregroundStyle(Win95.important)
+                    BinGlyph()
+                        .fill(Win95.important)
+                        .frame(width: Win95.Px.checkbox * pixel,
+                               height: Win95.Px.checkbox * pixel)
                 }
             } else {
                 Win95Button(action: {
-                    if typing { commit() } else { typing = true; focused = true }
+                    if draft.isEmpty { focused = true } else { commit(); focused = false }
                 }) {
                     HStack(spacing: Win95.Px.grid * pixel) {
                         PixelLiveGlyph(pixel: pixel, tint: Win95.text)
-                        TypedText(text: typing ? "Go" : "Go Live",
+                        TypedText(text: draft.isEmpty ? "Go Live" : "Go",
                                   face: settings.face, role: .content)
                             .font(W95Font.standard(pixel))
                             .foregroundStyle(Win95.text)
@@ -131,15 +128,8 @@ struct LiveSectionView: View {
 
     private func commit() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
-            typing = false
-            focused = false
-            return
-        }
+        guard !text.isEmpty, text != note?.title else { return }
         SkeuHaptic.success()
-        store.setLiveNote(text)
-        draft = ""
-        typing = false
-        focused = false
+        store.writeLiveNote(text)
     }
 }
