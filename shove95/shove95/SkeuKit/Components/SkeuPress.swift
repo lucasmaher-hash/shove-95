@@ -136,12 +136,16 @@ extension View {
 /// covering with a thumb.
 struct SkeuPulse: ViewModifier {
     let active: Bool
-    /// Whether a light page swings on contrast ALONE, without fading.
+    /// Whether the page behind this mark is dark, when the system's answer is
+    /// the wrong one to ask.
     ///
-    /// Only the skeu look asks for this. Win95 was reported as correct as it
-    /// stands (founder direction 2026-08-17), and its bevelled mark on a 1995
-    /// surface does not wash out the way a soft one does.
-    var contrastOnlyInLight = false
+    /// The skeu look and `\.colorScheme` always agree. Win95 does NOT: its
+    /// palette is chosen separately, so a dark scheme can sit under a light
+    /// appearance and the pulse would then swing the wrong way — which is why
+    /// this look kept coming back wrong after the direction had been fixed
+    /// (founder bug report 2026-08-17, third pass). Win95 states its own
+    /// scheme's darkness; everything else leaves this nil.
+    var darkOverride: Bool? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Read rather than passed: the pulse is used by both looks, and this is
     /// the one signal both of them already carry.
@@ -157,7 +161,7 @@ struct SkeuPulse: ViewModifier {
     /// instead (founder direction 2026-08-17). Contrast is the goal, and
     /// contrast has no fixed direction — only a fixed distance from whatever
     /// is behind it.
-    private var isDark: Bool { colorScheme == .dark }
+    private var isDark: Bool { darkOverride ?? (colorScheme == .dark) }
 
     /// On a DARK page the mark stands out by getting brighter, and fading it
     /// back is the low half of the breath. On a LIGHT one both of those read
@@ -169,13 +173,12 @@ struct SkeuPulse: ViewModifier {
     /// it through brightness alone: up toward the paper at the quiet end of
     /// the breath, down away from it at the loud end. Contrast is the signal
     /// in both schemes; only on a dark page can opacity help carry it.
-    private var light: Bool { !isDark && contrastOnlyInLight }
-    private var lowOpacity: Double { light ? 1 : 0.28 }
-    private var lowBrightness: Double { light ? 0.16 : 0 }
-    private var highBrightness: Double {
-        if isDark { return 0.32 }
-        return light ? -0.34 : -0.26
-    }
+    /// ONE set of numbers for both looks (founder direction 2026-08-17).
+    /// The skeu behaviour was the one that read correctly, so Win95 takes it
+    /// verbatim rather than keeping a variant of its own.
+    private var lowOpacity: Double { isDark ? 0.28 : 1 }
+    private var lowBrightness: Double { isDark ? 0 : 0.16 }
+    private var highBrightness: Double { isDark ? 0.32 : -0.34 }
 
     func body(content: Content) -> some View {
         content
@@ -193,8 +196,7 @@ struct SkeuPulse: ViewModifier {
 }
 
 extension View {
-    func skeuPulse(_ active: Bool, contrastOnlyInLight: Bool = false) -> some View {
-        modifier(SkeuPulse(active: active,
-                           contrastOnlyInLight: contrastOnlyInLight))
+    func skeuPulse(_ active: Bool, dark: Bool? = nil) -> some View {
+        modifier(SkeuPulse(active: active, darkOverride: dark))
     }
 }
