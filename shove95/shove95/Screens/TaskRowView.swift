@@ -142,7 +142,7 @@ struct TaskRowView: View {
             set: { if !$0 { viewerIndex = nil } }
         )) {
             if let index = viewerIndex, index < task.allPhotos.count,
-               let image = UIImage(data: task.allPhotos[index]) {
+               let image = PhotoCache.image(task.allPhotos[index]) {
                 PhotoViewer(
                     title: task.title,
                     image: image,
@@ -285,7 +285,7 @@ struct TaskRowView: View {
     private var photoStrip: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
             ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
-                if let image = UIImage(data: data) {
+                if let image = PhotoCache.image(data) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -596,7 +596,7 @@ private struct PhotoViewer: View {
                             height: image.size.height * scale)
 
         return VStack(spacing: 0) {
-            TitleBar(title: title, isClose: true, onSettings: onClose)
+            TitleBar(title: title, isClose: true, onDelete: onRemove, onSettings: onClose)
             // Zoomable, with Live Text — the photo is the one place the Win95
             // costume gives way, because selecting text in an image is an
             // interaction people already know from Photos.
@@ -604,20 +604,6 @@ private struct PhotoViewer: View {
                 .frame(width: fitted.width, height: fitted.height)
                 .padding(pixel * 2)
                 .background(Win95.surface)
-            // Removal lives HERE, looking at the photo you are deleting —
-            // unambiguous in a way a row-level "remove photo" cannot be once
-            // a task holds several (TASK-044).
-            HStack {
-                Spacer()
-                Win95Button(action: onRemove, compact: true) {
-                    Text("Remove")
-                        .font(W95Font.small(pixel))
-                        .foregroundStyle(Win95.important)
-                }
-                .fixedSize()
-            }
-            .padding(pixel * 2)
-            .background(Win95.surface)
         }
         .frame(width: fitted.width + pixel * 4)
         .bevelRaised(pixel)

@@ -488,7 +488,7 @@ struct SkeuRootView: View {
 
             // Photos picked mid-composition wait here, visibly, until commit.
             ForEach(Array(pendingPhotos.enumerated()), id: \.offset) { _, data in
-                if let image = UIImage(data: data) {
+                if let image = PhotoCache.image(data) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -1041,7 +1041,7 @@ private struct SkeuTaskRow: View {
                 set: { if !$0 { viewerIndex = nil } }
             )) {
                 if let index = viewerIndex, index < task.allPhotos.count,
-                   let image = UIImage(data: task.allPhotos[index]) {
+                   let image = PhotoCache.image(task.allPhotos[index]) {
                     SkeuPhotoViewer(image: image) {
                         // Close first, then delete: the viewer is bound to an
                         // INDEX, and removing the photo under it would leave
@@ -1424,7 +1424,7 @@ private struct SkeuTaskRow: View {
     private var photoStrip: some View {
         HStack(spacing: SkeuSpace.sm) {
             ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, data in
-                if let image = UIImage(data: data) {
+                if let image = PhotoCache.image(data) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()

@@ -33,6 +33,11 @@ struct TitleBar: View {
     var onWorkspace: (() -> Void)? = nil
     /// `true` renders a close ✕ instead of the settings gear.
     var isClose: Bool = false
+    /// An optional destructive control BESIDE the ✕. The photo viewer's bin
+    /// lives here rather than on a bar of its own beneath the picture
+    /// (founder direction 2026-08-17): the two things you can do to an open
+    /// photo — close it, throw it away — belong in the same place.
+    var onDelete: (() -> Void)? = nil
     var onSettings: () -> Void
 
     var body: some View {
@@ -84,6 +89,20 @@ struct TitleBar: View {
                 Spacer(minLength: 0)
             }
 
+            if let onDelete {
+                Button(action: onDelete) {
+                    BinGlyph()
+                        .fill(Color(hex: scheme.text))
+                        .frame(width: Win95.Px.titleBarControlW * pixel * 0.6,
+                               height: Win95.Px.titleBarControlW * pixel * 0.6)
+                        .frame(width: Win95.Px.titleBarControlW * pixel,
+                               height: Win95.Px.titleBarControlH * pixel)
+                }
+                .buttonStyle(TitleBarControlStyle(pixel: pixel, surface: Color(hex: scheme.surface)))
+                .padding(.trailing, pixel * 2)
+                .accessibilityLabel("Delete photo")
+            }
+
             Button(action: onSettings) {
                 Group {
                     if isClose { CloseGlyph().fill(Color(hex: scheme.text)) }
@@ -98,6 +117,9 @@ struct TitleBar: View {
             .padding(.trailing, pixel * 2)
             .accessibilityLabel(isClose ? "Close" : "Settings")
         }
+        // A gap above and below the controls, so they sit IN the bar rather
+        // than filling it (founder direction 2026-08-17).
+        .padding(.vertical, pixel)
         .frame(height: Win95.Px.titleBar * pixel)
         .background(
             LinearGradient(colors: [Color(hex: scheme.titleA), Color(hex: scheme.titleB)],
@@ -325,5 +347,23 @@ private struct TaskbarBevel: ViewModifier {
         } else {
             content.bevelRaised(pixel)
         }
+    }
+}
+
+/// The bin, for the photo viewer's title bar. Drawn on the same grid as the
+/// gear and the ✕ so the three read as one set.
+struct BinGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width, h = rect.height
+        var p = Path()
+        // Lid, and the handle above it.
+        p.addRect(CGRect(x: 0, y: h * 0.18, width: w, height: h * 0.12))
+        p.addRect(CGRect(x: w * 0.36, y: h * 0.04, width: w * 0.28, height: h * 0.10))
+        // Body.
+        p.addRect(CGRect(x: w * 0.14, y: h * 0.34, width: w * 0.72, height: h * 0.58))
+        // Two staves cut out of it, so it reads as a bin and not a block.
+        p.addRect(CGRect(x: w * 0.34, y: h * 0.44, width: w * 0.08, height: h * 0.38))
+        p.addRect(CGRect(x: w * 0.58, y: h * 0.44, width: w * 0.08, height: h * 0.38))
+        return p
     }
 }
