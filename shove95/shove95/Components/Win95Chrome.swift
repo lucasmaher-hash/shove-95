@@ -70,7 +70,7 @@ struct TitleBar: View {
                 }
                 .scaleEffect(workspaceMenuOpen ? 0.92 : 1, anchor: .leading)
                 .animation(.spring(duration: 0.22), value: workspaceMenuOpen)
-                .padding(.leading, Win95.Px.grid * pixel)
+                .padding(.leading, Win95.Px.windowMargin * pixel)
                 .padding(.trailing, Win95.Px.grid * 2 * pixel)
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
@@ -90,7 +90,7 @@ struct TitleBar: View {
                 Text(title)
                     .font(W95Font.standard(pixel, role: .chrome))
                     .foregroundStyle(Color(hex: scheme.selectionText))
-                    .padding(.leading, Win95.Px.grid * pixel)
+                    .padding(.leading, Win95.Px.windowMargin * pixel)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -106,6 +106,8 @@ struct TitleBar: View {
                                height: Win95.Px.titleBarControlH * pixel)
                 }
                 .buttonStyle(TitleBarControlStyle(pixel: pixel, surface: Color(hex: scheme.surface)))
+                // The gap to the ✕ beside it, NOT the window margin — only the
+                // last control in the bar carries that.
                 .padding(.trailing, pixel * 2)
                 .accessibilityLabel("Delete photo")
             }
@@ -121,7 +123,7 @@ struct TitleBar: View {
                            height: Win95.Px.titleBarControlH * pixel)
             }
             .buttonStyle(TitleBarControlStyle(pixel: pixel, surface: Color(hex: scheme.surface)))
-            .padding(.trailing, pixel * 2)
+            .padding(.trailing, Win95.Px.windowMargin * pixel)
             .accessibilityLabel(isClose ? "Close" : "Settings")
         }
         // No padding here: the frame below is FIXED, so anything added
@@ -317,11 +319,13 @@ struct Taskbar: View {
             }
         }
         // The bar itself still spans edge to edge — it is the taskbar — but the
-        // buttons are inset so they don't run into the bezel. TWO units now,
-        // taking the room the gap in the middle gave back: the air belongs at
-        // the ends, where it separates the row from the screen, not between
-        // two things that both belong to the row.
-        .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+        // buttons are inset so they don't run into the bezel. That inset is
+        // the WINDOW's margin, the one the to-dos stand at: the taskbar is the
+        // bottom band of the same window, and a bar that begins somewhere else
+        // makes the window look assembled from parts (founder direction
+        // 2026-08-17). It was two grid units, which stood the buttons eight
+        // points further in than the list above them.
+        .padding(.horizontal, Win95.Px.windowMargin * pixel)
         // Asymmetric: the extra room goes ABOVE the buttons, so the panel is
         // taller without the buttons changing size.
         .padding(.top, Win95.Px.taskbarTopInset * pixel + pixel)
