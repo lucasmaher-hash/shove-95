@@ -262,7 +262,7 @@ struct TaskRowView: View {
                     // Add-photo plus: a bare glyph in the theme colour, not a
                     // button. One photo per edit session — the plus retires
                     // after a pick and returns on the next edit.
-                    PlusGlyph()
+                    CameraGlyph()
                         .fill(Win95.accent)
                         .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                         .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))

@@ -154,7 +154,7 @@ struct AddRowView: View {
             // Same bare theme-coloured glyph an existing task's photo control
             // uses — appears only while composing, matching the skeu row.
             if focused {
-                PlusGlyph()
+                CameraGlyph()
                     .fill(Win95.accent)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))

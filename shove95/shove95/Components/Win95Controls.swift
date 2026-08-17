@@ -178,6 +178,38 @@ struct PlusGlyph: Shape {
     }
 }
 
+// MARK: - Camera glyph
+
+/// The photo control's mark: a camera on a 12×12 grid.
+///
+/// It was a plus, which says "add" and nothing about WHAT — and this control
+/// only ever adds one thing (founder direction 2026-08-17). The skeu row has
+/// said `camera` with an SF Symbol all along; this is the same statement at
+/// this look's resolution.
+///
+/// Drawn as an outline rather than a filled block: at 12 cells a solid body
+/// with a hole in it reads as a smudge, where a one-cell wall and a four-cell
+/// lens ring still read as a camera.
+struct CameraGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 12
+        func cell(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
+            CGRect(x: x * u, y: y * u, width: w * u, height: h * u)
+        }
+        var path = Path()
+        path.addRect(cell(3, 1, 3, 1))    // the viewfinder bump
+        path.addRect(cell(0, 2, 12, 1))   // top wall
+        path.addRect(cell(0, 9, 12, 1))   // floor
+        path.addRect(cell(0, 2, 1, 8))    // near wall
+        path.addRect(cell(11, 2, 1, 8))   // far wall
+        path.addRect(cell(4, 4, 4, 1))    // the lens, as a ring of cells
+        path.addRect(cell(4, 7, 4, 1))
+        path.addRect(cell(4, 5, 1, 2))
+        path.addRect(cell(7, 5, 1, 2))
+        return path
+    }
+}
+
 // MARK: - Pin glyph
 
 /// The pin control's mark: a ring, holding a solid core when the task is
