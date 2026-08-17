@@ -292,6 +292,11 @@ struct SkeuSettingsView: View {
                     field(text: $newWorkspace.limited(to: AppSettings.maxNameLength),
                           prompt: "New workspace",
                           focused: $addWorkspaceFocused)
+                        // Return ADDS it. Dismissing the keyboard and leaving
+                        // the name sitting there asks the reader to press Add
+                        // for something they have already finished saying
+                        // (founder direction 2026-08-17).
+                        .onSubmit(addWorkspace)
 
                     SkeuRowButton(title: "Add") {
                         SkeuHaptic.press()

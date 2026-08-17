@@ -94,7 +94,15 @@ struct SettingsView: View {
         // In from the left edge, or down from the title bar — the same two
         // ways out the skeu sheets take. See SwipeToDismiss.
         .swipeToDismiss(headerHeight: Win95.Px.titleBar * pixel,
-                        backdrop: Win95.surface, onClose)
+                        // CLEAR, not a colour. The skeu sheets get away with
+                        // their canvas because the screen behind them is that
+                        // same canvas; a Win95 home screen is a title bar, a
+                        // well and a taskbar, and no single tone stands in for
+                        // it (founder bug report 2026-08-17). Asking the
+                        // presentation itself to be transparent shows the real
+                        // screen instead of guessing at it.
+                        backdrop: .clear, onClose)
+        .presentationBackground(.clear)
         // The well runs to the bottom of the SCREEN. Stopping at the safe area
         // drew its bottom border partway up, which read as a stray horizontal
         // rule under the content (founder bug report 2026-08-04).

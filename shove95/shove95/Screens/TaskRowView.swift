@@ -55,6 +55,8 @@ struct TaskRowView: View {
     @State private var viewerIndex: Int?
     /// Which thumbnail is mid press-in (the tiny open animation).
     @State private var pressedThumb: Int?
+    /// The photo waiting on a yes — see the viewer's bin.
+    @State private var pendingPhotoDelete: Int?
     /// One photo per edit session: the plus disappears after a pick and
     /// returns the next time the task enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -147,9 +149,9 @@ struct TaskRowView: View {
                     title: task.title,
                     image: image,
                     onRemove: {
-                        var t = Transaction(); t.disablesAnimations = true
-                        withTransaction(t) { viewerIndex = nil }
-                        store.removePhoto(task, at: index)
+                        // ASKED first, as the skeu viewer does — a photo
+                        // cannot be recovered (founder direction 2026-08-17).
+                        pendingPhotoDelete = index
                     },
                     onClose: {
                         // Closing stays instant (locked Q16).
@@ -160,6 +162,24 @@ struct TaskRowView: View {
                 // Same fix as the pin dialog's scrim: a scheme whose darkest
                 // tone is not black must not veil itself in black.
                 .presentationBackground(Win95.darkShadow.opacity(0.55))
+                .overlay {
+                    if let at = pendingPhotoDelete {
+                        Win95PinReplaceDialog(
+                            outgoing: "",
+                            title: "Delete photo",
+                            message: "This photo goes for good. The task itself is not touched.",
+                            confirmLabel: "Delete",
+                            destructive: true
+                        ) {
+                            pendingPhotoDelete = nil
+                            var t = Transaction(); t.disablesAnimations = true
+                            withTransaction(t) { viewerIndex = nil }
+                            store.removePhoto(task, at: at)
+                        } onCancel: {
+                            pendingPhotoDelete = nil
+                        }
+                    }
+                }
             }
         }
     }
