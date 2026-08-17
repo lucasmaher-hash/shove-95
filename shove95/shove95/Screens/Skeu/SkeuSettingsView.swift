@@ -573,6 +573,24 @@ private struct SkeuNameField: View {
                 .frame(height: fieldH)
                 .skeuTrough(Capsule(), height: fieldH)
 
+            // A trough LOOKS like a place text lives, not a place text is
+            // changed — nothing about it says you may type here, so the row
+            // needed something that does (founder direction 2026-08-17).
+            // Round, because it holds a mark rather than a word, and this
+            // look's word-buttons are all capsules.
+            Image(systemName: "pencil")
+                .font(.system(size: labelSize * 0.95))
+                .foregroundStyle(skeu.ink)
+                .frame(width: fieldH, height: fieldH)
+                .skeuGlass(Circle(), height: fieldH)
+                // A filled Circle is hittable only where the ink lands.
+                .contentShape(Circle())
+                .skeuPress {
+                    SkeuHaptic.press()
+                    focused = true
+                }
+                .accessibilityLabel("Rename \(bucket.displayName)")
+
             // Fades when the name already IS the default — a control that
             // would do nothing shouldn't invite a press.
             SkeuRowButton(title: "Default", prominent: !isDefault) {

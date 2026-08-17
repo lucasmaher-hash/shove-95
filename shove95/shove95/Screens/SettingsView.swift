@@ -566,6 +566,35 @@ private struct LanguageSection: View {
 
 /// name already is the default: a button that would do nothing shouldn't
 /// invite a press.
+/// A pencil on an 8×8 grid — whole cells only, like every other mark here.
+///
+/// Not an SF Symbol: those are drawn on a continuous curve and land on
+/// fractional pixels at every scale step, which is exactly the softness this
+/// look exists to avoid.
+private struct PixelPencil: View {
+    let pixel: CGFloat
+
+    /// Filled cells: a nib at the bottom left, a shaft climbing to the right.
+    private static let cells: [(Int, Int)] = [
+        (1, 6), (1, 5), (2, 5),
+        (2, 4), (3, 4), (3, 3), (4, 3),
+        (4, 2), (5, 2), (5, 1), (6, 1),
+    ]
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear
+            ForEach(Array(Self.cells.enumerated()), id: \.offset) { _, cell in
+                Rectangle()
+                    .fill(Win95.text)
+                    .frame(width: pixel, height: pixel)
+                    .offset(x: CGFloat(cell.0) * pixel, y: CGFloat(cell.1) * pixel)
+            }
+        }
+        .frame(width: 8 * pixel, height: 8 * pixel)
+    }
+}
+
 private struct NameField: View {
     @Environment(\.pixel) private var pixel
     /// Read so a face change re-renders this view — the face is a static
@@ -598,6 +627,17 @@ private struct NameField: View {
                 .frame(minHeight: Win95.rowHeight(pixel))
                 .background(Win95.well)
                 .bevelSunken(pixel)
+
+            // Same job as the skeu row's round button, in this look's
+            // geometry: a raised square. A circle cannot be drawn in whole
+            // pixels, and whole pixels are the one thing this look does not
+            // bend (founder direction 2026-08-17).
+            Win95Button(action: { focused = true },
+                        compact: true,
+                        width: Win95.rowHeight(pixel)) {
+                PixelPencil(pixel: pixel)
+            }
+            .accessibilityLabel("Rename \(bucket.displayName)")
 
             Win95Button(action: {
                 focused = false
