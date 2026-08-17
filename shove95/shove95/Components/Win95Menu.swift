@@ -41,6 +41,28 @@ struct RowMenuRequest: Equatable {
 @Observable @MainActor
 final class MenuCoordinator {
     var request: RowMenuRequest?
+    /// The task waiting on a yes to take over the Live section.
+    ///
+    /// Held HERE rather than in either root view because the menu that asks
+    /// for it is drawn by an overlay, not by the row — and both looks render
+    /// their dialog from the same signal.
+    var pendingLive: TaskItem?
+
+    /// Sends a task live, asking first when something already holds it.
+    func goLive(_ task: TaskItem, store: TaskStore) {
+        if store.liveNote() == nil {
+            store.makeLive(task)
+        } else {
+            pendingLive = task
+        }
+    }
+
+    func confirmLive(store: TaskStore) {
+        if let task = pendingLive { store.makeLive(task) }
+        pendingLive = nil
+    }
+
+    func cancelLive() { pendingLive = nil }
 
     /// Springs in with a little overshoot; the anchor is the row's bottom-left,
     /// so it grows out of the row the way a Win95 menu drops from its title.
@@ -83,6 +105,11 @@ struct Win95Menu: View {
                         withAnimation(.spring(duration: 0.25)) {
                             store.move(task, to: destination.bucket)
                         }
+                    }
+                }
+                item("Go Live") {
+                    withAnimation(.spring(duration: 0.25)) {
+                        menu.goLive(task, store: store)
                     }
                 }
                 separator
@@ -183,7 +210,7 @@ struct MenuOverlay: View {
     /// bug report 2026-08-04).
     private func estimatedHeight(for task: TaskItem) -> CGFloat {
         let bucket = task.bucket(now: store.now(), calendar: store.calendar)
-        let items = task.isCompleted ? 1 : bucket.menuDestinations.count + 2
+        let items = task.isCompleted ? 1 : bucket.menuDestinations.count + 3
         let separators = task.isCompleted ? 0 : 2
         return CGFloat(items) * Win95.rowHeight(pixel)
             + CGFloat(separators) * 4 * pixel

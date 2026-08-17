@@ -256,6 +256,22 @@ struct SkeuRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         // The row menu draws above everything, unclipped by the scroll view.
         .overlay { SkeuMenuOverlay() }
+        // Only one thing can be live, so sending a second one asks first.
+        .overlay {
+            if menu.pendingLive != nil {
+                SkeuPinReplaceDialog(
+                    outgoing: store.liveNote()?.title ?? "",
+                    title: "Replace what is live",
+                    message: "Something is already live. Replacing it puts this task there instead; the other one goes back to its list, text and all.",
+                    confirmLabel: "Replace"
+                ) {
+                    withAnimation(SkeuMotion.layout) { menu.confirmLive(store: store) }
+                } onCancel: {
+                    menu.cancelLive()
+                }
+            }
+        }
+        .animation(SkeuMotion.present, value: menu.pendingLive?.id)
         .environment(menu)
         .environment(editing)
         // The store's queries are scoped to the active workspace. The Win95

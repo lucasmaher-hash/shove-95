@@ -540,6 +540,24 @@ final class TaskStore {
         commit()
     }
 
+    /// Sends an existing task to the Live section.
+    ///
+    /// Whatever held Live goes back to being an ordinary task — it keeps its
+    /// text and returns to whichever tab its date puts it in, which for a note
+    /// typed straight into Live means General. "Replace" swaps what is live;
+    /// it does not destroy anything, and the bin remains the only thing that
+    /// deletes (founder direction 2026-08-17).
+    func makeLive(_ task: TaskItem) {
+        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })
+        for held in (try? context.fetch(descriptor)) ?? [] where held.id != task.id {
+            held.isLiveNote = false
+            held.isPinned = false
+        }
+        task.isLiveNote = true
+        task.isPinned = true
+        commit()
+    }
+
     /// The Lock Screen switch, and ONLY that.
     ///
     /// Off leaves the text sitting in its box; the note is still the live note

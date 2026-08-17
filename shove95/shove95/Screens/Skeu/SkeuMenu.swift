@@ -55,6 +55,11 @@ struct SkeuMenu: View {
                         }
                     }
                 }
+                item("Go Live") {
+                    withAnimation(.spring(duration: 0.25)) {
+                        menu.goLive(task, store: store)
+                    }
+                }
                 separator
                 item(task.isImportant ? "Unmark Important" : "Mark as Important") {
                     withAnimation(.spring(duration: 0.25)) {
@@ -127,7 +132,7 @@ struct SkeuMenu: View {
     /// The item table is known, so the height is arithmetic — see file header.
     static func estimatedHeight(for task: TaskItem, store: TaskStore) -> CGFloat {
         let bucket = task.bucket(now: store.now(), calendar: store.calendar)
-        let items = task.isCompleted ? 1 : bucket.menuDestinations.count + 2
+        let items = task.isCompleted ? 1 : bucket.menuDestinations.count + 3
         let separators = task.isCompleted ? 0 : 2
         return CGFloat(items) * M.itemHeight
             + CGFloat(separators) * M.separator

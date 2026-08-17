@@ -154,6 +154,21 @@ struct RootView: View {
         .onChange(of: settings.scheme.id) { _, id in store.setSchemeID(id) }
         .onChange(of: settings.face) { _, face in store.setFontID(face.rawValue) }
         .overlay { MenuOverlay().environment(menu) }
+        // Only one thing can be live, so sending a second one asks first.
+        .overlay {
+            if menu.pendingLive != nil {
+                Win95PinReplaceDialog(
+                    outgoing: store.liveNote()?.title ?? "",
+                    title: "Replace what is live",
+                    message: "Something is already live. Replacing it puts this task there instead; the other one goes back to its list, text and all.",
+                    confirmLabel: "Replace"
+                ) {
+                    menu.confirmLive(store: store)
+                } onCancel: {
+                    menu.cancelLive()
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             // Fires at midnight, timezone changes, clock changes (PRD §2).
