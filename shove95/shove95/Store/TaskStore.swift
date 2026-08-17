@@ -560,16 +560,18 @@ final class TaskStore {
 
     /// Sends an existing task to the Live section.
     ///
-    /// Whatever held Live goes back to being an ordinary task — it keeps its
-    /// text and returns to whichever tab its date puts it in, which for a note
-    /// typed straight into Live means General. "Replace" swaps what is live;
-    /// it does not destroy anything, and the bin remains the only thing that
-    /// deletes (founder direction 2026-08-17).
+    /// Whatever held Live is DELETED, not returned to a list (founder
+    /// direction 2026-08-17, revising the first answer). Handing it back to
+    /// Today or General meant that replacing one thing quietly produced
+    /// another somewhere else — you went to Live to change what you were
+    /// doing and came away with an extra task you never asked for.
+    ///
+    /// Deletion here is not final: `delete(_:)` writes the undo snapshot, so
+    /// the bar offers it back for the few seconds anyone would notice.
     func makeLive(_ task: TaskItem) {
         let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })
         for held in (try? context.fetch(descriptor)) ?? [] where held.id != task.id {
-            held.isLiveNote = false
-            held.isPinned = false
+            delete(held)
         }
         task.isLiveNote = true
         task.isPinned = true

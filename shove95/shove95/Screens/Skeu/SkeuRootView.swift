@@ -262,7 +262,7 @@ struct SkeuRootView: View {
                 SkeuPinReplaceDialog(
                     outgoing: store.liveNote()?.title ?? "",
                     title: "Replace what is live",
-                    message: "Something is already live. Replacing it puts this task there instead; the other one goes back to its list, text and all.",
+                    message: "Something is already live. This task takes its place, and the one there now goes — the undo bar can bring it back.",
                     confirmLabel: "Replace"
                 ) {
                     withAnimation(SkeuMotion.layout) { menu.confirmLive(store: store) }
