@@ -567,6 +567,16 @@ private struct SkeuAddRow: View {
     /// This row's own scroll and focus identity — one per section in Soon.
     private var rowID: String { EditingCoordinator.addRowID(for: day) }
 
+    /// The two glyphs take the "add" placeholder's ink until something is
+    /// typed, and the full ink after — the same principle the Win95 row has
+    /// always used (founder direction 2026-08-17). Standing at full strength
+    /// over an empty field, they were the brightest things in the list and the
+    /// loudest part of a row that has nothing in it yet.
+    private var controlInk: Color {
+        draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? skeu.inkFaint : skeu.ink
+    }
+
     var body: some View {
         HStack(spacing: F.glassGap) {
             ZStack {}
@@ -629,7 +639,7 @@ private struct SkeuAddRow: View {
                     Image(systemName: "camera")
                         .font(SkeuFont.at(glyphSize, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(skeu.ink)
+                        .foregroundStyle(controlInk)
                         .frame(width: glyphBox, height: glyphBox)
                 }
                 .buttonStyle(.plain)
@@ -652,7 +662,7 @@ private struct SkeuAddRow: View {
                 Image(systemName: "calendar")
                     .font(SkeuFont.at(glyphSize, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(skeu.ink)
+                    .foregroundStyle(controlInk)
                     .frame(width: glyphBox, height: glyphBox)
                     .frame(width: SkeuControl.minTouch, height: rowH)
                     .contentShape(Rectangle())
@@ -948,9 +958,20 @@ extension SkeuRootView {
                 .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
                 .foregroundStyle(skeu.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, SkeuSpace.md)
+                .padding(.vertical, SkeuSpace.sm)
+                // A band, so a heading is not just larger text but a different
+                // KIND of thing from the rows under it (founder direction
+                // 2026-08-17). A TINT, not a surface: the accent at low
+                // strength, the same device the selected segment uses. A lit
+                // slat here would make the label look pressable.
+                .background {
+                    RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
+                        .fill(skeu.accent.opacity(0.12))
+                }
+                .padding(.horizontal, SkeuSpace.xs)
                 .padding(.top, SkeuSpace.xl)
                 .padding(.bottom, SkeuSpace.xs)
-                .padding(.horizontal, SkeuSpace.md)
         }
     }
 

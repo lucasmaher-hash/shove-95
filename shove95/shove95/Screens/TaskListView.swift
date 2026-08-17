@@ -47,7 +47,6 @@ struct TaskListView: View {
                 Rectangle()
                     .fill(Win95.accent)
                     .frame(height: pixel)
-                    .padding(.horizontal, Win95.Px.grid * 2 * pixel)
                     .padding(.top, Win95.Px.grid * 3 * pixel)
             }
 
@@ -55,10 +54,23 @@ struct TaskListView: View {
                 .font(W95Font.heading(pixel))
                 .foregroundStyle(Win95.text)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // Inside the widened frame, so the text stays where it was
+                // while its band runs past it — one grid unit of that is the
+                // list's own inset, given back below.
+                .padding(.horizontal, Win95.Px.grid * 4 * pixel)
+                .padding(.vertical, Win95.Px.grid * pixel)
+                // A band, so a heading is not just larger text but a different
+                // KIND of thing from the rows under it (founder direction
+                // 2026-08-17). The window's surface against the list's well:
+                // the two tones the look already owns.
+                .background(Win95.surface)
                 .padding(.top, Win95.Px.grid * 3 * pixel)
-                .padding(.bottom, Win95.Px.grid * pixel)
-                .padding(.horizontal, Win95.Px.grid * 2 * pixel)
         }
+        // Out to the screen edge. The list insets its rows by one grid unit,
+        // and a rule that stops where the rows stop reads as another row
+        // rather than as the break between two sections (founder direction
+        // 2026-08-17). Given back here so the heading spans the whole well.
+        .padding(.horizontal, -(Win95.Px.grid * pixel))
     }
 
     /// One scheduled day's name.

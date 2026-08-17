@@ -722,6 +722,11 @@ struct Win95DayPickerSheet: View {
                     }
                 }
                 .padding(Win95.Px.grid * 4 * pixel)
+                // Less room under the grid than around it: the scroll view
+                // already adds the home indicator's inset below, so a full
+                // margin there stacks on top of one and leaves a visibly empty
+                // band (founder direction 2026-08-17).
+                .padding(.bottom, -(Win95.Px.grid * 2 * pixel))
                 // In a BACKGROUND, never as a wrapper: a GeometryReader that
                 // wraps content lays it out rather than measuring it, which is
                 // how four screens once lost their headers under the status bar.
@@ -741,8 +746,9 @@ struct Win95DayPickerSheet: View {
     }
 
     /// Room under the grid for the home indicator, so the last week is not
-    /// sitting on the bezel.
-    private var bottomSlack: CGFloat { Win95.Px.grid * 5 * pixel }
+    /// sitting on the bezel. Small: the scroll view contributes that inset
+    /// too, and the two together were most of a blank band.
+    private var bottomSlack: CGFloat { Win95.Px.grid * pixel }
 
     /// Stacked, not side by side — the skeu sheet has always read as a column
     /// and these are the same two answers (founder direction 2026-08-17).
