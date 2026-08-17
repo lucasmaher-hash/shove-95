@@ -954,6 +954,8 @@ private struct SkeuTaskRow: View {
     @State private var viewerIndex: Int?
     /// Which thumbnail is mid press-in (the tiny open animation).
     @State private var pressedThumb: Int?
+    /// The photo waiting on a yes — see the viewer's bin.
+    @State private var pendingPhotoDelete: Int?
     /// One photo per edit session: the camera retires after a pick and returns
     /// the next time the row enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -1052,13 +1054,32 @@ private struct SkeuTaskRow: View {
                         index: Binding(get: { viewerIndex ?? index },
                                        set: { viewerIndex = $0 })
                     ) { at in
-                        // Close first, then delete: the viewer is bound to an
-                        // INDEX, and removing the photo under it would leave
-                        // the binding pointing past the end for a frame.
-                        viewerIndex = nil
-                        store.removePhoto(task, at: at)
+                        // ASKED first. A photo cannot be recovered, and the
+                        // bin sits a thumb's width from the ✕ (founder
+                        // direction 2026-08-17).
+                        pendingPhotoDelete = at
                     } onClose: {
                         viewerIndex = nil
+                    }
+                    .overlay {
+                        if let at = pendingPhotoDelete {
+                            SkeuPinReplaceDialog(
+                                outgoing: "",
+                                title: "Delete photo",
+                                message: "This photo goes for good. The task itself is not touched.",
+                                confirmLabel: "Delete",
+                                confirmTint: skeu.critical
+                            ) {
+                                pendingPhotoDelete = nil
+                                // Close first, then delete: the viewer is bound
+                                // to an INDEX, and removing the photo under it
+                                // would leave the binding past the end.
+                                viewerIndex = nil
+                                store.removePhoto(task, at: at)
+                            } onCancel: {
+                                pendingPhotoDelete = nil
+                            }
+                        }
                     }
                 }
             }

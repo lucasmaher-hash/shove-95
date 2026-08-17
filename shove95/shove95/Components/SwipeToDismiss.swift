@@ -52,6 +52,14 @@ struct SwipeToDismiss: ViewModifier {
     private static let velocity: CGFloat = 320
     /// How near the leading edge a horizontal drag must start.
     private static let edge: CGFloat = 24
+    /// Extra reach BELOW the header, on top of its measured height.
+    ///
+    /// A header's own height is where the gesture belongs in principle, and in
+    /// the hand it is too mean — the thumb lands where it lands, and a band
+    /// that ends exactly at the title means half the attempts do nothing
+    /// (founder, twice, 2026-08-17). This much further down still sits above
+    /// any content worth scrolling, so nothing is taken from the scroll view.
+    private static let reach: CGFloat = 72
 
     @State private var offset: CGSize = .zero
     /// The status-bar inset, measured rather than assumed. `startLocation` is
@@ -112,7 +120,7 @@ struct SwipeToDismiss: ViewModifier {
     private enum Mode { case horizontal, vertical, none }
 
     private func mode(for value: DragGesture.Value) -> Mode {
-        let band = topInset + headerHeight
+        let band = topInset + headerHeight + Self.reach
         let dx = value.translation.width, dy = value.translation.height
         // Started at the leading edge and travelling right — "back".
         if value.startLocation.x <= Self.edge, dx > abs(dy) { return .horizontal }

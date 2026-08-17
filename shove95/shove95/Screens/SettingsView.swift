@@ -99,7 +99,12 @@ struct SettingsView: View {
         // drew its bottom border partway up, which read as a stray horizontal
         // rule under the content (founder bug report 2026-08-04).
         .ignoresSafeArea(.container, edges: .bottom)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        // NOT `.ignoresSafeArea(.keyboard)`. That is right on the home screen,
+        // where the taskbar is furniture and holds still — but here it told
+        // the system to pretend the keyboard was not there, so a field near
+        // the bottom stayed under it and could not be seen while being typed
+        // into (founder bug report 2026-08-17). The scroll view lifts now,
+        // which is the behaviour the home list already had.
         .fullScreenCover(isPresented: $showArchive) {
             ArchiveView { showArchive = false }
                 .environment(\.pixel, pixel)

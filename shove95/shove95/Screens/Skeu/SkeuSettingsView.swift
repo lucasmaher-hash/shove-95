@@ -197,6 +197,9 @@ struct SkeuSettingsView: View {
                 .padding(.bottom, SkeuSpace.md + G.bottomClearance)
                 }
                 .scrollIndicators(.hidden)
+                // Matches the Win95 sheet: a swipe puts the keyboard away
+                // rather than leaving it standing over what you scrolled to.
+                .scrollDismissesKeyboard(.interactively)
                 // The header is docked and the panels run under it, so they
                 // dissolve on the way rather than being cut — and only once
                 // something has scrolled past. See SkeuEdgeFade.
