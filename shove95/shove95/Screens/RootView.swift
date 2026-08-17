@@ -178,10 +178,11 @@ struct RootView: View {
         let preferences = store.preferences()
         var transaction = Transaction()
         transaction.disablesAnimations = true // appearance never animates
-        if preferences.schemeID != settings.scheme.id {
-            withTransaction(transaction) {
-                settings.scheme = Win95Scheme.named(preferences.schemeID)
-            }
+        // The synced record still carries a scheme NAME; the setting is a
+        // shared slot now, so the name is resolved back to its position.
+        if preferences.schemeID != settings.scheme.id,
+           let slot = Win95Scheme.all.firstIndex(where: { $0.id == preferences.schemeID }) {
+            withTransaction(transaction) { settings.colorSlot = slot }
         }
         if let face = AppFace(rawValue: preferences.fontID), face != settings.face {
             withTransaction(transaction) { settings.face = face }

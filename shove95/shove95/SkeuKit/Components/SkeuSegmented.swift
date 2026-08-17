@@ -120,7 +120,10 @@ struct SkeuSegment<Content: View>: View {
     /// Paints the whole pill, under the glass. Used by the theme row, where
     /// the choice IS a colour and so has to fill the pill rather than sit in
     /// it as a dot (founder direction 2026-08-16).
-    var fill: Color?
+    ///
+    /// A STYLE, not a colour: silver is a gradient, and a flat fill at a
+    /// neutral hue is just grey.
+    var fill: AnyShapeStyle?
     @ViewBuilder var content: Content
 
     var body: some View {

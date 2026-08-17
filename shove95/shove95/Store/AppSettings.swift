@@ -23,6 +23,8 @@ final class AppSettings {
         static let workspaces = "settings.workspaces.v2"
         static let currentWorkspace = "settings.workspace.current"
         static let language = "settings.language"
+        static let colorSlot = "settings.color.slot"
+        static let sharedSlot = "settings.color.shared"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
     }
 
@@ -44,8 +46,33 @@ final class AppSettings {
     /// the only place that knows the current lighting. Assigning `Win95.scheme`
     /// here as well would race that: this setter runs first with the light
     /// palette and the screen flashes it before AppShell corrects the value.
+    /// The chosen colour, as a POSITION rather than a name (founder decision
+    /// 2026-08-17). Slot 0 is Windows Standard and Cream, 1 is Desert and
+    /// Clay, and so on: one setting, and the two looks cannot drift apart
+    /// because neither owns it.
+    ///
+    /// Slot 5 is Silver, which only the skeu look has. While it is chosen the
+    /// Windows look shows `sharedSlot` — the last colour that existed in both
+    /// — rather than an invented sixth scheme.
+    var colorSlot: Int = 0 {
+        didSet {
+            UserDefaults.standard.set(colorSlot, forKey: Key.colorSlot)
+            if colorSlot < Win95Scheme.all.count {
+                sharedSlot = colorSlot
+            }
+            Win95.scheme = scheme
+        }
+    }
+
+    /// The last slot both looks could show. Only moves when a shared colour is
+    /// picked, so choosing Silver and coming back lands where you left.
+    private(set) var sharedSlot: Int = 0 {
+        didSet { UserDefaults.standard.set(sharedSlot, forKey: Key.sharedSlot) }
+    }
+
+    /// Always a real Win95 scheme: silver falls back to the last shared slot.
     var scheme: Win95Scheme {
-        didSet { UserDefaults.standard.set(scheme.id, forKey: Key.scheme) }
+        Win95Scheme.all[min(sharedSlot, Win95Scheme.all.count - 1)]
     }
 
     /// The typeface, mirrored from the synced record. Assigning it updates the
@@ -90,7 +117,7 @@ final class AppSettings {
     /// sets, and collapsing them would mean one look silently repicking the
     /// other's colours.
     var skeuTheme: SkeuTheme {
-        didSet { UserDefaults.standard.set(skeuTheme.id, forKey: Key.skeuTheme) }
+        SkeuTheme.all[min(colorSlot, SkeuTheme.all.count - 1)]
     }
 
     /// Custom tab labels. Empty string = use the built-in name.
@@ -115,9 +142,6 @@ final class AppSettings {
     }
 
     init() {
-        let stored = UserDefaults.standard.string(forKey: Key.scheme) ?? Win95Scheme.classic.id
-        scheme = Win95Scheme.named(stored)
-        Win95.scheme = Win95Scheme.named(stored)
 
         // Skeu on a fresh install (founder direction 2026-08-17). Anyone who
         // has already chosen keeps their choice — this is the fallback, not an
@@ -126,7 +150,6 @@ final class AppSettings {
             ?? .skeu
         appearance = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: Key.appearance) ?? "")
             ?? .system
-        skeuTheme = SkeuTheme.named(UserDefaults.standard.string(forKey: Key.skeuTheme) ?? "")
         let storedFace = AppFace(rawValue: UserDefaults.standard.string(forKey: Key.skeuFace) ?? "")
             ?? .system
         skeuFace = storedFace
@@ -145,6 +168,22 @@ final class AppSettings {
 
         languageCode = UserDefaults.standard.string(forKey: Key.language)
             ?? Language.english_.code
+
+        // LAST, because assigning `colorSlot` runs its observer, and that
+        // observer reads `scheme` — which means every stored property has to
+        // exist first.
+        //
+        // Migrated from the two old name-keyed settings on first run:
+        // whichever look the reader last touched decides the slot, and the
+        // Win95 name wins the tie because it existed first.
+        let legacyScheme = UserDefaults.standard.string(forKey: Key.scheme)
+        let legacySkeu = UserDefaults.standard.string(forKey: Key.skeuTheme)
+        let migrated = Win95Scheme.all.firstIndex { $0.id == legacyScheme }
+            ?? SkeuTheme.all.firstIndex { $0.id == legacySkeu }
+            ?? 0
+        sharedSlot = UserDefaults.standard.object(forKey: Key.sharedSlot) as? Int ?? migrated
+        colorSlot = UserDefaults.standard.object(forKey: Key.colorSlot) as? Int ?? migrated
+        Win95.scheme = scheme
     }
 
     /// The label to show for a bucket — the user's name if set, else the default.

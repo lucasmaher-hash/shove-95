@@ -63,7 +63,36 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
         return Color(h: s.h, s: min(s.s * 2.1, 0.82), b: min(s.b * 1.02, 0.94))
     }
 
-    static let all: [SkeuTheme] = [cream, clay, moss, slate, ember]
+    /// What the picker actually paints. Every theme but one is its `swatch`
+    /// flat; silver is a raked gradient, because a single tone at a neutral
+    /// hue IS grey no matter how it is tuned. Metal reads as metal only when
+    /// the light travels across it.
+    var swatchStyle: AnyShapeStyle {
+        guard id == "silver" else { return AnyShapeStyle(swatch) }
+        return AnyShapeStyle(LinearGradient(
+            stops: [.init(color: Color(hex: 0x8F949C), location: 0.00),
+                    .init(color: Color(hex: 0xE8ECF2), location: 0.30),
+                    .init(color: Color(hex: 0xA8AEB8), location: 0.52),
+                    .init(color: Color(hex: 0xF4F7FA), location: 0.72),
+                    .init(color: Color(hex: 0x9AA0A9), location: 1.00)],
+            startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
+
+    /// Silver. Skeu only — there is no Win95 twin, and the founder's rule is
+    /// that Windows falls back to the last shared colour while this is chosen
+    /// (2026-08-17). Inventing a sixth Win95 scheme nobody designed would have
+    /// been the worse answer.
+    ///
+    /// A near-neutral base at a hint of blue: metal is not grey, it is a grey
+    /// that remembers the sky. The metallic read comes from the SWATCH's
+    /// gradient and from the look's own rim and glass — a flat fill at this
+    /// hue would be exactly the "just grey" the founder rejected.
+    static let silver = SkeuTheme(
+        id: "silver", name: "Silver",
+        light: .derived(from: Color(hex: 0xB9BEC6), accent: Color(hex: 0x5A6472)),
+        dark: .derived(from: Color(hex: 0xB9BEC6), accent: Color(hex: 0x5A6472), dark: true))
+
+    static let all: [SkeuTheme] = [cream, clay, moss, slate, ember, silver]
 
     static func named(_ id: String) -> SkeuTheme {
         all.first { $0.id == id } ?? cream

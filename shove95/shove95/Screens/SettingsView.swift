@@ -309,7 +309,10 @@ struct SettingsView: View {
                 ) {
                     var t = Transaction()
                     t.disablesAnimations = true // appearance never animates
-                    withTransaction(t) { settings.scheme = scheme }
+                    // Sets the SHARED slot — the skeu look follows.
+                    withTransaction(t) {
+                        settings.colorSlot = Win95Scheme.all.firstIndex { $0.id == scheme.id } ?? 0
+                    }
                 }
             }
         }

@@ -147,7 +147,7 @@ struct SkeuSettingsView: View {
                             swatchOption(theme,
                                          selected: settings.skeuTheme.id == theme.id,
                                          in: themeNS) {
-                                settings.skeuTheme = theme
+                                settings.colorSlot = SkeuTheme.all.firstIndex { $0.id == theme.id } ?? 0
                             }
                         }
                     }
@@ -413,7 +413,7 @@ struct SkeuSettingsView: View {
                               in group: Namespace.ID,
                               action: @escaping () -> Void) -> some View {
         SkeuSegment(isSelected: selected, namespace: group, geometryID: "pill",
-                    fill: theme.swatch) {
+                    fill: theme.swatchStyle) {
             Text(" ").skeuSegmentLabel(textScale)
         }
         .skeuPress(haptic: false) {
