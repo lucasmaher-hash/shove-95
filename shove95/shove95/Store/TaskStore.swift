@@ -496,6 +496,61 @@ final class TaskStore {
         commit()
     }
 
+    // MARK: - The live note
+
+    /// The one note in the Live section, if there is one.
+    ///
+    /// App-wide, like the pin it replaces: the question it answers is "what is
+    /// the one thing right now", and that is not a per-workspace question
+    /// (founder direction 2026-08-17).
+    func liveNote() -> TaskItem? {
+        _ = revision // observation hook
+        var descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isLiveNote && !$0.isCompleted })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
+    /// Writes the live note, replacing whatever was there.
+    ///
+    /// Created straight into the live state: the founder's flow is to type it
+    /// and have it go, so there is no separate step that puts it on the Lock
+    /// Screen afterwards.
+    @discardableResult
+    func setLiveNote(_ raw: String) -> TaskItem? {
+        let title = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return nil }
+        clearLiveNote()
+        let task = TaskItem()
+        task.title = title
+        task.isLiveNote = true
+        task.isPinned = true
+        task.workspaceID = workspaceID
+        context.insert(task)
+        commit()
+        return task
+    }
+
+    /// Removes the live note entirely — the bin in the Live section.
+    func clearLiveNote() {
+        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })
+        for note in (try? context.fetch(descriptor)) ?? [] {
+            context.delete(note)
+        }
+        commit()
+    }
+
+    /// The Lock Screen switch, and ONLY that.
+    ///
+    /// Off leaves the text sitting in its box; the note is still the live note
+    /// and comes straight back when the switch goes on again (founder
+    /// direction 2026-08-17). Deleting it is the bin's job, not this one's.
+    func setLiveOnLockScreen(_ on: Bool) {
+        guard let note = liveNote() else { return }
+        note.isPinned = on
+        commit()
+    }
+
     /// Flagging jumps to the very top of the current tab; unflagging leaves
     /// the task exactly where it is (locked Q17).
     func toggleImportant(_ task: TaskItem) {

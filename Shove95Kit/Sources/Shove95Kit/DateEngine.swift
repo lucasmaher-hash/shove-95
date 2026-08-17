@@ -99,7 +99,11 @@ extension TaskItem {
     }
 
     public func isVisible(in tab: Bucket, now: Date, calendar: Calendar) -> Bool {
-        DateEngine.isVisible(in: tab, dueDate: dueDate, isCompleted: isCompleted,
+        // The live note belongs to no tab — see `TaskItem.isLiveNote`. This is
+        // the single place the total mapping is broken, on purpose and in one
+        // line, so nothing else has to know.
+        guard !isLiveNote else { return false }
+        return DateEngine.isVisible(in: tab, dueDate: dueDate, isCompleted: isCompleted,
                              completedAt: completedAt, now: now, calendar: calendar)
     }
 }
