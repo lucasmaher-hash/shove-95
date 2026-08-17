@@ -96,6 +96,12 @@ struct LiveSectionView: View {
         .frame(minHeight: Win95.Px.grid * 34 * pixel)
         .background(Win95.well)
         .bevelSunken(pixel)
+        // The whole well is the field. The text line is one line in a box a
+        // hundred points tall, and a tap on the empty ground under it did
+        // nothing (founder direction 2026-08-17). The TextField still wins
+        // taps on the text itself; this catches the rest of the box.
+        .contentShape(Rectangle())
+        .onTapGesture { focused = true }
     }
 
     // MARK: The controls

@@ -661,7 +661,12 @@ private struct NameField: View {
             Win95Button(action: {
                 focused = false
                 onEdit()
-            }, compact: true, width: Win95.rowHeight(pixel)) {
+            // SQUARE: the width is the compact height, so the bevel closes
+            // around the mark instead of running on past it. It was a row's
+            // width against a compact height, which drew a wide rectangle
+            // holding a small glyph (founder direction 2026-08-17). The
+            // pencil itself is unchanged.
+            }, compact: true, width: Win95.Px.buttonCompact * pixel) {
                 PixelPencil(pixel: pixel)
             }
             .accessibilityLabel("Settings for \(settings.name(for: bucket))")

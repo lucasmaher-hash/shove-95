@@ -113,7 +113,15 @@ struct TaskRowView: View {
         // the content. Checkbox and TextField win their own touches; no
         // contentShape anywhere on this stack.
         .background(RowGestureView(handlers: gestureHandlers))
-        .background(rowBackground)
+        // The held tint runs to the screen edges, past the list's inset — the
+        // heading bands do the same, and a highlight that stops at the margin
+        // reads as a misdrawn row rather than a state (founder direction
+        // 2026-08-17). Negative padding on the COLOUR, inside the background:
+        // it widens what it wraps, and out here the row's own frame — and the
+        // swipe geometry with it — stays untouched.
+        .background {
+            rowBackground.padding(.horizontal, -(Win95.Px.windowMargin * pixel))
+        }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { data in
@@ -769,7 +777,10 @@ struct Win95DayPickerSheet: View {
     }
 
     private func shortcut(_ label: String, day: Date) -> some View {
-        Win95Button(action: { onPick(day) }, compact: true) {
+        // Full button height, not compact. These two ARE the sheet's primary
+        // answers, and at compact height they read as settings-row furniture
+        // (founder direction 2026-08-17).
+        Win95Button(action: { onPick(day) }) {
             TypedText(text: label, face: settings.face, role: .content)
                 .font(W95Font.standard(pixel))
                 .foregroundStyle(Win95.text)

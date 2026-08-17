@@ -113,18 +113,18 @@ extension Win95 {
     enum Px {
         static let bevel: CGFloat           = 2   // two nested 1px frames
         static let grid: CGFloat            = 4   // spacing grid: 2/4/8/16/24
-        /// The window's one side margin, measured off the TO-DOS: the list
-        /// well is full-bleed and its bevel is an OVERLAY, which paints over
-        /// the first two pixels rather than pushing content in, so a task row
-        /// stands exactly one grid unit from the screen.
+        /// The window's ONE side margin: title bar, list rows, headings and
+        /// taskbar all stand on it, named here so they cannot drift apart.
+        /// Before it existed the title sat at 4, its button at 2 and the
+        /// taskbar buttons at 8 — three bands of one window, each beginning
+        /// somewhere else (founder direction 2026-08-17).
         ///
-        /// The title bar and the taskbar are bands of that same window and
-        /// take the same margin. Before this the title sat at 4, its button at
-        /// 2 and the taskbar buttons at 8 — three bands of one window, each
-        /// beginning somewhere else (founder direction 2026-08-17). Named
-        /// rather than written as `grid` at each site so the three cannot
-        /// drift apart again.
-        static let windowMargin: CGFloat    = grid
+        /// Six, not a grid multiple: one unit hugged the bezel and two pushed
+        /// the rows visibly in, and the founder asked for "a bit more" off
+        /// four (founder direction 2026-08-17). The well bevel is an OVERLAY —
+        /// it paints over the first two pixels rather than pushing content
+        /// in — so this number is the real distance to the screen edge.
+        static let windowMargin: CGFloat    = 6
         static let buttonMinWidth: CGFloat  = 75
         static let buttonMinHeight: CGFloat = 23
         static let buttonCompact: CGFloat   = 16  // Default/Delete in Settings

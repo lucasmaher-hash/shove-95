@@ -70,21 +70,26 @@ struct TaskListView: View {
         .padding(.horizontal, Win95.Px.windowMargin * pixel)
         .padding(.vertical, Win95.Px.grid * pixel)
         .frame(minHeight: Win95.rowHeight(pixel))
-        // Out to the screen edge. The list insets its rows by one grid unit;
-        // a band that stops where the rows stop reads as one more row rather
-        // than as the break between two sections (founder direction
-        // 2026-08-17). Widened BEFORE the fill, or the fill would keep the
-        // narrower frame.
-        .padding(.horizontal, -(Win95.Px.grid * pixel))
         // A band, so a heading is not just larger text but a different KIND of
         // thing from the rows under it. The window's surface against the
         // list's well: the two tones the look already owns.
+        //
+        // The fill sits INSIDE the negative padding below, and the order is
+        // load-bearing: a negative pad widens what it WRAPS but reports the
+        // original width outward, so a background attached after it fills
+        // only the reported frame. Attached the other way round, the band
+        // stopped at the margin while claiming in a comment to reach the
+        // screen edge (founder bug report 2026-08-17).
         .background(Win95.surface)
         .contentShape(Rectangle())
         .onTapGesture {
             SkeuHaptic.selection()
             withAnimation(.spring(duration: 0.3)) { settings.toggleCollapsed(day) }
         }
+        // Out to the screen edge: gives back the list's inset so the band
+        // runs the full well. A band that stops where the rows stop reads as
+        // one more row rather than as the break between two sections.
+        .padding(.horizontal, -(Win95.Px.windowMargin * pixel))
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("\(title), \(collapsed ? "collapsed" : "expanded")")
         .padding(.top, Win95.Px.grid * 3 * pixel)
@@ -177,7 +182,10 @@ struct TaskListView: View {
                         .id(EditingCoordinator.addRowID)
                 }
             }
-            .padding(.horizontal, Win95.Px.grid * pixel)
+            // The WINDOW margin — the same line the title bar and the taskbar
+            // stand on. It was a bare grid unit, which held together only as
+            // long as the margin happened to equal one.
+            .padding(.horizontal, Win95.Px.windowMargin * pixel)
             .padding(.vertical, Win95.Px.grid * pixel)
         }
         // Follow the add row down as the list grows. Committing a task inserts
