@@ -958,6 +958,12 @@ private struct SkeuTaskRow: View {
     private static let commitVelocity: CGFloat = 300
     private static let rubberResistance: CGFloat = 0.3
 
+    /// Held, sliding, or holding an open menu — the three states in which
+    /// this row is the one being acted on.
+    private var isMarked: Bool {
+        isPressing || dragOffset != 0 || menu.request?.taskID == task.id
+    }
+
     var body: some View {
         row
             .offset(x: dragOffset)
@@ -966,18 +972,24 @@ private struct SkeuTaskRow: View {
             // own translation is the gesture itself and always follows.
             .scaleEffect(reduceMotion ? 1 : (isPressing ? 0.97 : 1), anchor: .center)
             .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.press, value: isPressing)
-            // The whole row lifts in tone under a hold, as the Win95 row does
-            // (founder direction 2026-08-17). Toward the LIGHT in the dark and
-            // toward the dark in the light — either way it moves away from the
-            // page, so the row reads as picked up rather than merely smaller.
+            // The whole row lifts in tone while it is HELD, while it is being
+            // SLID, and for as long as its menu is open (founder direction
+            // 2026-08-17). Toward the light in the dark and toward the dark in
+            // the light — either way it moves away from the page, so the row
+            // reads as picked up rather than merely smaller.
+            //
+            // The menu clause is the one worth naming: the mark used to leave
+            // with the finger, so a menu sat open over a row that no longer
+            // looked chosen. It is the row the menu belongs to; it stays lit
+            // until the menu closes.
             //
             // Behind the content and in front of the catcher: the gesture
             // machine must keep receiving the touch that caused this.
             .background {
                 RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
                     .fill(skeu.isDark ? skeu.materialTop : skeu.recess)
-                    .opacity(isPressing ? (skeu.isDark ? 0.55 : 0.35) : 0)
-                    .animation(SkeuMotion.tint, value: isPressing)
+                    .opacity(isMarked ? (skeu.isDark ? 0.55 : 0.35) : 0)
+                    .animation(SkeuMotion.tint, value: isMarked)
                     .allowsHitTesting(false)
             }
             // Touch sandwich: the catcher sits below the content, so the

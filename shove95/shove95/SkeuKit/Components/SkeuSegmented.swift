@@ -54,7 +54,7 @@ enum SkeuToggle {
     /// How far a colour sits inside its glass panel. Small — the colour is
     /// still the thing you see — but enough that the rim reads as a frame
     /// around it rather than a highlight across it.
-    static let swatchInset: CGFloat = 3.5
+    static let swatchInset: CGFloat = 5.5
 
 }
 
