@@ -209,6 +209,9 @@ struct SkeuSettingsView: View {
                 .ignoresSafeArea(.container, edges: .bottom)
             }
         }
+        // In from the left edge, or down from the header — see SwipeToDismiss.
+        .swipeToDismiss(headerHeight: SkeuTopBar.control * chromeScale
+                        + SkeuTopBar.inset + SkeuSpace.md, onClose)
         .fullScreenCover(isPresented: $showArchive) {
             SkeuArchiveView { showArchive = false }
         }
@@ -603,7 +606,12 @@ private struct SkeuLanguageRow: View {
 
     private var labelSize: CGFloat { G.label * textScale }
     private var fieldH: CGFloat { G.fieldHeight * chromeScale }
-    private var matches: [Language] { Language.all.filter { $0.matches(query) } }
+    /// The locale the app is CURRENTLY showing, so the search also matches
+    /// each language's name in that language — see `Language.matches`.
+    private var displayLocale: Locale { Locale(identifier: settings.languageCode) }
+    private var matches: [Language] {
+        Language.all.filter { $0.matches(query, displayedIn: displayLocale) }
+    }
 
     var body: some View {
         VStack(spacing: SkeuSpace.sm) {

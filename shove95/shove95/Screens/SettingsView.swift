@@ -91,6 +91,9 @@ struct SettingsView: View {
             }
         }
         .background(Win95.surface)
+        // In from the left edge, or down from the title bar — the same two
+        // ways out the skeu sheets take. See SwipeToDismiss.
+        .swipeToDismiss(headerHeight: Win95.Px.titleBar * pixel, onClose)
         // The well runs to the bottom of the SCREEN. Stopping at the safe area
         // drew its bottom border partway up, which read as a stray horizontal
         // rule under the content (founder bug report 2026-08-04).
@@ -426,7 +429,12 @@ private struct LanguageSection: View {
     @State private var isOpen = false
     @FocusState private var focused: Bool
 
-    private var matches: [Language] { Language.all.filter { $0.matches(query) } }
+    /// The locale the app is CURRENTLY showing, so the search also matches
+    /// each language's name in that language — see `Language.matches`.
+    private var displayLocale: Locale { Locale(identifier: settings.languageCode) }
+    private var matches: [Language] {
+        Language.all.filter { $0.matches(query, displayedIn: displayLocale) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {

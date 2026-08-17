@@ -36,12 +36,26 @@ struct Language: Identifiable, Equatable, Sendable {
     static let english_ = Language(code: "en", endonym: "English",
                                    english: "English", isTranslated: true)
 
-    /// Matches on either name, case- and diacritic-insensitively, so "franc"
-    /// finds Français and "russ" finds Русский.
-    func matches(_ query: String) -> Bool {
+    /// Matches on the endonym, the English name, the code — and the name this
+    /// language has in whatever language the app is CURRENTLY showing.
+    ///
+    /// That last one is the point (founder direction 2026-08-17). Someone
+    /// running the app in German looks for "Französisch", not "Français" and
+    /// not "French"; someone who has just switched to French looks for
+    /// "français". Neither of them should have to guess which spelling the
+    /// list was written in.
+    ///
+    /// The display name comes from the system, not from a table here: iOS
+    /// already knows every language's name in every language, and a hand-kept
+    /// list of thirty squared is a promise nobody can keep.
+    func matches(_ query: String, displayedIn locale: Locale) -> Bool {
         let q = query.folded
         guard !q.isEmpty else { return true }
-        return endonym.folded.contains(q) || english.folded.contains(q) || code.folded.contains(q)
+        if endonym.folded.contains(q) || english.folded.contains(q) || code.folded.contains(q) {
+            return true
+        }
+        guard let localised = locale.localizedString(forIdentifier: code) else { return false }
+        return localised.folded.contains(q)
     }
 
     /// Ordered as the picker shows them: English first because it is the one

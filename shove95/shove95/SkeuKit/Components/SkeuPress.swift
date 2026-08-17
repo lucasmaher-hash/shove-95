@@ -137,9 +137,21 @@ extension View {
 struct SkeuPulse: ViewModifier {
     let active: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Read rather than passed: the pulse is used by both looks, and this is
+    /// the one signal both of them already carry.
+    @Environment(\.colorScheme) private var colorScheme
     @State private var up = false
 
     private var dimmed: Bool { active && up && !reduceMotion }
+
+    /// Which way "more visible" points.
+    ///
+    /// On a dark page the mark stands out by getting BRIGHTER; on a light one
+    /// the same move washes it into the paper, and it has to get DARKER
+    /// instead (founder direction 2026-08-17). Contrast is the goal, and
+    /// contrast has no fixed direction — only a fixed distance from whatever
+    /// is behind it.
+    private var peak: Double { colorScheme == .dark ? 0.32 : -0.26 }
 
     func body(content: Content) -> some View {
         content
@@ -148,7 +160,7 @@ struct SkeuPulse: ViewModifier {
             // direction 2026-08-17 — the first pass only dimmed, which reads
             // as a fault rather than a signal).
             .opacity(dimmed ? 0.28 : 1)
-            .brightness(dimmed ? 0 : 0.32)
+            .brightness(dimmed ? 0 : peak)
             .scaleEffect(dimmed ? 0.88 : 1.08)
             .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true),
                        value: up)

@@ -103,6 +103,8 @@ private struct SkeuSheet<Content: View>: View {
                 .skeuScrollEdgeFade(28 * chromeScale, edges: .top)
             }
         }
+        .swipeToDismiss(headerHeight: S.closeCircle * chromeScale
+                        + SkeuSpace.md * 2, onClose)
     }
 }
 
