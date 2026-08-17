@@ -26,11 +26,11 @@ import SwiftUI
 extension SkeuMotion {
     /// How far a pressed control swells. Small on purpose: it has to read at a
     /// glance without moving neighbours or looking like a bounce.
-    static let pressGrow: CGFloat = 1.085
+    static let pressGrow: CGFloat = 1.115
     /// Out and back. Short enough to finish before the finger lifts on a
     /// normal tap, so the swell reads as the press itself rather than as an
     /// animation that follows it.
-    static let pressSwell = Animation.spring(response: 0.28, dampingFraction: 0.58)
+    static let pressSwell = Animation.spring(response: 0.36, dampingFraction: 0.60)
 }
 
 private struct SkeuPress: ViewModifier {
@@ -67,7 +67,7 @@ private struct SkeuPress: ViewModifier {
             // Held at full size, then released. Lengthened on founder
             // direction (2026-08-17) — at 110ms the swell was over before the
             // eye had finished arriving at it.
-            try? await Task.sleep(for: .milliseconds(190))
+            try? await Task.sleep(for: .milliseconds(260))
             swollen = false
         }
     }
@@ -109,7 +109,7 @@ struct SkeuLanding: ViewModifier {
                 Task { @MainActor in
                     // Held until the glide is most of the way there, so the
                     // swell lands with the pill rather than ahead of it.
-                    try? await Task.sleep(for: .milliseconds(240))
+                    try? await Task.sleep(for: .milliseconds(300))
                     swollen = false
                 }
             }

@@ -64,17 +64,19 @@ private struct SkeuSheet<Content: View>: View {
 
                     Spacer(minLength: SkeuSpace.sm)
 
-                    Button(action: {}) {
-                        SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
-                                        size: SkeuTopBar.icon * chromeScale,
-                                        tint: skeu.ink)
-                            .frame(width: closeSize, height: closeSize)
-                            .skeuGlass(Circle(), height: closeSize)
-                            .skeuPress { onClose() }
-                    }
-                    .buttonStyle(.plain)
-                    .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
-                    .accessibilityLabel("Close")
+                    // NO Button around this. A Button takes the touch before
+                    // the modifier's own gesture can see it, so the ✕ closed
+                    // the sheet and never swelled (founder bug report
+                    // 2026-08-17). `.skeuPress` is the control.
+                    SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
+                                    size: SkeuTopBar.icon * chromeScale,
+                                    tint: skeu.ink)
+                        .frame(width: closeSize, height: closeSize)
+                        .skeuGlass(Circle(), height: closeSize)
+                        .skeuPress { onClose() }
+                        .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Close")
                 }
                 .padding(.horizontal, S.margin)
                 .padding(.vertical, SkeuSpace.md)

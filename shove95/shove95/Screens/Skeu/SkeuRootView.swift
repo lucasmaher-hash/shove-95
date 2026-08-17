@@ -810,15 +810,9 @@ private struct SkeuWorkspacePill: View {
         let rowHeight = (F.topHeight - F.glassPadV * 2) * scale * chromeScale
 
         return VStack(alignment: .leading, spacing: 0) {
-            Button {
-                SkeuHaptic.selection()
-                // Nothing to choose from: no chevron turn, no list. The pill
-                // still answers the touch — its press animation runs — so it
-                // reads as a control that is simply already where it can be
-                // (founder direction 2026-08-17).
-                guard !others.isEmpty else { return }
-                withAnimation(SkeuMotion.layout) { isOpen.toggle() }
-            } label: {
+            // No Button: it would take the touch before the press could see
+            // it, which is what kept the sheet ✕ from swelling.
+            Group {
                 HStack(spacing: F.glassGap * scale) {
                     // CHROME: the workspace name is the app naming where you
                     // are, not something you are reading — see TextRole.
@@ -842,9 +836,16 @@ private struct SkeuWorkspacePill: View {
                 }
                 .foregroundStyle(skeu.ink)
                 .frame(height: rowHeight)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .skeuPress(haptic: false) {
+                SkeuHaptic.selection()
+                // Nothing to choose from: no chevron turn, no list. The pill
+                // still swells — it reads as a control that is simply already
+                // where it can be (founder direction 2026-08-17).
+                guard !others.isEmpty else { return }
+                withAnimation(SkeuMotion.layout) { isOpen.toggle() }
+            }
+            .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Workspace: \(current?.name ?? "")")
             .accessibilityHint("Opens the workspace list")
 
