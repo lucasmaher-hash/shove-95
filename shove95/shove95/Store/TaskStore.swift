@@ -324,6 +324,28 @@ final class TaskStore {
         return (active, completed)
     }
 
+    /// Soon, in the shape that tab draws: the undated block, then one entry
+    /// per day, oldest day first.
+    ///
+    /// There can never be a day before the day after tomorrow — anything
+    /// earlier is in Today or Tomorrow by definition, which is why this needs
+    /// no notion of an overdue section (founder direction 2026-08-17).
+    ///
+    /// Manual order survives inside each group: `tasks(in:)` already returns
+    /// them sorted, and grouping preserves that within a day.
+    func soonSections() -> (undated: [TaskItem],
+                            days: [(day: Date, tasks: [TaskItem])],
+                            completed: [TaskItem]) {
+        let (active, completed) = tasks(in: .general)
+        let undated = active.filter { $0.dueDate == nil }
+        let dated = active.filter { $0.dueDate != nil }
+        let grouped = Dictionary(grouping: dated) { calendar.startOfDay(for: $0.dueDate!) }
+        let days = grouped
+            .map { (day: $0.key, tasks: $0.value) }
+            .sorted { $0.day < $1.day }
+        return (undated, days, completed)
+    }
+
     /// Archive: completed tasks past their visibility window, grouped by
     /// completion day, newest day first (PRD § UI/UX > Archive).
     func archivedTasksByDay() -> [(day: Date, tasks: [TaskItem])] {

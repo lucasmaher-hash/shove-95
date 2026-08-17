@@ -26,11 +26,27 @@ struct TaskListView: View {
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(EditingCoordinator.self) private var editing
+    /// Read so a day heading takes the pixel face under Blend — a heading is
+    /// the app labelling its own list, which is chrome. See TextRole.
+    @Environment(AppSettings.self) private var settings
 
     /// How much of the well the keyboard is covering, in points.
     @State private var keyboardOverlap: CGFloat = 0
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
     @State private var keyboardTop: CGFloat = .infinity
+
+    /// One scheduled day's name. A pixel label on the well, not a row: it is
+    /// something to read, not something to act on.
+    private func dayHeading(_ day: Date) -> some View {
+        TypedText(text: DayHeading.label(for: day, calendar: .current),
+                  face: settings.face, role: .chrome)
+            .font(W95Font.small(pixel))
+            .foregroundStyle(Win95.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, Win95.Px.grid * 3 * pixel)
+            .padding(.bottom, Win95.Px.grid * pixel)
+            .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+    }
 
     var body: some View {
         let (active, completed) = store.tasks(in: bucket)
@@ -45,9 +61,28 @@ struct TaskListView: View {
                 // already says the list is empty and where to start — a
                 // second "(empty)" line above it was saying the same thing
                 // twice (founder direction 2026-08-14).
-                ForEach(active, id: \.id) { task in
-                    TaskRowView(task: task)
-                        .id(task.id.uuidString)
+                //
+                // Soon is the one tab with structure inside it: the undated
+                // block, then a heading per scheduled day (founder direction
+                // 2026-08-17). The others are one flat run.
+                if bucket == .general {
+                    let sections = store.soonSections()
+                    ForEach(sections.undated, id: \.id) { task in
+                        TaskRowView(task: task)
+                            .id(task.id.uuidString)
+                    }
+                    ForEach(sections.days, id: \.day) { section in
+                        dayHeading(section.day)
+                        ForEach(section.tasks, id: \.id) { task in
+                            TaskRowView(task: task)
+                                .id(task.id.uuidString)
+                        }
+                    }
+                } else {
+                    ForEach(active, id: \.id) { task in
+                        TaskRowView(task: task)
+                            .id(task.id.uuidString)
+                    }
                 }
 
                 if !completed.isEmpty {

@@ -19,7 +19,10 @@ public enum Bucket: String, CaseIterable, Sendable, Codable {
         switch self {
         case .today: "Today"
         case .tomorrow: "Tomorrow"
-        case .general: "General"
+        // "Soon", not "General" (founder direction 2026-08-17). The tab holds
+        // the undated AND everything scheduled past tomorrow, so it is about
+        // WHEN rather than about being unclassified.
+        case .general: "Soon"
         }
     }
 
@@ -28,7 +31,7 @@ public enum Bucket: String, CaseIterable, Sendable, Codable {
         switch self {
         case .today: "Tod"
         case .tomorrow: "Tom"
-        case .general: "Gen"
+        case .general: "Soon"
         }
     }
 }
@@ -69,13 +72,13 @@ extension Bucket {
     /// (`<` toward Today, `>` toward General); one arrow for the nearer shown
     /// destination, two for the further. Locked table from PRD §3:
     ///
-    ///   today    → `>> General`
+    ///   today    → `>> Soon`
     ///   tomorrow → (nothing: both neighbours are one swipe away)
     ///   general  → `<< Today`
     public var menuDestinations: [MenuDestination] {
         switch self {
         case .today:
-            [MenuDestination(label: ">> General", bucket: .general)]
+            [MenuDestination(label: ">> Soon", bucket: .general)]
         case .tomorrow:
             []
         case .general:

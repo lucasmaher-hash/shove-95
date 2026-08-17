@@ -352,9 +352,28 @@ struct SkeuRootView: View {
                 Color.clear.frame(height: 0.5).id(Self.topAnchor)
                 // No empty-state text: the add row's own "add" placeholder
                 // already says the list is empty and where to start.
-                ForEach(active, id: \.id) { task in
-                    taskRow(task)
-                        .id(task.id.uuidString)
+                //
+                // Soon is the one tab with structure inside it: the undated
+                // block, then a heading per scheduled day (founder direction
+                // 2026-08-17). The others are one flat run.
+                if bucket == .general {
+                    let sections = store.soonSections()
+                    ForEach(sections.undated, id: \.id) { task in
+                        taskRow(task)
+                            .id(task.id.uuidString)
+                    }
+                    ForEach(sections.days, id: \.day) { section in
+                        dayHeading(section.day)
+                        ForEach(section.tasks, id: \.id) { task in
+                            taskRow(task)
+                                .id(task.id.uuidString)
+                        }
+                    }
+                } else {
+                    ForEach(active, id: \.id) { task in
+                        taskRow(task)
+                            .id(task.id.uuidString)
+                    }
                 }
 
                 if !completed.isEmpty {
@@ -785,6 +804,19 @@ struct SkeuRootView: View {
         SkeuHaptic.selection()
         goingRight = false
         withAnimation(SkeuMotion.layout) { showLive = true }
+    }
+
+    /// One scheduled day's name. Sits in the list's own margin, not in a
+    /// slat: it is a label ON the page, not a thing that can be acted on.
+    private func dayHeading(_ day: Date) -> some View {
+        Text(DayHeading.label(for: day, calendar: .current))
+            .font(SkeuFont.eyebrow)
+            .tracking(0.8)
+            .foregroundStyle(skeu.inkFaint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, SkeuSpace.xl)
+            .padding(.bottom, SkeuSpace.xs)
+            .padding(.horizontal, SkeuSpace.md)
     }
 
     /// Resolves the slide direction BEFORE the selection moves, so the

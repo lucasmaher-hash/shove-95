@@ -21,3 +21,22 @@ public enum ChipFormat {
         return weekdayAbbreviations[weekday]
     }
 }
+
+/// Day headings for the Soon tab: "Fri 14 Apr".
+///
+/// The weekday says how far away it FEELS and the date says exactly when —
+/// the founder asked for both (2026-08-17). Locale-independent like the
+/// chips, and for the same reason: these are factual markers, and a heading
+/// that changes width with the system language would reflow the whole list.
+public enum DayHeading {
+    private static let weekdays = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    private static let months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    public static func label(for day: Date, calendar: Calendar) -> String {
+        let parts = calendar.dateComponents([.weekday, .day, .month], from: day)
+        let weekday = weekdays[parts.weekday ?? 1]
+        let month = months[parts.month ?? 1]
+        return "\(weekday) \(parts.day ?? 1) \(month)"
+    }
+}

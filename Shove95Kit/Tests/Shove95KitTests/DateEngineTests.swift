@@ -201,3 +201,19 @@ struct LiveNoteTests {
         #expect(task.isArchived(now: noon, calendar: cal) == false)
     }
 }
+
+@Suite("Soon day headings")
+struct DayHeadingTests {
+    @Test("weekday, day and month, in that order")
+    func format() {
+        // Fri 2026-08-14.
+        let day = Fixed.date(2026, 8, 14, 0, 0)
+        #expect(DayHeading.label(for: day, calendar: Fixed.calendar) == "Fri 14 Aug")
+    }
+
+    @Test("a single-digit day is not padded")
+    func singleDigit() {
+        let day = Fixed.date(2026, 8, 3, 0, 0)
+        #expect(DayHeading.label(for: day, calendar: Fixed.calendar) == "Mon 3 Aug")
+    }
+}

@@ -27,7 +27,7 @@ struct BucketSteppingTests {
 struct BucketMenuTests {
     @Test func todayMenu() {
         #expect(Bucket.today.menuDestinations == [
-            .init(label: ">> General", bucket: .general),
+            .init(label: ">> Soon", bucket: .general),
         ])
     }
 
