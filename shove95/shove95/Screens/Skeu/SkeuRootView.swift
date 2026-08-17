@@ -313,6 +313,7 @@ struct SkeuRootView: View {
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(Double(gearTurns) * 180))
                     .skeuGlass(Circle(), height: size)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
@@ -338,7 +339,11 @@ struct SkeuRootView: View {
                 // Scroll anchor. Switching workspace jumps here rather than
                 // keeping the old list's offset, which left a long list part
                 // way down and mid-animation (founder bug report 2026-08-17).
-                Color.clear.frame(height: 0).id(Self.topAnchor)
+                //
+                // A HAIRLINE, not zero height: a zero-height row inside a
+                // LazyVStack is not reliably laid out, and `scrollTo` cannot
+                // reach what was never placed.
+                Color.clear.frame(height: 0.5).id(Self.topAnchor)
                 // No empty-state text: the add row's own "add" placeholder
                 // already says the list is empty and where to start.
                 ForEach(active, id: \.id) { task in
@@ -410,10 +415,17 @@ struct SkeuRootView: View {
         // past it to dissolve. See SkeuEdgeFade.
         .skeuScrollEdgeFade(F.edgeFade * chromeScale)
         .onChange(of: settings.currentWorkspaceID) {
-            // No animation: the two lists share no rows, so anything that
-            // interpolates between them is the stutter itself.
-            var t = Transaction(); t.disablesAnimations = true
-            withTransaction(t) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
+            // DEFERRED a runloop turn. The scope sync and the store's re-query
+            // run on this same change, so scrolling inline aims at the list
+            // that is on its way out — which is why the first attempt did
+            // nothing at all (founder bug report 2026-08-17).
+            //
+            // No animation either: the two lists share no rows, so anything
+            // interpolating between them is the stutter itself.
+            Task { @MainActor in
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
+            }
         }
         } // ScrollViewReader
     }
@@ -1430,6 +1442,8 @@ private struct SkeuTaskRow: View {
 /// window metaphor in this look to honour.
 private struct SkeuPhotoViewer: View {
     @Environment(\.skeu) private var skeu
+    /// Dynamic Type — the viewer's controls scale with the rest of the chrome.
+    @Environment(\.skeuChromeScale) private var chromeScale
     let image: UIImage
     /// Removing a photo was reachable ONLY from the Win95 viewer until now —
     /// `store.removePhoto` had exactly one caller in the app — so a photo
@@ -1473,15 +1487,20 @@ private struct SkeuPhotoViewer: View {
                          action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(SkeuFont.at(15, weight: .medium))
+                // The SAME icon size as the gear and the sheet ✕ — the circles
+                // already share one figure, and a glyph a third smaller inside
+                // an identical circle reads as a different control (founder
+                // bug report 2026-08-17).
+                .font(SkeuFont.at(SkeuTopBar.icon * chromeScale, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(tint)
                 .frame(width: SkeuTopBar.control, height: SkeuTopBar.control)
                 .skeuGlass(Circle(), height: SkeuTopBar.control, frosted: true)
+                // The glass takes no hits, so without this only the glyph's own
+                // ink is tappable.
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        // The glass circle stays 37 — that is the rim SkeuMenu is matched to.
-        // The TARGET is 44, same as the settings gear it shares a shape with.
         .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
         .accessibilityLabel(label)
     }

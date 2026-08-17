@@ -69,9 +69,11 @@ private struct SkeuSheet<Content: View>: View {
                         onClose()
                     } label: {
                         SkeuChromeGlyph(kind: .close, face: settings.skeuFace,
-                                        size: 15, tint: skeu.ink)
+                                        size: SkeuTopBar.icon * chromeScale,
+                                        tint: skeu.ink)
                             .frame(width: closeSize, height: closeSize)
                             .skeuGlass(Circle(), height: closeSize)
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)

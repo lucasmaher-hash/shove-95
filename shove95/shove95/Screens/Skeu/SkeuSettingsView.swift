@@ -343,6 +343,7 @@ struct SkeuSettingsView: View {
                                 size: SkeuTopBar.icon * chromeScale, tint: skeu.ink)
                     .frame(width: size, height: size)
                     .skeuGlass(Circle(), height: size)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .frame(minWidth: SkeuControl.minTouch, minHeight: SkeuControl.minTouch)
