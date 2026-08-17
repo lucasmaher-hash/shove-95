@@ -124,6 +124,12 @@ struct LiveSectionView: View {
                     // Mark and word together — see SkeuLiveSection. The bevel
                     // holds still; the button is not what is on air.
                     .skeuPulse(note.isPinned, dark: scheme.isDark)
+                    // Off air, the CONTENTS recede. Inside the label, so the
+                    // BEVEL keeps its full strength — a faded bevel reads as a
+                    // disabled button, and this one is always pressable
+                    // (founder direction 2026-08-17).
+                    .opacity(note.isPinned ? 1 : 0.55)
+                    .animation(.easeOut(duration: 0.2), value: note.isPinned)
                 }
 
                 // The BIN, not the word: a mark needs no button-width, and

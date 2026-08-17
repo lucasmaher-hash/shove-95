@@ -29,19 +29,38 @@ struct RootView: View {
     /// moves, so both halves of the transition agree on a direction.
     @State private var goingRight = true
 
-    /// Wraps the taskbar's binding so a tap resolves direction and animates.
-    private var tabSelection: Binding<Bucket> {
-        Binding(
-            get: { selected },
-            set: { newValue in
-                guard newValue != selected,
-                      let from = Bucket.line.firstIndex(of: selected),
-                      let to = Bucket.line.firstIndex(of: newValue) else { return }
-                goingRight = to > from
-                // Fast and flat: this is a pane sliding across, not a bounce.
-                withAnimation(.easeOut(duration: 0.22)) { selected = newValue }
-            }
-        )
+    /// Fast and flat: this is a pane sliding across, not a bounce.
+    private static let paneSlide = Animation.easeOut(duration: 0.22)
+
+    /// Moving to a tab, from another tab or from Live.
+    ///
+    /// Direction is resolved BEFORE the state moves, so both halves of the
+    /// transition agree on which way they are travelling — the same shape the
+    /// skeu root uses.
+    private func select(_ bucket: Bucket) {
+        if showLive {
+            // Live sits LEFT of the three, so coming back always travels
+            // right, whichever tab is being returned to.
+            goingRight = true
+        } else {
+            guard bucket != selected,
+                  let from = Bucket.line.firstIndex(of: selected),
+                  let to = Bucket.line.firstIndex(of: bucket) else { return }
+            goingRight = to > from
+        }
+        withAnimation(Self.paneSlide) {
+            showLive = false
+            selected = bucket
+        }
+    }
+
+    /// Moving to Live. It used to be written straight through a binding with
+    /// animations explicitly disabled, so the one pane in the window that
+    /// never slid was this one (founder bug report 2026-08-17).
+    private func selectLive() {
+        guard !showLive else { return }
+        goingRight = false
+        withAnimation(Self.paneSlide) { showLive = true }
     }
 
     var body: some View {
@@ -103,8 +122,9 @@ struct RootView: View {
                 }
             }
 
-            Taskbar(selected: tabSelection, showLive: $showLive,
-                    liveOnAir: store.liveNote()?.isPinned == true)
+            Taskbar(selected: selected, showLive: showLive,
+                    liveOnAir: store.liveNote()?.isPinned == true,
+                    onSelectLive: selectLive, onSelect: select)
         }
         // Win95 palettes are read through static accessors, so the chrome is
         // rebuilt wholesale when the scheme changes. The .id sits INSIDE the

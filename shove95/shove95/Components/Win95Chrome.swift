@@ -308,23 +308,27 @@ struct Taskbar: View {
     // redraw it (see EnvironmentValues.win95Scheme) — it sat one tap stale
     // after every scheme/appearance change (founder bug report 2026-08-14).
     @Environment(\.win95Scheme) private var scheme
-    @Binding var selected: Bucket
+    /// READ-ONLY, both of these. The bar draws which pane is showing and
+    /// reports taps; deciding which way the panes travel is the root's job,
+    /// and splitting that decision across the two made the Live button the
+    /// one pane in the window that never slid (founder bug report
+    /// 2026-08-17).
+    var selected: Bucket
     /// True while the Live section holds the screen. Its button sits apart
     /// from the three, the way the skeu bar keeps Live in its own frame —
     /// Live is not a slice of the date line the others divide up.
-    @Binding var showLive: Bool
+    var showLive: Bool
     /// True while something is on the Lock Screen — the mark breathes then.
     var liveOnAir: Bool
+    var onSelectLive: () -> Void
+    var onSelect: (Bucket) -> Void
 
     var body: some View {
         HStack(spacing: pixel) {
             // Its own button, squared and wordless: the mark says what a label
             // would, and the row has no width to spare for both.
-            LiveTaskbarButton(isActive: showLive, onAir: liveOnAir) {
-                var t = Transaction()
-                t.disablesAnimations = true
-                withTransaction(t) { showLive = true }
-            }
+            LiveTaskbarButton(isActive: showLive, onAir: liveOnAir,
+                              action: onSelectLive)
             // Two grid units — enough to say "not with those", and no more.
             // It briefly carried everything the squared button gave up, which
             // left a canyon between the two groups; the width went to the
@@ -333,13 +337,7 @@ struct Taskbar: View {
 
             ForEach(Bucket.line, id: \.self) { bucket in
                 TaskbarButton(bucket: bucket, isActive: !showLive && bucket == selected) {
-                    // Instant switch — appearance never animates (design.md §8).
-                    var t = Transaction()
-                    t.disablesAnimations = true
-                    withTransaction(t) {
-                        showLive = false
-                        selected = bucket
-                    }
+                    onSelect(bucket)
                 }
             }
         }

@@ -198,6 +198,12 @@ struct SkeuLiveSection: View {
         // shows (founder direction 2026-08-17). The glass holds still: the
         // button is not what is on air, its contents are what say so.
         .skeuPulse(on)
+        // Off air, the CONTENTS recede — mark and word together. Applied here
+        // rather than to the finished control, so the glass keeps its full
+        // strength: the capsule is the button, and fading it made the whole
+        // thing read as disabled (founder direction 2026-08-17).
+        .opacity(on ? 1 : 0.55)
+        .animation(SkeuMotion.tint, value: on)
         .padding(.horizontal, SkeuSpace.lg)
         .frame(height: buttonH)
         .frame(maxWidth: .infinity)
@@ -213,7 +219,11 @@ struct SkeuLiveSection: View {
     private var bin: some View {
         Image(systemName: "trash")
             .font(.system(size: binIcon * 0.72))
-            .foregroundStyle(skeu.inkMuted)
+            // FULL ink, not muted. It stands beside a switch that is muted on
+            // purpose — to say "not on air" — and wearing the same grey made
+            // the bin look like it was in that state too, when deleting is
+            // always available (founder direction 2026-08-17).
+            .foregroundStyle(skeu.ink)
             .frame(width: buttonH, height: buttonH)
             .skeuGlass(Circle(), height: buttonH)
             // A filled Circle is hittable only where the ink lands.
