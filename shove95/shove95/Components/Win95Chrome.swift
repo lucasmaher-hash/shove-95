@@ -289,13 +289,11 @@ struct Taskbar: View {
                 t.disablesAnimations = true
                 withTransaction(t) { showLive = true }
             }
-            // The gap ABSORBS what the square gave up, so the three keep the
-            // width and the position they already had (founder direction
-            // 2026-08-17). The block up to the first tab is the width the
-            // oblong button and its gap used to occupy together; only the
-            // split between them moved.
-            Spacer(minLength: 0)
-                .frame(width: (Win95.Px.grid * 10) * pixel - Self.liveSide(pixel))
+            // Two grid units — enough to say "not with those", and no more.
+            // It briefly carried everything the squared button gave up, which
+            // left a canyon between the two groups; the width went to the
+            // bar's own margins instead (founder direction 2026-08-17).
+            Spacer(minLength: 0).frame(width: Win95.Px.grid * 2 * pixel)
 
             ForEach(Bucket.line, id: \.self) { bucket in
                 TaskbarButton(bucket: bucket, isActive: !showLive && bucket == selected) {
@@ -310,8 +308,11 @@ struct Taskbar: View {
             }
         }
         // The bar itself still spans edge to edge — it is the taskbar — but the
-        // buttons are inset so they don't run into the bezel.
-        .padding(.horizontal, Win95.Px.grid * pixel)
+        // buttons are inset so they don't run into the bezel. TWO units now,
+        // taking the room the gap in the middle gave back: the air belongs at
+        // the ends, where it separates the row from the screen, not between
+        // two things that both belong to the row.
+        .padding(.horizontal, Win95.Px.grid * 2 * pixel)
         // Asymmetric: the extra room goes ABOVE the buttons, so the panel is
         // taller without the buttons changing size.
         .padding(.top, Win95.Px.taskbarTopInset * pixel + pixel)
