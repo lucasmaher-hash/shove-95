@@ -1439,7 +1439,11 @@ private struct SkeuTaskRow: View {
                     // direction 2026-08-17).
                     .font(SkeuFont.at(task.isPinned ? glyphSize * 1.28 : glyphSize,
                                       weight: .medium))
-                    .skeuPulse(task.isPinned)
+                    // On a light page this look swings on contrast alone —
+                    // fading a soft mark toward pale paper reads as
+                    // brightening, which is the opposite of the signal
+                    // (founder bug report 2026-08-17). Win95 keeps the fade.
+                    .skeuPulse(task.isPinned, contrastOnlyInLight: true)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(task.isPinned ? skeu.accent : skeu.inkMuted)
                     .frame(width: glyphBox, height: glyphBox)

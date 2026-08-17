@@ -27,10 +27,6 @@ struct TaskRowView: View {
     @Environment(EditingCoordinator.self) private var editing
     @Environment(PinCoordinator.self) private var pins
     @Environment(\.pixel) private var pixel
-    /// The RESOLVED scheme — AppShell puts the dark twin here when the
-    /// appearance calls for it. Read so the pulse can be told which way its
-    /// own page points; see the pin glyph.
-    @Environment(\.win95Scheme) private var scheme
 
     // Visual state
     @State private var isPressing = false
@@ -266,14 +262,7 @@ struct TaskRowView: View {
                     .fill(isEditing ? Win95.text : Win95.accent)
                     // Breathes while it holds — see SkeuPulse. After the fill,
                     // because a Shape has to become a View first.
-                    //
-                    // The SCHEME's darkness, not the system's. This look picks
-                    // its palette separately, so a dark scheme under a light
-                    // appearance had the pulse swinging the wrong way — the
-                    // reason it kept coming back wrong while skeu was right
-                    // (founder bug report 2026-08-17). Every other attribute
-                    // is now shared with skeu verbatim.
-                    .skeuPulse(task.isPinned && !isEditing, dark: scheme.isDark)
+                    .skeuPulse(task.isPinned && !isEditing)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())
