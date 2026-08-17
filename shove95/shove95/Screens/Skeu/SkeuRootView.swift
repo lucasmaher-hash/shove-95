@@ -1488,10 +1488,15 @@ private struct SkeuPhotoViewer: View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
 
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .padding(SkeuSpace.lg)
+            // The SAME zoomable view the Win95 viewer uses — pinch, pan and
+            // Live Text selection. This look had a plain Image, so a photo of
+            // a receipt could be opened but neither enlarged nor read from
+            // (founder bug report 2026-08-17).
+            //
+            // FULL BLEED: no side padding. A photo is the content here, and
+            // the canvas around it was frame for frame's sake.
+            ZoomableImageView(image: image)
+                .ignoresSafeArea()
 
             HStack(spacing: SkeuSpace.sm) {
                 control("trash", label: "Delete photo", tint: skeu.critical) {

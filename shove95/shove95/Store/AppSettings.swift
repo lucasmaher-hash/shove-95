@@ -200,8 +200,20 @@ final class AppSettings {
         return bucket.shortName
     }
 
+    /// The longest a tab name may be.
+    ///
+    /// Four of them share one bar across a phone, so a name is bounded by the
+    /// bar and not by the field it is typed into. Twelve is what the longest
+    /// built-in name needs ("Tomorrow" is eight) plus room to be personal,
+    /// measured against the tab bar at the design step (founder direction
+    /// 2026-08-17).
+    static let maxNameLength = 12
+
     func setName(_ raw: String, for bucket: Bucket) {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Clipped rather than refused: someone pasting a sentence gets a
+        // usable name, not an error, and the bar stays readable either way.
+        let trimmed = String(raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(Self.maxNameLength))
         if trimmed.isEmpty {
             customNames.removeValue(forKey: bucket)
             UserDefaults.standard.removeObject(forKey: Key.name(bucket))
