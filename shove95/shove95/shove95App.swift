@@ -150,6 +150,13 @@ struct shove95App: App {
         .modelContainer(container)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                // WARM the taptic generators. They are held statically, which
+                // is half the job — an unprepared generator drops or weakens
+                // its first impulse, and this look fires rarely enough that
+                // its first impulse was almost always the one you felt
+                // (founder bug report 2026-08-17). Skeu got away with it by
+                // firing constantly and keeping them warm by accident.
+                SkeuHaptic.prepare()
                 // Day-rollover placement pass — cheap and idempotent (PRD §2).
                 store.runDayRolloverPassIfNeeded(
                     timeRules: settings.timeRulesEnabled(for: .today))

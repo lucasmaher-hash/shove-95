@@ -238,7 +238,7 @@ private struct WorkspaceMenu: View {
                     .frame(minHeight: Win95.rowHeight(pixel))
                     .background(isCurrent ? Win95.selectionBG : Win95.surface)
                     .contentShape(Rectangle())
-                    .onTapGesture { onPick(workspace.id) }
+                    .onTapGesture { SkeuHaptic.selection(); onPick(workspace.id) }
                     .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
             }
         }

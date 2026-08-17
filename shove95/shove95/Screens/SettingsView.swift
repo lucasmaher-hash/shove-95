@@ -372,7 +372,7 @@ private struct SchemeSwatch: View {
             .modifier(SwatchBevel(isSelected: isSelected, pixel: pixel))
             .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
             .contentShape(Rectangle())
-            .onTapGesture(perform: action)
+            .onTapGesture { SkeuHaptic.selection(); action() }
             .accessibilityLabel(scheme.name)
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
@@ -411,6 +411,7 @@ private struct SegmentedChoice: View {
             .offset(x: isSelected ? pixel : 0, y: isSelected ? pixel : 0)
             .contentShape(Rectangle())
             .onTapGesture {
+                SkeuHaptic.selection()
                 // Appearance never animates (design.md §8).
                 var t = Transaction()
                 t.disablesAnimations = true

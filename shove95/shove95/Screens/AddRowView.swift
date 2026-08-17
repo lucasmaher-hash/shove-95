@@ -167,7 +167,7 @@ struct AddRowView: View {
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())
-                    .onTapGesture { pendingPin.toggle() }
+                    .onTapGesture { SkeuHaptic.toggle(); pendingPin.toggle() }
                     .accessibilityLabel("Pin new task to Lock Screen")
                     .accessibilityAddTraits(pendingPin ? [.isButton, .isSelected] : .isButton)
             }
@@ -181,7 +181,7 @@ struct AddRowView: View {
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .opacity(canAttach ? 1 : 0.3)
                     .contentShape(Rectangle())
-                    .onTapGesture { attachPhoto() }
+                    .onTapGesture { SkeuHaptic.press(); attachPhoto() }
                     .disabled(!canAttach)
                     .accessibilityLabel("Add photo to new task")
             }

@@ -27,7 +27,10 @@ struct Win95Button<Label: View>: View {
     @ViewBuilder var label: Label
 
     var body: some View {
-        Button(action: action) {
+        // The haptic lives HERE, not at every call site — this is what
+        // `.skeuPress` does for the other look, and copying the behaviour
+        // means copying where it lives (founder direction 2026-08-17).
+        Button(action: { SkeuHaptic.press(); action() }) {
             label
                 .padding(.horizontal, Win95.Px.grid * 2 * pixel)
                 .frame(width: width)
@@ -92,7 +95,9 @@ struct Win95Checkbox: View {
         }
         .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel)) // ≥44pt tap target
         .contentShape(Rectangle())
-        .onTapGesture(perform: action)
+        // `toggle`, matching the skeu tick — a box that fills is a different
+        // event from a button that is pressed.
+        .onTapGesture { SkeuHaptic.toggle(); action() }
         .accessibilityHidden(true) // the row carries the label + actions
     }
 }

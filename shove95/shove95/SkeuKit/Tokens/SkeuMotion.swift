@@ -48,6 +48,13 @@ enum SkeuHaptic {
         light.prepare()
         rigid.prepare()
         soft.prepare()
+        // The selector and the notifier were left out, and they are exactly
+        // the two the Win95 look leans on — every choice in its settings and
+        // every menu row (founder bug report 2026-08-17). A generator that is
+        // never prepared drops or weakens its first impulse, which in a look
+        // that fires rarely is most of them.
+        selector.prepare()
+        notifier.prepare()
     }
 
     @MainActor static func press() {

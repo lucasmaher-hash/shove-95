@@ -111,6 +111,9 @@ struct Win95Menu: View {
             .frame(minHeight: Win95.rowHeight(pixel))
             .contentShape(Rectangle())
             .onTapGesture {
+                // A destructive row WARNS; the rest select. Same split the
+                // skeu menu makes (founder direction 2026-08-17).
+                if destructive { SkeuHaptic.warning() } else { SkeuHaptic.selection() }
                 menu.dismiss()
                 action()
             }
