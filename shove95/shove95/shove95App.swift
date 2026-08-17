@@ -15,11 +15,23 @@ struct shove95App: App {
     @State private var store: TaskStore
     @State private var settings = AppSettings()
     @State private var sync = SyncStatus()
-    /// Late splash: shown only if the first frame is slow, and then held long
-    /// enough not to flicker. See LaunchCover.
-    @State private var showLaunchCover = false
+    /// True from the first frame: the cover plays on every COLD launch, and
+    /// a warm return doesn't re-run the process. See LaunchCover.
+    @State private var showLaunchCover = true
+    /// The store has answered.
     @State private var launchSettled = false
+    /// The animation has finished.
+    @State private var coverElapsed = false
     @Environment(\.scenePhase) private var scenePhase
+
+    /// The cover leaves when the mark has finished assembling AND the list is
+    /// ready to receive the reader. Called from both tasks; whichever
+    /// finishes last is the one that does it.
+    @MainActor
+    private func dismissCoverIfReady() {
+        guard launchSettled, coverElapsed, showLaunchCover else { return }
+        withAnimation(.easeOut(duration: 0.35)) { showLaunchCover = false }
+    }
 
     init() {
         let (container, mode) = Self.makeContainer()
@@ -118,24 +130,21 @@ struct shove95App: App {
 
                 if showLaunchCover { LaunchCover() }
             }
+            // TWO conditions, and the cover waits for both: the animation has
+            // finished, and the store has answered. Either alone leaves a
+            // seam — leaving early cuts the mark off mid-assembly, and leaving
+            // on the clock alone can drop the reader onto an empty list.
             .task {
-                // If the app is ready inside this window, no cover at all.
-                try? await Task.sleep(for: .milliseconds(220))
-                guard !launchSettled else { return }
-                withAnimation(.easeOut(duration: 0.15)) { showLaunchCover = true }
-                // Held so a brief appearance doesn't read as a flicker.
-                try? await Task.sleep(for: .milliseconds(600))
-                withAnimation(.easeOut(duration: 0.25)) { showLaunchCover = false }
+                try? await Task.sleep(for: .seconds(LaunchCover.duration))
+                coverElapsed = true
+                dismissCoverIfReady()
             }
             .task {
                 // "Ready" = the first query has returned. Cheap, and it is the
                 // thing that actually takes time on a cold CloudKit launch.
                 _ = store.tasks(in: .today)
                 launchSettled = true
-                if showLaunchCover {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    withAnimation(.easeOut(duration: 0.25)) { showLaunchCover = false }
-                }
+                dismissCoverIfReady()
             }
         }
         .modelContainer(container)
