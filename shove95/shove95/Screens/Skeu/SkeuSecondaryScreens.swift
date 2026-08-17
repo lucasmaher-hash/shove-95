@@ -99,13 +99,23 @@ private struct SkeuSheet<Content: View>: View {
                         // 2026-08-17).
                         .padding(.bottom, SkeuSpace.md + 34)
                 }
-                .ignoresSafeArea(.container, edges: .bottom)
                 .scrollBounceBehavior(.always, axes: .vertical)
                 .scrollIndicators(.hidden)
                 // The header is docked here too, so content dissolves as it
                 // passes under it — the settings sheet got this and Archive,
                 // About and How to use were left without it.
                 .skeuScrollEdgeFade(28 * chromeScale, edges: .top)
+                // LAST, after the fade — the order settings uses.
+                //
+                // The fade is a MASK, and a mask is built from the bounds of
+                // the view it wraps. Reaching past the safe area first and
+                // masking afterwards handed the mask the un-expanded size, so
+                // the scroll view stopped a home-indicator's height short and
+                // sliced the last card off along a hard line, with a dead
+                // strip beneath it (founder bug report 2026-08-17, twice —
+                // the first attempt changed the clearance, which was never
+                // what made the cut).
+                .ignoresSafeArea(.container, edges: .bottom)
             }
         }
         .swipeToDismiss(headerHeight: S.closeCircle * chromeScale
