@@ -34,6 +34,9 @@ struct TaskListView: View {
     @State private var keyboardOverlap: CGFloat = 0
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
     @State private var keyboardTop: CGFloat = .infinity
+    /// The keyboard's own animation, kept from its last notification so the
+    /// inset and the lift both travel on it.
+    @State private var keyboardAnimation: Animation = .easeOut(duration: 0.25)
 
     /// A section's name, and the control that folds it shut.
     ///
@@ -211,27 +214,21 @@ struct TaskListView: View {
         .scrollDismissesKeyboard(.interactively)
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillChangeFrameNotification)) { note in
-            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey]
-                as? CGRect else { return }
-            let screenHeight = (note.object as? UIScreen)?.bounds.height
-                ?? UIApplication.shared.connectedScenes
-                    .compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }
-                    .first ?? frame.maxY
-            // What the keyboard covers, minus the chrome already parked down
-            // there: only the part that eats into the list matters.
-            let covered = max(0, screenHeight - frame.origin.y)
             let chrome = Win95.Px.taskbar * pixel + Win95.Px.grid * 4 * pixel
-            keyboardTop = covered > 0 ? frame.origin.y : .infinity
-            withAnimation(.easeOut(duration: 0.25)) {
-                keyboardOverlap = max(0, covered - chrome)
-            }
+            guard let change = KeyboardDock.read(note, chrome: chrome) else { return }
+            keyboardTop = change.top
+            // Held so the lift below travels on the same curve — see
+            // KeyboardDock for why the keyboard's own is the only right one.
+            keyboardAnimation = change.animation
+            withAnimation(change.animation) { keyboardOverlap = change.overlap }
         }
         .onChange(of: editing.focused) { _, _ in
-            // A beat for the inset to land, then lift the field if it needs it.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                liftFocusedFieldIfCovered(proxy)
-            }
+            // The NEXT runloop turn, not a fixed beat. The inset is applied in
+            // this same pass and a `scrollTo` run inline would aim at the
+            // layout the list had before it — but the 80ms this used to wait
+            // was long enough to read as a second, later movement chasing the
+            // keyboard (founder bug report 2026-08-17).
+            Task { @MainActor in liftFocusedFieldIfCovered(proxy) }
         }
         .onChange(of: keyboardTop) { _, _ in liftFocusedFieldIfCovered(proxy) }
         // Bounce at both ends even when the list is shorter than the well —
@@ -249,7 +246,7 @@ struct TaskListView: View {
         guard let id = editing.focused, editing.focusedBottom > 0 else { return }
         let margin = Win95.Px.grid * 2 * pixel
         guard editing.focusedBottom + margin > keyboardTop else { return }
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(keyboardAnimation) {
             proxy.scrollTo(id, anchor: .bottom)
         }
     }

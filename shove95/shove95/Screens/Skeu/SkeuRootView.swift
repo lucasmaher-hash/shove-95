@@ -167,6 +167,9 @@ struct SkeuRootView: View {
     @State private var keyboardOverlap: CGFloat = 0
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
     @State private var keyboardTop: CGFloat = .infinity
+    /// The keyboard's own animation, kept from its last notification so the
+    /// inset and the lift both travel on it.
+    @State private var keyboardAnimation: Animation = .easeOut(duration: 0.25)
 
     // Dynamic Type (FR-015): text on the full curve, chrome at half — see
     // SkeuTypeScale for why the two differ. The BARS are fixed-height chrome
@@ -434,11 +437,12 @@ struct SkeuRootView: View {
             }
         }
         .onChange(of: editing.focused) { _, _ in
-            // A beat for the inset to land, then lift the field if it needs it.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                liftFocusedFieldIfCovered(proxy)
-            }
+            // The NEXT runloop turn, not a fixed beat. The inset is applied in
+            // this same pass and a `scrollTo` run inline would aim at the
+            // layout the list had before it — but the 80ms this used to wait
+            // was long enough to read as a second, later movement chasing the
+            // keyboard (founder bug report 2026-08-17).
+            Task { @MainActor in liftFocusedFieldIfCovered(proxy) }
         }
         .onChange(of: keyboardTop) { _, _ in liftFocusedFieldIfCovered(proxy) }
         .scrollDismissesKeyboard(.interactively)
@@ -452,20 +456,13 @@ struct SkeuRootView: View {
         .contentMargins(.bottom, keyboardOverlap, for: .scrollContent)
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillChangeFrameNotification)) { note in
-            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey]
-                as? CGRect else { return }
-            let screenHeight = (note.object as? UIScreen)?.bounds.height
-                ?? UIApplication.shared.connectedScenes
-                    .compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }
-                    .first ?? frame.maxY
-            // What the keyboard covers, minus the chrome already parked down
-            // there: only the part that eats into the list matters.
-            let covered = max(0, screenHeight - frame.origin.y)
             let chrome = bottomBarHeight + F.margin * 2
-            keyboardTop = covered > 0 ? frame.origin.y : .infinity
-            withAnimation(.easeOut(duration: 0.25)) {
-                keyboardOverlap = max(0, covered - chrome)
-            }
+            guard let change = KeyboardDock.read(note, chrome: chrome) else { return }
+            keyboardTop = change.top
+            // Held so the lift travels on the same curve — see KeyboardDock
+            // for why the keyboard's own is the only right one.
+            keyboardAnimation = change.animation
+            withAnimation(change.animation) { keyboardOverlap = change.overlap }
         }
         // Both bars are docked and the list runs out under them, so each edge
         // dissolves rather than cutting — and only once there is something
@@ -494,7 +491,7 @@ struct SkeuRootView: View {
     private func liftFocusedFieldIfCovered(_ proxy: ScrollViewProxy) {
         guard let id = editing.focused, editing.focusedBottom > 0 else { return }
         guard editing.focusedBottom + SkeuSpace.md > keyboardTop else { return }
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(keyboardAnimation) {
             proxy.scrollTo(id, anchor: .bottom)
         }
     }
@@ -1289,10 +1286,15 @@ private struct SkeuTaskRow: View {
     private static let commitVelocity: CGFloat = 300
     private static let rubberResistance: CGFloat = 0.3
 
-    /// Held, sliding, or holding an open menu — the three states in which
-    /// this row is the one being acted on.
+    /// Held, sliding, holding an open menu, or being EDITED — the states in
+    /// which this row is the one being acted on.
+    ///
+    /// Editing was the odd one out: the row with the caret in it was the only
+    /// one you could be working on that did not say so, while a row merely
+    /// held down did (founder direction 2026-08-17). The Win95 row has always
+    /// listed all four.
     private var isMarked: Bool {
-        isPressing || dragOffset != 0 || menu.request?.taskID == task.id
+        isPressing || dragOffset != 0 || isEditing || menu.request?.taskID == task.id
     }
 
     var body: some View {
