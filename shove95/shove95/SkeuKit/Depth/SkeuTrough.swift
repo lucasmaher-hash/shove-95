@@ -37,6 +37,19 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
     /// Height of the trough, used to scale the transcribed inset values. The
     /// reference bar is 134pt tall; everything above is stated at that size.
     var height: CGFloat = 56
+    /// Where the fill gradient finishes, in unit space.
+    ///
+    /// 1.0 — the default and every shallow control — ramps `recess` to
+    /// `recessBottom` across the whole height. That is a channel's shading: on
+    /// a 51pt bar the dark end is a lip. On the Live box it is 260pt, and the
+    /// same ramp painted the entire upper half dark (founder bug report
+    /// 2026-08-17). A tall trough finishes its ramp near the top and holds the
+    /// floor tone for the rest — the lip is still a lip, and the floor is
+    /// still a floor.
+    var fillStop: CGFloat = 1.0
+    /// Multiplies the inner shadows' alphas. Below 1 for large troughs, where
+    /// the same weights read as gloom rather than depth.
+    var shadeScale: Double = 1.0
 
     /// The main-screen frame states the same shadows at a 148.2pt trough
     /// height; every offset below is that height's fraction, so they scale.
@@ -46,8 +59,11 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
         content
             .background {
                 shape.fill(
-                    LinearGradient(colors: [skeu.recess, skeu.recessBottom],
-                                   startPoint: .top, endPoint: .bottom)
+                    LinearGradient(
+                        stops: [.init(color: skeu.recess, location: 0),
+                                .init(color: skeu.recessBottom,
+                                      location: min(1, max(0.01, fillStop)))],
+                        startPoint: .top, endPoint: .bottom)
                 )
             }
             // All four in ONE masked, rasterised pass — see InnerShadow.swift
@@ -100,14 +116,17 @@ struct SkeuTrough<S: InsettableShape>: ViewModifier {
     }
 
     private func shadow(_ alpha: Double) -> Color {
-        skeu.shadow.opacity(alpha * skeu.shadowIntensity)
+        skeu.shadow.opacity(alpha * skeu.shadowIntensity * shadeScale)
     }
 }
 
 extension View {
     /// Cuts this view's background into the material as a channel.
     /// `height` scales the transcribed inset shadows — pass the real height.
-    func skeuTrough<S: InsettableShape>(_ shape: S, height: CGFloat = 56) -> some View {
-        modifier(SkeuTrough(shape: shape, height: height))
+    func skeuTrough<S: InsettableShape>(_ shape: S, height: CGFloat = 56,
+                                        fillStop: CGFloat = 1.0,
+                                        shadeScale: Double = 1.0) -> some View {
+        modifier(SkeuTrough(shape: shape, height: height,
+                            fillStop: fillStop, shadeScale: shadeScale))
     }
 }

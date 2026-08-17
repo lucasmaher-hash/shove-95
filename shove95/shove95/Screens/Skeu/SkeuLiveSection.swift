@@ -38,8 +38,13 @@ struct SkeuLiveSection: View {
 
     private var note: TaskItem? { store.liveNote() }
     private var textSize: CGFloat { 22 * textScale }
-    private var buttonH: CGFloat { SkeuToggle.height * chromeScale
-                                   - SkeuToggle.padV * chromeScale * 2 }
+    /// Every control down here is the height of the ✕ and the gear.
+    ///
+    /// The bin is a circle at exactly their size, so the three round controls
+    /// in the app are one family; the pills beside it take the same height so
+    /// the row has a single baseline (founder direction 2026-08-17).
+    private var buttonH: CGFloat { SkeuTopBar.control * chromeScale }
+    private var binIcon: CGFloat { SkeuTopBar.icon * chromeScale }
 
     var body: some View {
         VStack(spacing: SkeuSpace.lg) {
@@ -112,7 +117,11 @@ struct SkeuLiveSection: View {
         // the real 260 drew the channel at nearly twice weight and the box
         // read as a thick picture frame (founder bug report 2026-08-17). The
         // depth of a channel does not grow with the thing sitting in it.
-        .skeuTrough(shape, height: 64)
+        // The ramp finishes in the top quarter and the floor tone holds the
+        // rest, and the inner shadows come down to two thirds. At full weight
+        // over 260pt the upper half read as gloom rather than a lip (founder
+        // bug report 2026-08-17).
+        .skeuTrough(shape, height: 64, fillStop: 0.26, shadeScale: 0.65)
         .padding(.horizontal, SkeuSpace.xl)
     }
 
@@ -164,12 +173,14 @@ struct SkeuLiveSection: View {
 
     private var bin: some View {
         Image(systemName: "trash")
-            .font(.system(size: SkeuToggle.label * textScale))
+            .font(.system(size: binIcon * 0.72))
             .foregroundStyle(skeu.inkMuted)
-            .frame(width: buttonH * 1.6, height: buttonH)
-            .skeuGlass(Capsule(), height: buttonH)
-            .contentShape(Capsule())
+            .frame(width: buttonH, height: buttonH)
+            .skeuGlass(Circle(), height: buttonH)
+            // A filled Circle is hittable only where the ink lands.
+            .contentShape(Circle())
             .skeuPress { pendingDelete = true }
+            .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Delete")
     }
 
