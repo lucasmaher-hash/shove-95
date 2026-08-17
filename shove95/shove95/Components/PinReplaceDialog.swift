@@ -18,9 +18,18 @@ import SwiftUI
 
 // MARK: - Windows 95
 
+/// Also the look's general "are you sure" — the pin swap is its first caller.
+/// Deleting a workspace asks through this same window, so the two weighty
+/// questions in the app are put the same way in both looks (founder bug
+/// report 2026-08-17: the skeu side asked and this one did not).
 struct Win95PinReplaceDialog: View {
     @Environment(\.pixel) private var pixel
     let outgoing: String
+    var title: String = "Replace pinned task"
+    /// Nil builds the pin wording from `outgoing`.
+    var message: String? = nil
+    var confirmLabel: String = "Replace"
+    var destructive = false
     var onReplace: () -> Void
     var onCancel: () -> Void
 
@@ -39,10 +48,10 @@ struct Win95PinReplaceDialog: View {
                 .onTapGesture(perform: onCancel)
 
             VStack(spacing: 0) {
-                TitleBar(title: "Replace pinned task", isClose: true, onSettings: onCancel)
+                TitleBar(title: title, isClose: true, onSettings: onCancel)
 
                 VStack(alignment: .leading, spacing: Win95.Px.grid * 3 * pixel) {
-                    Text("\u{201C}\(outgoing)\u{201D} is pinned to your Lock Screen. Only one task can be pinned.")
+                    Text(message ?? "\u{201C}\(outgoing)\u{201D} is pinned to your Lock Screen. Only one task can be pinned.")
                         .font(W95Font.standard(pixel))
                         .foregroundStyle(Win95.text)
                         .fixedSize(horizontal: false, vertical: true)
@@ -60,9 +69,9 @@ struct Win95PinReplaceDialog: View {
 
                         Win95Button(action: onReplace, compact: true,
                                     width: Win95.Px.grid * 14 * pixel) {
-                            Text("Replace")
+                            Text(confirmLabel)
                                 .font(W95Font.small(pixel))
-                                .foregroundStyle(Win95.text)
+                                .foregroundStyle(destructive ? Win95.important : Win95.text)
                         }
                     }
                 }

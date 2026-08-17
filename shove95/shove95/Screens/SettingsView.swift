@@ -107,6 +107,7 @@ struct SettingsView: View {
                 .environment(\.pixel, pixel)
                 .environment(\.win95Scheme, resolvedScheme)
         }
+
         .fullScreenCover(isPresented: $showAbout) {
             AboutView { showAbout = false }
                 .environment(\.pixel, pixel)
@@ -606,15 +607,17 @@ private struct WorkspacesSection: View {
 
     @State private var newName = ""
     @FocusState private var addFocused: Bool
+    /// The workspace waiting on a yes. Its tasks survive either way — they
+    /// fold into the default — but the label is gone for good.
+    @State private var pendingDelete: Workspace?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
             ForEach(store.workspaces(), id: \.id) { workspace in
                 WorkspaceRow(workspace: workspace, buttonColumn: buttonColumn) {
-                    if settings.currentWorkspaceID == workspace.id {
-                        settings.currentWorkspaceID = Workspace.defaultID
-                    }
-                    store.deleteWorkspace(workspace) // its tasks fold into the default
+                    // Asked, not done — the skeu sheet already did this and
+                    // this one did not (founder bug report 2026-08-17).
+                    pendingDelete = workspace
                 }
             }
 
@@ -636,6 +639,25 @@ private struct WorkspacesSection: View {
                         .foregroundStyle(Win95.text)
                 }
                 .accessibilityLabel("Add workspace")
+            }
+        }
+        .overlay {
+            if let workspace = pendingDelete {
+                Win95PinReplaceDialog(
+                    outgoing: workspace.name,
+                    title: "Delete workspace",
+                    message: "\u{201C}\(workspace.name)\u{201D} goes for good. Its tasks are not deleted — they move to the default workspace.",
+                    confirmLabel: "Delete",
+                    destructive: true
+                ) {
+                    if settings.currentWorkspaceID == workspace.id {
+                        settings.currentWorkspaceID = Workspace.defaultID
+                    }
+                    store.deleteWorkspace(workspace)
+                    pendingDelete = nil
+                } onCancel: {
+                    pendingDelete = nil
+                }
             }
         }
     }

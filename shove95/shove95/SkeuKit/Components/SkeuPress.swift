@@ -139,11 +139,18 @@ struct SkeuPulse: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var up = false
 
+    private var dimmed: Bool { active && up && !reduceMotion }
+
     func body(content: Content) -> some View {
         content
-            .opacity(active && up && !reduceMotion ? 0.55 : 1)
-            .scaleEffect(active && up && !reduceMotion ? 0.92 : 1)
-            .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true),
+            // Swings BOTH ways from rest: brighter than the mark ever is at
+            // the top of the breath, and clearly faded at the bottom (founder
+            // direction 2026-08-17 — the first pass only dimmed, which reads
+            // as a fault rather than a signal).
+            .opacity(dimmed ? 0.28 : 1)
+            .brightness(dimmed ? 0 : 0.32)
+            .scaleEffect(dimmed ? 0.88 : 1.08)
+            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true),
                        value: up)
             .onChange(of: active, initial: true) { up = active }
     }

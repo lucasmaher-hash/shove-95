@@ -119,7 +119,11 @@ private struct Win95Card: View {
         // a flat word on a Lock Screen cannot.
         HStack(alignment: .center, spacing: 4 * pixel) {
             Text(state.title)
-                .font(state.font(11))
+                // A READING size, not the app's 11px chrome size. On the Lock
+                // Screen this is the only line of content, seen at arm's
+                // length and often in a glance (founder direction
+                // 2026-08-17).
+                .font(state.font(17))
                 .foregroundStyle(Color(state.palette.ink))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -135,8 +139,12 @@ private struct Win95Card: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Complete task")
+            // Clear of the right edge by the same figure that clears it top
+            // and bottom, so the button sits in the card rather than against
+            // its side (founder direction 2026-08-17).
+            .padding(.trailing, 4)
         }
-        .padding(8)
+        .padding(12)
     }
 }
 
@@ -196,20 +204,16 @@ private struct SkeuCardView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(state.title)
-                    .font(state.font(16, weight: .medium))
-                    .foregroundStyle(Color(state.palette.ink))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let chip = state.chip {
-                    Text(chip)
-                        .font(state.font(13))
-                        .foregroundStyle(Color(state.palette.inkMuted))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // No day chip (founder direction 2026-08-17). A pinned task is
+            // the one you are doing NOW; when it is due is the list's
+            // question, not this card's, and a second line halves the size
+            // the title can take.
+            Text(state.title)
+                .font(state.font(17, weight: .medium))
+                .foregroundStyle(Color(state.palette.ink))
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(intent: CompletePinnedTaskIntent(taskID: taskID)) {
                 Image(systemName: "checkmark")
