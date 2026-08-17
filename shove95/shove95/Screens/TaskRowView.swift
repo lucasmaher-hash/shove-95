@@ -240,6 +240,9 @@ struct TaskRowView: View {
                     // only appears BECAUSE it holds, so there it keeps the
                     // accent that marks it (founder direction 2026-08-16).
                     .fill(isEditing ? Win95.text : Win95.accent)
+                    // Breathes while it holds — see SkeuPulse. After the fill,
+                    // because a Shape has to become a View first.
+                    .skeuPulse(task.isPinned && !isEditing)
                     .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
                     .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
                     .contentShape(Rectangle())

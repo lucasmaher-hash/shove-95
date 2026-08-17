@@ -1359,7 +1359,13 @@ private struct SkeuTaskRow: View {
                 // ship exactly: a ring around a solid core, and a struck-out
                 // ring for the resting state.
                 Image(systemName: task.isPinned ? "record.circle.fill" : "circle.slash")
-                    .font(SkeuFont.at(glyphSize, weight: .medium))
+                    // Larger once it HOLDS: the pinned mark is the only thing
+                    // on this row that means something outside the app, so it
+                    // is allowed to outweigh the controls beside it (founder
+                    // direction 2026-08-17).
+                    .font(SkeuFont.at(task.isPinned ? glyphSize * 1.28 : glyphSize,
+                                      weight: .medium))
+                    .skeuPulse(task.isPinned)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(task.isPinned ? skeu.accent : skeu.inkMuted)
                     .frame(width: glyphBox, height: glyphBox)

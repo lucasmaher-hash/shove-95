@@ -121,3 +121,34 @@ extension View {
         modifier(SkeuLanding(token: token, active: active))
     }
 }
+
+// MARK: - Pulse
+
+/// A slow, shallow breath. Used by the one pinned task, in both looks.
+///
+/// The pin is the app's only piece of state that lives OUTSIDE the app — on
+/// the Lock Screen, in the Dynamic Island. A static dot says "this is marked";
+/// a breathing one says "this is live somewhere else", which is what it
+/// actually means (founder direction 2026-08-17).
+///
+/// Deliberately slow and shallow. A list is somewhere people read, and a fast
+/// or wide pulse in the corner of the eye is the kind of motion you end up
+/// covering with a thumb.
+struct SkeuPulse: ViewModifier {
+    let active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var up = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(active && up && !reduceMotion ? 0.55 : 1)
+            .scaleEffect(active && up && !reduceMotion ? 0.92 : 1)
+            .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true),
+                       value: up)
+            .onChange(of: active, initial: true) { up = active }
+    }
+}
+
+extension View {
+    func skeuPulse(_ active: Bool) -> some View { modifier(SkeuPulse(active: active)) }
+}

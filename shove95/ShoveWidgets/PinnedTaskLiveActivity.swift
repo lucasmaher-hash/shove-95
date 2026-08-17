@@ -108,50 +108,48 @@ private struct Win95Card: View {
     private let pixel: CGFloat = 2
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                // `light` is the bevel highlight, which in every Win95 scheme
-                // is white — the same colour the title bar has always used for
-                // its text. `surface` was the grey of the dialog face and
-                // vanished against the blue.
-                Text("shove.95")
-                    .font(state.font(11))
-                    .foregroundStyle(Color(state.palette.light))
-                Spacer(minLength: 0)
-                if let chip = state.chip {
-                    Text(chip)
-                        .font(state.font(11))
-                        .foregroundStyle(Color(state.palette.light))
-                }
-            }
-            .padding(.horizontal, 4 * pixel)
-            .frame(height: 18 * pixel)
-            .background(Color(state.palette.accent))
+        // The TASK and the tick, and nothing else (founder direction
+        // 2026-08-17). The card used to be a whole Win95 dialog — a title bar
+        // reading "shove.95", a chip, a bevelled face around it all — which
+        // is furniture the Lock Screen already provides. What is left is the
+        // one thing you came to see and the one thing you can do about it.
+        //
+        // The bevel stays on the BUTTON alone. That is where it earns its
+        // keep: it says "this is pressable" in the look's own grammar, which
+        // a flat word on a Lock Screen cannot.
+        HStack(alignment: .center, spacing: 4 * pixel) {
+            Text(state.title)
+                .font(state.font(11))
+                .foregroundStyle(Color(state.palette.ink))
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(alignment: .top, spacing: 4 * pixel) {
-                Text(state.title)
-                    .font(state.font(11))
-                    .foregroundStyle(Color(state.palette.ink))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Button(intent: CompletePinnedTaskIntent(taskID: taskID)) {
-                    Text("Done")
-                        .font(state.font(11))
-                        .foregroundStyle(Color(state.palette.ink))
-                        .padding(.horizontal, 4 * pixel)
-                        .frame(minHeight: 16 * pixel)
-                        .background(Color(state.palette.surface))
-                        .bevel(raised: true, pixel: pixel, state: state)
-                }
-                .buttonStyle(.plain)
+            Button(intent: CompletePinnedTaskIntent(taskID: taskID)) {
+                CheckGlyph()
+                    .fill(Color(state.palette.ink))
+                    .frame(width: 9 * pixel, height: 9 * pixel)
+                    .padding(4 * pixel)
+                    .background(Color(state.palette.surface))
+                    .bevel(raised: true, pixel: pixel, state: state)
             }
-            .padding(4 * pixel)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Complete task")
         }
-        .background(Color(state.palette.surface))
-        .bevel(raised: true, pixel: pixel, state: state)
         .padding(8)
+    }
+}
+
+/// The tick, drawn on the app's pixel grid. The Lock Screen card cannot reach
+/// the app's own glyphs, so it carries its own — same staircase, same weights.
+private struct CheckGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let u = rect.width / 9
+        var p = Path()
+        for (x, y) in [(0,4),(1,5),(2,6),(3,7),(4,6),(5,5),(6,4),(7,3),(8,2)] {
+            p.addRect(CGRect(x: CGFloat(x) * u, y: CGFloat(y) * u, width: u, height: u * 2))
+        }
+        return p
     }
 }
 
