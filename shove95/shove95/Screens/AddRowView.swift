@@ -20,6 +20,10 @@ import Shove95Kit
 
 struct AddRowView: View {
     let bucket: Bucket
+    /// The section this row sits under, and therefore the date it stamps on
+    /// what it creates. nil is the undated section — General in Soon, and the
+    /// whole of every other tab (founder direction 2026-08-17).
+    var day: Date?
     @Environment(TaskStore.self) private var store
     @Environment(\.pixel) private var pixel
     @Environment(EditingCoordinator.self) private var editing
@@ -43,11 +47,21 @@ struct AddRowView: View {
     @State private var showCamera = false
     @State private var showSourceChoice = false
     @State private var pickedItem: PhotosPickerItem?
+    /// A day chosen at the calendar, OVERRIDING the section this row sits in.
     /// Held until commit, like the buffered photos: there is nothing to
-    /// schedule until the task exists (founder bug report 2026-08-17).
+    /// schedule until the task exists (founder bug report 2026-08-17). Cleared
+    /// on commit, which drops the row back to its own section rather than to
+    /// undated.
     @State private var pendingDay: Date?
     @State private var showDayPicker = false
     @State private var photoTarget: TaskItem?
+
+    /// What this row will stamp on the next task: the day picked by hand, else
+    /// the section the row stands in.
+    private var effectiveDay: Date? { pendingDay ?? day }
+
+    /// This row's own scroll and focus identity — one per section in Soon.
+    private var rowID: String { EditingCoordinator.addRowID(for: day) }
 
     /// Return commits instead of adding a line.
     ///
@@ -86,7 +100,7 @@ struct AddRowView: View {
         CalendarGlyph()
             // Lit once a day is chosen, so the row says it is carrying one
             // before the task exists to show it.
-            .fill(pendingDay == nil ? Win95.text : Win95.accent)
+            .fill(effectiveDay == nil ? Win95.text : Win95.accent)
             .frame(width: Win95.Px.checkbox * pixel, height: Win95.Px.checkbox * pixel)
             .frame(width: Win95.rowHeight(pixel), height: Win95.rowHeight(pixel))
             .contentShape(Rectangle())
@@ -109,12 +123,15 @@ struct AddRowView: View {
         }
         committing = true
         text = ""
+        // Told BEFORE the store write: the list scrolls to follow whichever add
+        // row committed, and the change it reacts to is the one below.
+        editing.lastAddRowID = rowID
         Task { @MainActor in
             let task = store.addTask(title: title, in: bucket)
             // The date is applied AFTER the task exists, for the same reason
             // the photos are: there is nothing to schedule until then.
-            if let task, let pendingDay {
-                store.schedule(task, on: pendingDay)
+            if let task, let day = effectiveDay {
+                store.schedule(task, on: day, recordingUndo: false)
             }
             pendingDay = nil
             // Keyboard DISMISSES on commit (2026-08-04): a field that stays
@@ -160,9 +177,9 @@ struct AddRowView: View {
                 .onSubmit { commit(title: text) }
                 .onChange(of: focused) { _, isFocused in
                     if isFocused {
-                        editing.begin(EditingCoordinator.addRowID, bottom: frame.maxY)
+                        editing.begin(rowID, bottom: frame.maxY)
                     } else {
-                        editing.end(EditingCoordinator.addRowID)
+                        editing.end(rowID)
                     }
                 }
                 .padding(.vertical, firstLineInset)
@@ -206,9 +223,9 @@ struct AddRowView: View {
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
         .sheet(isPresented: $showDayPicker) {
-            Win95DayPickerSheet(current: pendingDay) { day in
+            Win95DayPickerSheet(current: effectiveDay) { picked in
                 showDayPicker = false
-                pendingDay = day
+                pendingDay = picked
             }
             .presentationDetents([.medium, .large])
         }
@@ -249,6 +266,11 @@ struct AddRowView: View {
     /// the row clears exactly as if you'd pressed Return.
     private func attachPhoto() {
         guard let task = store.addTask(title: text, in: bucket) else { return }
+        // The ✚ is a commit like Return is, so it owes the section the same
+        // date. It used to drop it, which put a photo task typed under a day
+        // back into the undated block.
+        if let day = effectiveDay { store.schedule(task, on: day, recordingUndo: false) }
+        pendingDay = nil
         text = ""
         focused = false
         photoTarget = task

@@ -23,6 +23,21 @@ final class EditingCoordinator {
     /// Scroll identity for the permanent capture row at the bottom of a list.
     static let addRowID = "add-row"
 
+    /// Scroll identity for one section's capture row. Soon carries an add row
+    /// under General and under every day rather than one at the foot of the
+    /// list, so the ids have to tell them apart (founder direction
+    /// 2026-08-17). A nil day is the undated section, and keeps the plain id
+    /// so every other tab's single row is unchanged.
+    static func addRowID(for day: Date?) -> String {
+        guard let day else { return addRowID }
+        return "\(addRowID)-\(Int(day.timeIntervalSinceReferenceDate))"
+    }
+
+    /// The add row that last committed a task. The list follows its add row
+    /// down as the list grows — with one row per section, "its" means the one
+    /// that was just typed into, not the one at the bottom.
+    var lastAddRowID: String?
+
     func begin(_ id: String, bottom: CGFloat) {
         focused = id
         focusedBottom = bottom

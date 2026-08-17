@@ -35,17 +35,21 @@ struct TaskListView: View {
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
     @State private var keyboardTop: CGFloat = .infinity
 
-    /// One scheduled day's name. A pixel label on the well, not a row: it is
-    /// something to read, not something to act on.
-    private func dayHeading(_ day: Date) -> some View {
-        TypedText(text: DayHeading.label(for: day, calendar: .current),
-                  face: settings.face, role: .chrome)
+    /// A section's name. A pixel label on the well, not a row: it is something
+    /// to read, not something to act on.
+    private func sectionHeading(_ title: String) -> some View {
+        TypedText(text: title, face: settings.face, role: .chrome)
             .font(W95Font.small(pixel))
             .foregroundStyle(Win95.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Win95.Px.grid * 3 * pixel)
             .padding(.bottom, Win95.Px.grid * pixel)
             .padding(.horizontal, Win95.Px.grid * 2 * pixel)
+    }
+
+    /// One scheduled day's name.
+    private func dayHeading(_ day: Date) -> some View {
+        sectionHeading(DayHeading.label(for: day, calendar: .current))
     }
 
     var body: some View {
@@ -67,16 +71,35 @@ struct TaskListView: View {
                 // 2026-08-17). The others are one flat run.
                 if bucket == .general {
                     let sections = store.soonSections()
+                    // The undated block carries its own heading. It was left
+                    // bare originally, on the reasoning that the tab name
+                    // already said what it was — but once dated days sit below
+                    // it, an unlabelled run reads as a preamble to the first
+                    // day rather than as a section of its own. The founder
+                    // reversed that decision (founder direction 2026-08-17).
+                    // Shown even when empty: the section still has its add row.
+                    sectionHeading("General")
                     ForEach(sections.undated, id: \.id) { task in
                         TaskRowView(task: task)
                             .id(task.id.uuidString)
                     }
+                    // Every section ends in its own add row, which stamps that
+                    // section's date on what it creates (founder direction
+                    // 2026-08-17). One row at the foot of the list could only
+                    // ever add to one section, so typing under a day and
+                    // watching the task appear in General was the app
+                    // disagreeing with its own layout. Soon therefore has NO
+                    // trailing add row — the last day's is the bottom one.
+                    AddRowView(bucket: bucket, day: nil)
+                        .id(EditingCoordinator.addRowID(for: nil))
                     ForEach(sections.days, id: \.day) { section in
                         dayHeading(section.day)
                         ForEach(section.tasks, id: \.id) { task in
                             TaskRowView(task: task)
                                 .id(task.id.uuidString)
                         }
+                        AddRowView(bucket: bucket, day: section.day)
+                            .id(EditingCoordinator.addRowID(for: section.day))
                     }
                 } else {
                     ForEach(active, id: \.id) { task in
@@ -92,8 +115,10 @@ struct TaskListView: View {
                     }
                 }
 
-                AddRowView(bucket: bucket)
-                    .id(EditingCoordinator.addRowID)
+                if bucket != .general {
+                    AddRowView(bucket: bucket)
+                        .id(EditingCoordinator.addRowID)
+                }
             }
             .padding(.horizontal, Win95.Px.grid * pixel)
             .padding(.vertical, Win95.Px.grid * pixel)
@@ -106,8 +131,11 @@ struct TaskListView: View {
         // ticking, renaming or moving a task doesn't yank the list downward.
         .onChange(of: active.count + completed.count) { old, new in
             guard new > old else { return } // only on ADD, never on delete
+            // Follow the row that was TYPED INTO, not the one at the bottom:
+            // with an add row per section, the two are usually different.
+            let target = editing.lastAddRowID ?? EditingCoordinator.addRowID
             withAnimation(.easeOut(duration: 0.25)) {
-                proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
+                proxy.scrollTo(target, anchor: .bottom)
             }
         }
         // The list keeps its own bottom inset so the keyboard has somewhere to

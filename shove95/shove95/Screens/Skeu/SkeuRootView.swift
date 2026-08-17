@@ -159,8 +159,6 @@ struct SkeuRootView: View {
     /// moves, so both halves of the transition agree on a direction. Same
     /// mechanism the Win95 root uses.
     @State private var goingRight = true
-    @State private var draft = ""
-    @FocusState private var addFocused: Bool
     @State private var menu = MenuCoordinator()
     /// Which field is open and where its bottom edge sits — the same
     /// coordinator the Win95 list uses, so both looks lift fields identically.
@@ -189,27 +187,12 @@ struct SkeuRootView: View {
     // see SkeuWorkspacePill for why keeping it out of the root's state is
     // what makes opening the menu cheap.
 
-    // Photo attach from the add row. NOT the Win95 AddRowView flow — that one
-    // commits the draft the moment ✚ is pressed and then targets the fresh
-    // task, which reads as "my editing just ended and a photo menu opened for
-    // something else" (founder bug report 2026-08-13). Here the picked photos
-    // are BUFFERED alongside the draft and attach when the task is actually
-    // committed, so taking a photo is part of composing, not the end of it.
-    @State private var showPhotoPicker = false
-    @State private var showCamera = false
-    @State private var showSourceChoice = false
-    @State private var pickedItem: PhotosPickerItem?
-    @State private var pendingPhotos: [Data] = []
-    /// Held until commit, like `pendingPhotos`: there is nothing to schedule
-    /// until the task exists. Without this the calendar only worked on tasks
-    /// that were already written (founder bug report 2026-08-17).
-    @State private var pendingDay: Date?
-    @State private var showAddDayPicker = false
-    /// The add row's frame in global space — reported to the editing
-    /// coordinator so a focused field can be lifted above the keyboard.
-    @State private var addRowFrame: CGRect = .zero
-    /// Guards against a double insert when both Return paths fire.
-    @State private var committingAdd = false
+    // The add row's own state — draft, focus, buffered photos, pending day —
+    // lives on `SkeuAddRow` at the foot of this file, not here. Soon carries
+    // one add row per section (founder direction 2026-08-17), and state held
+    // on the root would be shared between them: typing under one day would
+    // put the same draft under every other.
+
     /// Identity of the list's top, for `scrollTo` on a workspace change.
     private static let topAnchor = "list.top"
     /// Half-turns the gear has made. See the settings button.
@@ -363,16 +346,35 @@ struct SkeuRootView: View {
                 // 2026-08-17). The others are one flat run.
                 if bucket == .general {
                     let sections = store.soonSections()
+                    // The undated block carries its own heading. It was left
+                    // bare originally, on the reasoning that the tab name
+                    // already said what it was — but once dated days sit below
+                    // it, an unlabelled run reads as a preamble to the first
+                    // day rather than as a section of its own. The founder
+                    // reversed that decision (founder direction 2026-08-17).
+                    // Shown even when empty: the section still has its add row.
+                    sectionHeading("General")
                     ForEach(sections.undated, id: \.id) { task in
                         taskRow(task)
                             .id(task.id.uuidString)
                     }
+                    // Every section ends in its own add row, which stamps that
+                    // section's date on what it creates (founder direction
+                    // 2026-08-17). One row at the foot of the list could only
+                    // ever add to one section, so typing under a day and
+                    // watching the task appear in General was the app
+                    // disagreeing with its own layout. Soon therefore has NO
+                    // trailing add row — the last day's is the bottom one.
+                    SkeuAddRow(bucket: bucket, day: nil)
+                        .id(EditingCoordinator.addRowID(for: nil))
                     ForEach(sections.days, id: \.day) { section in
                         dayHeading(section.day)
                         ForEach(section.tasks, id: \.id) { task in
                             taskRow(task)
                                 .id(task.id.uuidString)
                         }
+                        SkeuAddRow(bucket: bucket, day: section.day)
+                            .id(EditingCoordinator.addRowID(for: section.day))
                     }
                 } else {
                     ForEach(active, id: \.id) { task in
@@ -389,8 +391,10 @@ struct SkeuRootView: View {
                     }
                 }
 
-                addRow
-                    .id(EditingCoordinator.addRowID)
+                if bucket != .general {
+                    SkeuAddRow(bucket: bucket)
+                        .id(EditingCoordinator.addRowID)
+                }
             }
             .padding(.vertical, SkeuSpace.lg)
             // The MARGIN is on the ROWS, not on anything that clips.
@@ -412,8 +416,11 @@ struct SkeuRootView: View {
         // ticking, renaming or moving a task doesn't yank the list downward.
         .onChange(of: active.count + completed.count) { old, new in
             guard new > old else { return } // only on ADD, never on delete
+            // Follow the row that was TYPED INTO, not the one at the bottom:
+            // with an add row per section, the two are usually different.
+            let target = editing.lastAddRowID ?? EditingCoordinator.addRowID
             withAnimation(SkeuMotion.layout) {
-                proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
+                proxy.scrollTo(target, anchor: .bottom)
             }
         }
         .onChange(of: editing.focused) { _, _ in
@@ -492,11 +499,75 @@ struct SkeuRootView: View {
         SkeuTaskRow(task: task)
     }
 
-    /// The add row: a plain row like the tasks themselves — an unchecked
-    /// circle and a faded "add" beside it, no frame (founder direction
-    /// 2026-08-13). The commit ＋ only exists while the field is being edited,
-    /// the same way the existing rows grow their controls in edit mode.
-    private var addRow: some View {
+}
+
+// MARK: - The add row
+
+/// The add row: a plain row like the tasks themselves — an unchecked circle
+/// and a faded "add" beside it, no frame (founder direction 2026-08-13). The
+/// commit ＋ only exists while the field is being edited, the same way the
+/// existing rows grow their controls in edit mode.
+///
+/// A VIEW OF ITS OWN, not a slice of the root, because Soon stands one of
+/// these at the foot of every section rather than one at the foot of the list
+/// (founder direction 2026-08-17). Draft, focus and buffered photos have to
+/// belong to the row that owns them; held on the root they would be shared,
+/// and typing under one day would show the same half-written task under all
+/// of them.
+private struct SkeuAddRow: View {
+    let bucket: Bucket
+    /// The section this row sits under, and therefore the date it stamps on
+    /// what it creates. nil is the undated section — General in Soon, and the
+    /// whole of every other tab.
+    var day: Date?
+
+    @Environment(\.skeu) private var skeu
+    @Environment(TaskStore.self) private var store
+    @Environment(EditingCoordinator.self) private var editing
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+
+    // Dynamic Type (FR-015) — the same five measurements the task rows take.
+    private var labelSize: CGFloat { F.label * textScale }
+    private var rowH: CGFloat { F.rowHeight * chromeScale }
+    private var checkSize: CGFloat { F.check * chromeScale }
+    private var glyphSize: CGFloat { F.plusIcon * chromeScale }
+    private var glyphBox: CGFloat { F.plus * chromeScale }
+
+    @State private var draft = ""
+    @FocusState private var addFocused: Bool
+
+    // Photo attach from the add row. NOT the Win95 AddRowView flow — that one
+    // commits the draft the moment ✚ is pressed and then targets the fresh
+    // task, which reads as "my editing just ended and a photo menu opened for
+    // something else" (founder bug report 2026-08-13). Here the picked photos
+    // are BUFFERED alongside the draft and attach when the task is actually
+    // committed, so taking a photo is part of composing, not the end of it.
+    @State private var showPhotoPicker = false
+    @State private var showCamera = false
+    @State private var showSourceChoice = false
+    @State private var pickedItem: PhotosPickerItem?
+    @State private var pendingPhotos: [Data] = []
+    /// A day chosen at the calendar, OVERRIDING the section this row sits in.
+    /// Held until commit, like `pendingPhotos`: there is nothing to schedule
+    /// until the task exists (founder bug report 2026-08-17). Cleared on
+    /// commit, which drops the row back to its own section, not to undated.
+    @State private var pendingDay: Date?
+    @State private var showAddDayPicker = false
+    /// The add row's frame in global space — reported to the editing
+    /// coordinator so a focused field can be lifted above the keyboard.
+    @State private var addRowFrame: CGRect = .zero
+    /// Guards against a double insert when both Return paths fire.
+    @State private var committingAdd = false
+
+    /// What this row will stamp on the next task: the day picked by hand, else
+    /// the section the row stands in.
+    private var effectiveDay: Date? { pendingDay ?? day }
+
+    /// This row's own scroll and focus identity — one per section in Soon.
+    private var rowID: String { EditingCoordinator.addRowID(for: day) }
+
+    var body: some View {
         HStack(spacing: F.glassGap) {
             ZStack {}
                 .frame(width: checkSize, height: checkSize)
@@ -521,9 +592,9 @@ struct SkeuRootView: View {
                 .onSubmit { commitAdd(title: draft) }
                 .onChange(of: addFocused) { _, isFocused in
                     if isFocused {
-                        editing.begin(EditingCoordinator.addRowID, bottom: addRowFrame.maxY)
+                        editing.begin(rowID, bottom: addRowFrame.maxY)
                     } else {
-                        editing.end(EditingCoordinator.addRowID)
+                        editing.end(rowID)
                     }
                 }
 
@@ -554,7 +625,7 @@ struct SkeuRootView: View {
                     .symbolRenderingMode(.hierarchical)
                     // Lit once a day is chosen, so the row says it is carrying
                     // one before the task exists to show it.
-                    .foregroundStyle(pendingDay == nil ? skeu.ink : skeu.accent)
+                    .foregroundStyle(effectiveDay == nil ? skeu.ink : skeu.accent)
                     .frame(width: glyphBox, height: glyphBox)
                     .frame(width: SkeuControl.minTouch, height: rowH)
                     .contentShape(Rectangle())
@@ -597,9 +668,9 @@ struct SkeuRootView: View {
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
         .sheet(isPresented: $showAddDayPicker) {
-            SkeuDayPickerSheet(current: pendingDay) { day in
+            SkeuDayPickerSheet(current: effectiveDay) { picked in
                 showAddDayPicker = false
-                pendingDay = day
+                pendingDay = picked
             }
             .presentationDetents([.medium, .large])
         }
@@ -653,6 +724,9 @@ struct SkeuRootView: View {
         }
         committingAdd = true
         draft = ""
+        // Told BEFORE the store write: the list scrolls to follow whichever add
+        // row committed, and the change it reacts to is the one below.
+        editing.lastAddRowID = rowID
         // Deferred: a store write and a focus change from inside a binding
         // setter both land mid-update, where SwiftUI drops them.
         Task { @MainActor in
@@ -663,8 +737,8 @@ struct SkeuRootView: View {
                     store.addPhoto(task, data: data)
                 }
                 pendingPhotos = []
-                if let pendingDay {
-                    store.schedule(task, on: pendingDay)
+                if let day = effectiveDay {
+                    store.schedule(task, on: day, recordingUndo: false)
                 }
             }
             // Keyboard dismisses on commit: a field that stays open reads as
@@ -677,6 +751,11 @@ struct SkeuRootView: View {
             committingAdd = false
         }
     }
+}
+
+// MARK: - The root, continued
+
+extension SkeuRootView {
 
     // MARK: Undo
 
@@ -840,10 +919,10 @@ struct SkeuRootView: View {
         withAnimation(SkeuMotion.layout) { showLive = true }
     }
 
-    /// One scheduled day's name. Sits in the list's own margin, not in a
-    /// slat: it is a label ON the page, not a thing that can be acted on.
-    private func dayHeading(_ day: Date) -> some View {
-        Text(DayHeading.label(for: day, calendar: .current))
+    /// A section's name. Sits in the list's own margin, not in a slat: it is a
+    /// label ON the page, not a thing that can be acted on.
+    private func sectionHeading(_ title: String) -> some View {
+        Text(title)
             .font(SkeuFont.eyebrow)
             .tracking(0.8)
             .foregroundStyle(skeu.inkFaint)
@@ -851,6 +930,11 @@ struct SkeuRootView: View {
             .padding(.top, SkeuSpace.xl)
             .padding(.bottom, SkeuSpace.xs)
             .padding(.horizontal, SkeuSpace.md)
+    }
+
+    /// One scheduled day's name.
+    private func dayHeading(_ day: Date) -> some View {
+        sectionHeading(DayHeading.label(for: day, calendar: .current))
     }
 
     /// Resolves the slide direction BEFORE the selection moves, so the

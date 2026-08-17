@@ -331,15 +331,22 @@ final class TaskStore {
     /// or tomorrow is allowed and simply sends it there (founder direction
     /// 2026-08-17); the date line decides which tab holds it, as it does for
     /// everything else.
-    func schedule(_ task: TaskItem, on day: Date) {
+    /// `recordingUndo: false` is for a task that is being BORN with a date —
+    /// the add row under a day stamps its section on what it creates, and that
+    /// is one act of writing, not a move. Reported as a move it produced an
+    /// "X → Soon" undo bar on every single add, for a task that had never been
+    /// anywhere else (founder direction 2026-08-17).
+    func schedule(_ task: TaskItem, on day: Date, recordingUndo: Bool = true) {
         let target = calendar.startOfDay(for: day)
         let destination = DateEngine.bucket(for: target, now: now(), calendar: calendar)
         let destinationActive = tasks(in: destination).active.filter { $0 !== task }
         let destinationAll = allInBucket(destination).filter { $0 !== task }
-        lastAction = .moved(
-            taskID: task.id, title: task.title, to: destination,
-            previousDueDate: task.dueDate, previousSortOrder: task.sortOrder,
-            previousOverduePlaced: task.overduePlaced)
+        if recordingUndo {
+            lastAction = .moved(
+                taskID: task.id, title: task.title, to: destination,
+                previousDueDate: task.dueDate, previousSortOrder: task.sortOrder,
+                previousOverduePlaced: task.overduePlaced)
+        }
         task.dueDate = target
         task.overduePlaced = false
         task.sortOrder = Placement.sortOrderForArrival(
