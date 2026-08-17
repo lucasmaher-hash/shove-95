@@ -123,9 +123,20 @@ extension Win95 {
         /// than sitting in the bar. At 24 there are five either side — 22 was
         /// still a shade tight over the ✕ and the bin (founder, same day).
         ///
-        /// This is also the +20% the founder asked for across every screen's
-        /// top section: one figure drives all of them.
-        static let titleBar: CGFloat        = 24
+        /// 28 is where the two looks AGREE. The skeu sheets put their ✕ at
+        /// `SkeuTopBar.inset` (6) + half of `SkeuTopBar.control` (22.2) =
+        /// 28.2pt below the safe area; a bar of 28 spec px centres its own
+        /// controls at 28pt. Flipping Design now leaves the close button
+        /// where the thumb already is instead of moving it four points
+        /// (founder direction 2026-08-17, item 38).
+        ///
+        /// HORIZONTALLY the two stay apart on purpose: the skeu ✕ floats on a
+        /// canvas and needs a margin, this one belongs to a full-bleed title
+        /// bar and would look adrift inside one.
+        ///
+        /// This is also the top-section growth the founder asked for across
+        /// every screen: one figure drives all of them.
+        static let titleBar: CGFloat        = 28
         static let titleBarControlW: CGFloat = 16
         static let titleBarControlH: CGFloat = 14
         static let taskbar: CGFloat         = 28
