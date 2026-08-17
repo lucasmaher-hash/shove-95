@@ -54,8 +54,8 @@ struct LaunchCover: View {
     /// How far left the whole mark starts, so the chevron has room to run.
     private var lead: CGFloat { Win95.Px.grid * 11 * pixel }
     /// The chevron's size at rest and at the end. Deliberately extreme.
-    private var startScale: CGFloat { 0.16 }
-    private var endScale: CGFloat { 3.8 }
+    private var startScale: CGFloat { 0.42 }
+    private var endScale: CGFloat { 8.0 }
 
     var body: some View {
         ZStack {
@@ -96,9 +96,9 @@ struct LaunchCover: View {
         .allowsHitTesting(!arrived)
         // A beat before it moves, so the mark is READ standing still first.
         // Straight into the travel and there is nothing to have departed
-        // from.
+        // from. See `chevron` for how this 0.3 fits the three-second budget.
         .task {
-            try? await Task.sleep(for: .milliseconds(420))
+            try? await Task.sleep(for: .milliseconds(300))
             arrived = true
         }
         .transition(.opacity)
@@ -107,18 +107,28 @@ struct LaunchCover: View {
     /// §8.5: Reduce Motion holds the mark still. There is nothing to fade
     /// here — both parts are on screen from the first frame either way, so
     /// the accessible version is simply the title card without the journey.
+    /// SLOW, and easing IN rather than out — a spring arrives, and this one
+    /// is not arriving anywhere. It leans into the journey instead, so the
+    /// chevron is still gathering speed at the point it leaves the screen
+    /// (founder direction 2026-08-17, fourth pass).
+    ///
+    /// The numbers are a budget, not taste. `arrived` fires at 0.3s and the
+    /// app lifts the cover at `duration` (3.0s); everything below has to fit
+    /// between those two, which is why they are stated together.
     private var chevron: Animation {
         reduceMotion
             ? .easeOut(duration: 0.01)
-            : .spring(response: 1.15, dampingFraction: 0.74)
+            : .easeIn(duration: 2.3)
     }
 
-    /// Starts late and runs long, so the blue is still readable through the
-    /// first half of the flight and gone by the end of it.
+    /// Finishes as the chevron reaches the right edge, which is the moment
+    /// the founder asked the two to coincide. That is 2.3s absolute: 0.3 for
+    /// the still frame, 0.5 more before the blue starts to give, then 1.5 of
+    /// thinning.
     private var veil: Animation {
         reduceMotion
             ? .easeOut(duration: 0.5).delay(0.6)
-            : .easeIn(duration: 1.3).delay(1.0)
+            : .easeIn(duration: 1.5).delay(0.5)
     }
 }
 
