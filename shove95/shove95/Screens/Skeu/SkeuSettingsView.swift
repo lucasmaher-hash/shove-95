@@ -210,8 +210,12 @@ struct SkeuSettingsView: View {
             }
         }
         // In from the left edge, or down from the header — see SwipeToDismiss.
-        .swipeToDismiss(headerHeight: SkeuTopBar.control * chromeScale
-                        + SkeuTopBar.inset + SkeuSpace.md, onClose)
+        // The band covers the title AND its ✕, with the header's own padding
+        // either side — measured from below the safe area.
+        .swipeToDismiss(headerHeight: SkeuTopBar.inset
+                        + SkeuTopBar.control * chromeScale
+                        + SkeuSpace.md * 2,
+                        backdrop: skeu.canvas, onClose)
         .fullScreenCover(isPresented: $showArchive) {
             SkeuArchiveView { showArchive = false }
         }

@@ -51,7 +51,8 @@ struct ArchiveView: View {
         .background(Win95.surface)
         // In from the left edge, or down from the title bar — the same two
         // ways out the skeu sheets take. See SwipeToDismiss.
-        .swipeToDismiss(headerHeight: Win95.Px.titleBar * pixel, onClose)
+        .swipeToDismiss(headerHeight: Win95.Px.titleBar * pixel,
+                        backdrop: Win95.surface, onClose)
         .ignoresSafeArea(.container, edges: .bottom)
     }
 

@@ -104,7 +104,8 @@ private struct SkeuSheet<Content: View>: View {
             }
         }
         .swipeToDismiss(headerHeight: S.closeCircle * chromeScale
-                        + SkeuSpace.md * 2, onClose)
+                        + SkeuSpace.md * 3,
+                        backdrop: skeu.canvas, onClose)
     }
 }
 

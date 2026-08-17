@@ -17,19 +17,34 @@
 //
 //  THE HEADER, not the whole page. A downward drag lower down is a scroll, and
 //  a sheet that closes when you try to scroll it is worse than one with no
-//  gesture at all. Confined to the header band, it also stays clear of the
-//  system's own pull-down from the very top of the display.
+//  gesture at all.
+//
+//  Two things the first version got wrong, both worth keeping written down:
+//
+//  1. It compared the drag's start against a header height measured from the
+//     sheet's own top, while `startLocation` is in GLOBAL space and counts the
+//     status bar. The band therefore sat above the title rather than on it,
+//     and dragging the header did nothing. The safe-area inset is added now,
+//     and the band is measured to include the title AND its button.
+//
+//  2. Offsetting the sheet revealed BLACK. Nothing is behind a full-screen
+//     cover — the screen it came from is not rendered underneath — so moving
+//     it exposes the void. A backdrop in the sheet's own ground colour sits
+//     behind it and stays put while it travels, so what appears is the app
+//     rather than a hole.
 //
 
 import SwiftUI
 
 struct SwipeToDismiss: ViewModifier {
-    /// Height of the band, measured from the top, in which a downward drag
-    /// dismisses. The header's own height — below it, dragging scrolls.
+    /// Height of the band, measured from below the safe area, in which a
+    /// downward drag dismisses — the header and its button, nothing lower.
     let headerHeight: CGFloat
+    /// What shows through while the sheet travels. The sheet's own ground.
+    let backdrop: Color
     let onDismiss: () -> Void
 
-    /// How far a drag has to travel before it counts. Generous: this competes
+    /// How far a drag has to travel before it counts. Generous: it competes
     /// with scrolling and with the row gestures, so a hesitant drag should do
     /// nothing rather than something surprising.
     private static let distance: CGFloat = 70
@@ -41,20 +56,32 @@ struct SwipeToDismiss: ViewModifier {
     @State private var offset: CGSize = .zero
 
     func body(content: Content) -> some View {
-        content
-            .offset(x: offset.width, y: offset.height)
+        GeometryReader { proxy in
+            let band = proxy.safeAreaInsets.top + headerHeight
+
+            ZStack {
+                backdrop.ignoresSafeArea()
+
+                content
+                    .offset(x: offset.width, y: offset.height)
+            }
+            .contentShape(Rectangle())
             .simultaneousGesture(
                 DragGesture(minimumDistance: 12, coordinateSpace: .global)
                     .onChanged { value in
-                        switch mode(for: value) {
-                        case .horizontal: offset = CGSize(width: max(0, value.translation.width), height: 0)
-                        case .vertical:   offset = CGSize(width: 0, height: max(0, value.translation.height))
-                        case .none:       offset = .zero
+                        switch mode(for: value, band: band) {
+                        case .horizontal:
+                            offset = CGSize(width: max(0, value.translation.width), height: 0)
+                        case .vertical:
+                            offset = CGSize(width: 0, height: max(0, value.translation.height))
+                        case .none:
+                            offset = .zero
                         }
                     }
                     .onEnded { value in
-                        let mode = mode(for: value)
-                        let travelled = mode == .horizontal ? value.translation.width : value.translation.height
+                        let mode = mode(for: value, band: band)
+                        let travelled = mode == .horizontal
+                            ? value.translation.width : value.translation.height
                         let speed = mode == .horizontal
                             ? value.predictedEndTranslation.width - value.translation.width
                             : value.predictedEndTranslation.height - value.translation.height
@@ -70,16 +97,18 @@ struct SwipeToDismiss: ViewModifier {
                         }
                     }
             )
+        }
+        .ignoresSafeArea()
     }
 
     private enum Mode { case horizontal, vertical, none }
 
-    private func mode(for value: DragGesture.Value) -> Mode {
+    private func mode(for value: DragGesture.Value, band: CGFloat) -> Mode {
         let dx = value.translation.width, dy = value.translation.height
         // Started at the leading edge and travelling right — "back".
         if value.startLocation.x <= Self.edge, dx > abs(dy) { return .horizontal }
-        // Started in the header band and travelling down — "put it away".
-        if value.startLocation.y <= headerHeight, dy > abs(dx) { return .vertical }
+        // Started anywhere in the header band and travelling down.
+        if value.startLocation.y <= band, dy > abs(dx) { return .vertical }
         return .none
     }
 }
@@ -87,7 +116,11 @@ struct SwipeToDismiss: ViewModifier {
 extension View {
     /// Closes this full-screen sheet on a drag in from the left edge, or down
     /// from its header. See `SwipeToDismiss`.
-    func swipeToDismiss(headerHeight: CGFloat, _ onDismiss: @escaping () -> Void) -> some View {
-        modifier(SwipeToDismiss(headerHeight: headerHeight, onDismiss: onDismiss))
+    func swipeToDismiss(headerHeight: CGFloat,
+                        backdrop: Color,
+                        _ onDismiss: @escaping () -> Void) -> some View {
+        modifier(SwipeToDismiss(headerHeight: headerHeight,
+                                backdrop: backdrop,
+                                onDismiss: onDismiss))
     }
 }
