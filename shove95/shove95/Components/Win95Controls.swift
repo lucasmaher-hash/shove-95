@@ -180,32 +180,39 @@ struct PlusGlyph: Shape {
 
 // MARK: - Camera glyph
 
-/// The photo control's mark: a camera on a 12×12 grid.
+/// The photo control's mark: the founder's camera, transcribed.
 ///
-/// It was a plus, which says "add" and nothing about WHAT — and this control
-/// only ever adds one thing (founder direction 2026-08-17). The skeu row has
-/// said `camera` with an SF Symbol all along; this is the same statement at
-/// this look's resolution.
+/// From `pixel-camera-icon-6766180-512.png` (2026-08-17), read off the file
+/// rather than eyeballed — the drawing sits on a 12×10 grid of 32.8px cells,
+/// and this is that grid cell for cell.
 ///
-/// Drawn as an outline rather than a filled block: at 12 cells a solid body
-/// with a hole in it reads as a smudge, where a one-cell wall and a four-cell
-/// lens ring still read as a camera.
+/// TRANSCRIBED, not embedded. A PNG would not take the scheme's colour, and
+/// it would resample at every Dynamic Type step onto fractional pixels; as
+/// cells it stays crisp at 2×, 3× and 4× and re-tints with everything else.
 struct CameraGlyph: Shape {
+    /// `#` is ink. Ten rows of twelve, exactly as the file draws them.
+    private static let rows = [
+        "....####....",
+        ".###....###.",
+        "#.#........#",
+        "#....##....#",
+        "#...#..#...#",
+        "#...#..#...#",
+        "#...#..#...#",
+        "#....##....#",
+        "#..........#",
+        ".##########.",
+    ]
+
     func path(in rect: CGRect) -> Path {
-        let u = rect.width / 12
-        func cell(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
-            CGRect(x: x * u, y: y * u, width: w * u, height: h * u)
-        }
+        let u = rect.width / CGFloat(Self.rows[0].count)
         var path = Path()
-        path.addRect(cell(3, 1, 3, 1))    // the viewfinder bump
-        path.addRect(cell(0, 2, 12, 1))   // top wall
-        path.addRect(cell(0, 9, 12, 1))   // floor
-        path.addRect(cell(0, 2, 1, 8))    // near wall
-        path.addRect(cell(11, 2, 1, 8))   // far wall
-        path.addRect(cell(4, 4, 4, 1))    // the lens, as a ring of cells
-        path.addRect(cell(4, 7, 4, 1))
-        path.addRect(cell(4, 5, 1, 2))
-        path.addRect(cell(7, 5, 1, 2))
+        for (r, row) in Self.rows.enumerated() {
+            for (c, mark) in row.enumerated() where mark == "#" {
+                path.addRect(CGRect(x: CGFloat(c) * u, y: CGFloat(r) * u,
+                                    width: u, height: u))
+            }
+        }
         return path
     }
 }
