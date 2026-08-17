@@ -23,7 +23,7 @@ enum HowTo {
     /// The pictogram beside an item. Drawn, not lettered: these have to read
     /// in the Win95 look too, where SF Symbols are prohibited (design.md §9).
     enum Glyph: String {
-        case line           // the four tabs, as a row of steps
+        case line           // the three dated tabs, as a row of steps
         case swipeRight
         case swipeLeft
         case clock
@@ -54,8 +54,8 @@ enum HowTo {
     }
 
     static let sections: [Section] = [
-        Section(title: "The four tabs", items: [
-            Item(glyph: .line, action: "Today · Tomorrow · Week · General",
+        Section(title: "The three tabs", items: [
+            Item(glyph: .line, action: "Today · Tomorrow · General",
                  result: "One line. A task moves along it one step at a time."),
             Item(glyph: .swipeRight, action: "Swipe right",
                  result: "One step later. From General it springs back."),
@@ -81,20 +81,22 @@ enum HowTo {
                  result: "Type, press Return."),
             Item(glyph: .camera, action: "The camera",
                  result: "Attaches photos while you write."),
-            Item(glyph: .pin, action: "The circle beside it",
-                 result: "Pins the task as you write it."),
         ]),
 
-        Section(title: "The pinned task", items: [
-            Item(glyph: .pin, action: "Exactly one",
-                 result: "App-wide. Pinning a second one asks first."),
-            Item(glyph: .lockScreen, action: "On the Lock Screen",
-                 result: "With a tick button, so it finishes without the app."),
+        Section(title: "Live", items: [
+            Item(glyph: .pin, action: "The ring, bottom left",
+                 result: "Its own tab, for the one thing you are doing now."),
+            Item(glyph: .plus, action: "Go Live",
+                 result: "Type it, and it goes straight to the Lock Screen."),
+            Item(glyph: .lockScreen, action: "There it has a tick",
+                 result: "So it finishes without opening the app."),
+            Item(glyph: .caret, action: "The Live switch",
+                 result: "Takes it off the Lock Screen. The text stays put."),
         ]),
 
         Section(title: "Elsewhere", items: [
             Item(glyph: .workspace, action: "The name, top left",
-                 result: "Switches workspace. The pin is shared across all."),
+                 result: "Switches workspace. The live note is shared across all."),
             Item(glyph: .undo, action: "After a move",
                  result: "A bar offers to undo it, then retires."),
             Item(glyph: .photo, action: "A thumbnail",

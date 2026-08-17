@@ -8,7 +8,9 @@
 //  bar, message, two buttons, the raised bevel — because that is what 1995
 //  did when it needed an answer. The skeu half is a floating card. Neither
 //  reuses the other's geometry; only the words and the outcome are shared,
-//  and those live in `PinCoordinator`.
+//  The pin-swap question it was built for is gone with the pin itself; it
+//  serves the app's other two weighty questions now — deleting a workspace
+//  and deleting a photo or a live note.
 //
 //  Both dim the screen behind them and swallow taps outside, which is the
 //  one behaviour a modal question must have: there is no third answer.

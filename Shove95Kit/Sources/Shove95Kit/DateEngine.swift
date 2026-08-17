@@ -94,7 +94,13 @@ extension TaskItem {
     }
 
     public func isArchived(now: Date, calendar: Calendar) -> Bool {
-        DateEngine.isArchived(dueDate: dueDate, isCompleted: isCompleted,
+        // A ticked live note archives AT ONCE. The grace period exists so a
+        // task you just ticked stays visible in the list where you ticked it;
+        // a live note has no such list, and its box empties the moment it is
+        // done. Without this it spent a day in nowhere — gone from Live, in no
+        // tab, and not yet in the archive.
+        if isLiveNote { return isCompleted && completedAt != nil }
+        return DateEngine.isArchived(dueDate: dueDate, isCompleted: isCompleted,
                               completedAt: completedAt, now: now, calendar: calendar)
     }
 

@@ -23,7 +23,6 @@ struct AddRowView: View {
     @Environment(TaskStore.self) private var store
     @Environment(\.pixel) private var pixel
     @Environment(EditingCoordinator.self) private var editing
-    @Environment(PinCoordinator.self) private var pins
 
     @State private var text = ""
     @State private var frame: CGRect = .zero

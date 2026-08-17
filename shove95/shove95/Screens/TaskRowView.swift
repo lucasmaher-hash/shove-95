@@ -25,7 +25,6 @@ struct TaskRowView: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(EditingCoordinator.self) private var editing
-    @Environment(PinCoordinator.self) private var pins
     @Environment(\.pixel) private var pixel
     /// The RESOLVED scheme — AppShell puts the dark twin here when the
     /// appearance calls for it. The pulse asks it, not the system, which way

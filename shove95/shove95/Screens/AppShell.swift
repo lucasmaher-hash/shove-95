@@ -46,7 +46,6 @@ struct AppShell: View {
     /// sheet is: the pinned task is app-wide, and a coordinator per look
     /// would mean the replace question could be asked twice, or lost when
     /// the switch is flipped mid-question.
-    @State private var pins = PinCoordinator()
     @State private var activity = LiveActivityController()
     @Environment(TaskStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
@@ -71,7 +70,6 @@ struct AppShell: View {
             .fullScreenCover(isPresented: $showSettings) {
                 settingsSheet
             }
-            .environment(pins)
             // Reconciliation, not commands — see LiveActivityController. Every
             // way a pin can appear or vanish (pinned, replaced, completed,
             // deleted, rolled over, synced from another device) bumps

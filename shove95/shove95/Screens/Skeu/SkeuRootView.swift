@@ -151,7 +151,6 @@ struct SkeuRootView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(SyncStatus.self) private var sync
     @Environment(TaskStore.self) private var store
-    @Environment(PinCoordinator.self) private var pins
 
     /// Owned by AppShell — see that file for why the sheet cannot live here.
     @Binding var showSettings: Bool
@@ -996,7 +995,6 @@ private struct SkeuTaskRow: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(EditingCoordinator.self) private var editing
-    @Environment(PinCoordinator.self) private var pins
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale

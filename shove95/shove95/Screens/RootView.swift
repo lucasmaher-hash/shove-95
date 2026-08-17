@@ -22,7 +22,6 @@ struct RootView: View {
     @Environment(\.pixel) private var pixel
     @Environment(TaskStore.self) private var store
     @Environment(AppSettings.self) private var settings
-    @Environment(PinCoordinator.self) private var pins
     @State private var menu = MenuCoordinator()
     @State private var editing = EditingCoordinator()
 
