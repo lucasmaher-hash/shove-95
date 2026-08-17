@@ -723,19 +723,25 @@ struct SkeuRootView: View {
     /// Split out because the whole button in one expression put the type
     /// checker over its budget — SkeuKit's modifiers are generic enough that a
     /// chain this long stops resolving in reasonable time.
+    ///
+    /// ONE glyph, with the glass behind it rather than around it. It was two —
+    /// a glass-wearing copy and a plain one, swapped by opacity — and the
+    /// pulse sat on the copy that is invisible unless you are already ON the
+    /// Live tab. So the bar only breathed where the news was least useful
+    /// (founder bug report 2026-08-17).
+    ///
+    /// The pulse rides the MARK and the glass holds still, which is right:
+    /// the glass says "you are here" and the breath says "something is on
+    /// air". Two different pieces of news should not move together.
     private func liveMark(pill: CGFloat) -> some View {
         LiveGlyph(tint: skeu.ink, lineWidth: 1.7 * chromeScale)
-            // Breathes while something IS live, so the bar says so without a
-            // badge — see SkeuPulse for the rule.
-            .skeuPulse(store.liveNote()?.isPinned == true)
             .frame(width: pill * 0.5, height: pill * 0.5)
+            .skeuPulse(store.liveNote()?.isPinned == true)
             .frame(width: pill, height: pill)
-            .skeuGlass(Capsule(), height: pill, prominent: showLive)
-            .opacity(showLive ? 1 : 0.001)
-            .overlay {
-                if !showLive {
-                    LiveGlyph(tint: skeu.ink, lineWidth: 1.7 * chromeScale)
-                        .frame(width: pill * 0.5, height: pill * 0.5)
+            .background {
+                if showLive {
+                    Capsule().fill(.clear)
+                        .skeuGlass(Capsule(), height: pill, prominent: true)
                 }
             }
     }
