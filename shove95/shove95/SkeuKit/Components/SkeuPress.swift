@@ -136,56 +136,34 @@ extension View {
 /// covering with a thumb.
 struct SkeuPulse: ViewModifier {
     let active: Bool
-    /// Whether a light page swings on contrast ALONE, without fading.
-    ///
-    /// Only the skeu look asks for this. Win95 was reported as correct as it
-    /// stands (founder direction 2026-08-17), and its bevelled mark on a 1995
-    /// surface does not wash out the way a soft one does.
-    var contrastOnlyInLight = false
+    /// Whether the page behind the mark is dark, when the system's answer is
+    /// the wrong one to ask. Win95 picks its palette separately from the
+    /// light/dark appearance, so it states its own scheme's darkness; skeu
+    /// leaves this nil and the system answer is right.
+    var darkOverride: Bool? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Read rather than passed: the pulse is used by both looks, and this is
-    /// the one signal both of them already carry.
     @Environment(\.colorScheme) private var colorScheme
     @State private var up = false
 
-    private var dimmed: Bool { active && up && !reduceMotion }
+    private var small: Bool { active && up && !reduceMotion }
+    private var isDark: Bool { darkOverride ?? (colorScheme == .dark) }
 
-    /// Which way "more visible" points.
+    /// ONE rule, both looks, stated by the founder (2026-08-17) after three
+    /// partial fixes each broke it somewhere else:
     ///
-    /// On a dark page the mark stands out by getting BRIGHTER; on a light one
-    /// the same move washes it into the paper, and it has to get DARKER
-    /// instead (founder direction 2026-08-17). Contrast is the goal, and
-    /// contrast has no fixed direction — only a fixed distance from whatever
-    /// is behind it.
-    private var isDark: Bool { colorScheme == .dark }
-
-    /// On a DARK page the mark stands out by getting brighter, and fading it
-    /// back is the low half of the breath. On a LIGHT one both of those read
-    /// the same way — washing out against paper IS brightening, which is why
-    /// the light mode still looked wrong after the direction of `brightness`
-    /// had already been flipped (founder bug report 2026-08-17, second pass).
+    ///   small end:  low opacity — barely there, in both modes.
+    ///   large end:  full opacity, pushed AWAY from the page — darker on a
+    ///               light page, brighter on a dark one.
     ///
-    /// So light mode does not fade at all. It keeps the mark solid and swings
-    /// it through brightness alone: up toward the paper at the quiet end of
-    /// the breath, down away from it at the loud end. Contrast is the signal
-    /// in both schemes; only on a dark page can opacity help carry it.
-    private var light: Bool { !isDark && contrastOnlyInLight }
-    private var lowOpacity: Double { light ? 1 : 0.28 }
-    private var lowBrightness: Double { light ? 0.16 : 0 }
-    private var highBrightness: Double {
-        if isDark { return 0.32 }
-        return light ? -0.34 : -0.26
-    }
+    /// Growing and becoming visible are the same motion; only the direction
+    /// "away from the page" depends on the mode. Nothing else varies.
+    private var awayFromPage: Double { isDark ? 0.32 : -0.34 }
 
     func body(content: Content) -> some View {
         content
-            // Swings BOTH ways from rest: further from the page at the top of
-            // the breath than the mark ever normally is, and clearly closer
-            // to it at the bottom (founder direction 2026-08-17 — the first
-            // pass only dimmed, which reads as a fault rather than a signal).
-            .opacity(dimmed ? lowOpacity : 1)
-            .brightness(dimmed ? lowBrightness : highBrightness)
-            .scaleEffect(dimmed ? 0.88 : 1.08)
+            .opacity(small ? 0.28 : 1)
+            .brightness(small ? 0 : awayFromPage)
+            .scaleEffect(small ? 0.88 : 1.08)
             .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true),
                        value: up)
             .onChange(of: active, initial: true) { up = active }
@@ -193,8 +171,7 @@ struct SkeuPulse: ViewModifier {
 }
 
 extension View {
-    func skeuPulse(_ active: Bool, contrastOnlyInLight: Bool = false) -> some View {
-        modifier(SkeuPulse(active: active,
-                           contrastOnlyInLight: contrastOnlyInLight))
+    func skeuPulse(_ active: Bool, dark: Bool? = nil) -> some View {
+        modifier(SkeuPulse(active: active, darkOverride: dark))
     }
 }
