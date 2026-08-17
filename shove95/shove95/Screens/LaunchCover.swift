@@ -36,12 +36,15 @@ struct LaunchCover: View {
     @Environment(\.pixel) private var pixel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// How long the whole thing takes, and therefore how long the app holds
-    /// the cover before it is allowed to leave. The founder asked for about
-    /// two seconds; the motion below fills 1.5 of them and the rest is the
-    /// mark simply standing there, which is the part that makes it read as a
-    /// title card rather than a transition.
-    static let duration: TimeInterval = 3.0
+    /// How long the app holds the cover.
+    ///
+    /// It WAS 3.0, and speeding the flight up by 30% and the fade by 40%
+    /// cannot leave it there: everything visible is over at 1.8s, and the
+    /// remaining 1.2 would be a fully transparent cover sitting on a live app
+    /// that cannot be touched yet. Trimmed to just past the fade — the three
+    /// seconds were the budget for the motion, and the motion is now quicker
+    /// than the budget.
+    static let duration: TimeInterval = 2.0
 
     /// The icon's blue, so the cover and the icon are the same object.
     private static let blue = Color(hex: 0x0C2EBE)
@@ -53,15 +56,19 @@ struct LaunchCover: View {
     private var travel: CGFloat { Win95.Px.grid * 58 * pixel }
     /// How far left the whole mark starts, so the chevron has room to run.
     private var lead: CGFloat { Win95.Px.grid * 11 * pixel }
-    /// The chevron's size at rest and at the end. Deliberately extreme.
-    private var startScale: CGFloat { 0.42 }
-    private var endScale: CGFloat { 8.0 }
+    /// At rest the chevron IS the icon — the frame above now carries the
+    /// icon's proportions, so there is nothing left to scale away.
+    private var startScale: CGFloat { 1.0 }
+    /// 6, not 8: the frame it multiplies grew by a third when it took the
+    /// icon's size, so this drops by the same third and the chevron reaches
+    /// the edge at the width it already had.
+    private var endScale: CGFloat { 6.0 }
 
     var body: some View {
         ZStack {
             Self.blue.ignoresSafeArea()
 
-            HStack(spacing: Win95.Px.grid * 3 * pixel) {
+            HStack(spacing: 5 * pixel) {
                 Text("sho")
                     .font(.system(size: Win95.Px.fontStandard * 2.6 * pixel,
                                   weight: .regular, design: .monospaced))
@@ -71,8 +78,15 @@ struct LaunchCover: View {
 
                 ChevronGlyph()
                     .fill(.white)
-                    .frame(width: Win95.Px.grid * 6 * pixel,
-                           height: Win95.Px.grid * 9 * pixel)
+                    // MEASURED off icon-1024 (founder direction 2026-08-17):
+                    // there the chevron is 0.62 of the word's width and the
+                    // gap between them 0.10 of it. The cover had 0.47 and
+                    // 0.23 — a chevron too small beside a word held too far
+                    // away, which is why the two did not read as one mark.
+                    // 8 and 12 grid units give the 6:9 drawing its icon size;
+                    // the spacing above is the icon's gap.
+                    .frame(width: Win95.Px.grid * 8 * pixel,
+                           height: Win95.Px.grid * 12 * pixel)
                     // Grows from its LEADING edge while travelling right, so
                     // the near side stays with the word and the far side runs
                     // away from it.
@@ -118,17 +132,17 @@ struct LaunchCover: View {
     private var chevron: Animation {
         reduceMotion
             ? .easeOut(duration: 0.01)
-            : .easeIn(duration: 2.3)
+            : .easeIn(duration: 1.77)   // 2.3 ÷ 1.3 — 30% quicker
     }
 
-    /// Finishes as the chevron reaches the right edge, which is the moment
-    /// the founder asked the two to coincide. That is 2.3s absolute: 0.3 for
-    /// the still frame, 0.5 more before the blue starts to give, then 1.5 of
-    /// thinning.
+    /// Finishes as the chevron reaches the right edge, which is where the
+    /// founder asked the two to meet. The delay is what holds that meeting:
+    /// 0.3 still + 0.43 + 1.07 = 1.8s, the same fraction of the flight it
+    /// was before both were sped up.
     private var veil: Animation {
         reduceMotion
             ? .easeOut(duration: 0.5).delay(0.6)
-            : .easeIn(duration: 1.5).delay(0.5)
+            : .easeIn(duration: 1.07).delay(0.43)   // 1.5 ÷ 1.4 — 40% quicker
     }
 }
 
