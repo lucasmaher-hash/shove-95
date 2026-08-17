@@ -42,11 +42,15 @@ struct SkeuLiveSection: View {
                                    - SkeuToggle.padV * chromeScale * 2 }
 
     var body: some View {
-        VStack(spacing: SkeuSpace.xl) {
+        VStack(spacing: SkeuSpace.lg) {
             Spacer(minLength: 0)
             box
-            Spacer(minLength: 0)
+            // Directly under the box, not pushed to the floor (founder
+            // direction 2026-08-17). They act on what is IN the box, and a
+            // control parked at the far end of the screen reads as belonging
+            // to the screen instead.
             controls
+            Spacer(minLength: 0)
         }
         .padding(.vertical, SkeuSpace.xl)
         .overlay {
@@ -102,7 +106,13 @@ struct SkeuLiveSection: View {
         .frame(maxWidth: .infinity)
         .padding(SkeuSpace.xl)
         .frame(minHeight: 260 * chromeScale)
-        .skeuTrough(shape, height: 260 * chromeScale)
+        // The rim is stated at CONTROL size, not at the box's own.
+        //
+        // `skeuTrough` scales every inset by `height / 148.2`, so handing it
+        // the real 260 drew the channel at nearly twice weight and the box
+        // read as a thick picture frame (founder bug report 2026-08-17). The
+        // depth of a channel does not grow with the thing sitting in it.
+        .skeuTrough(shape, height: 64)
         .padding(.horizontal, SkeuSpace.xl)
     }
 

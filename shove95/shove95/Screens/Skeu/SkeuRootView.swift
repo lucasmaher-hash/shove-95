@@ -678,7 +678,10 @@ struct SkeuRootView: View {
     /// you are doing now — so it stands in a frame of its own, in the same
     /// materials, rather than sharing their channel.
     private var tabBar: some View {
-        HStack(spacing: SkeuSpace.sm) {
+        // A gap wider than anything inside either frame, so the eye reads two
+        // objects rather than one bar with a seam. The three tabs give up the
+        // width — they share a trough that stretches, and Live's is fixed.
+        HStack(spacing: SkeuSpace.lg) {
             liveTab
             bucketTabs
         }

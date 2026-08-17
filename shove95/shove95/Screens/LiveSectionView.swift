@@ -33,8 +33,9 @@ struct LiveSectionView: View {
         VStack(spacing: Win95.Px.grid * 4 * pixel) {
             Spacer(minLength: 0)
             box
-            Spacer(minLength: 0)
+            // Directly under the box — see SkeuLiveSection.
             controls
+            Spacer(minLength: 0)
         }
         .padding(Win95.Px.grid * 4 * pixel)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
