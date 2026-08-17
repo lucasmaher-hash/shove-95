@@ -807,6 +807,14 @@ private struct SkeuWorkspacePill: View {
     @Environment(\.skeuChromeScale) private var chromeScale
 
     @State private var isOpen = false
+    /// The swell, held HERE rather than by `.skeuPress`.
+    ///
+    /// The modifier scales whatever it wraps, and what it wrapped was the
+    /// label row — the glass is on the outer container, because it has to
+    /// cover the open list too. So the name grew and the pill around it
+    /// didn't (founder bug report 2026-08-17). The gesture still belongs to
+    /// the header alone; only the scale is lifted to the whole thing.
+    @State private var swollen = false
 
     var body: some View {
         let workspaces = store.workspaces()
@@ -853,7 +861,9 @@ private struct SkeuWorkspacePill: View {
                 .foregroundStyle(skeu.ink)
                 .frame(height: rowHeight)
             }
-            .skeuPress(haptic: false) {
+            .contentShape(Rectangle())
+            .onTapGesture {
+                swell()
                 SkeuHaptic.selection()
                 // Nothing to choose from: no chevron turn, no list. The pill
                 // still swells — it reads as a control that is simply already
@@ -895,6 +905,18 @@ private struct SkeuWorkspacePill: View {
         .fixedSize(horizontal: true, vertical: false)
         .skeuGlass(RoundedRectangle(cornerRadius: rowHeight / 2, style: .continuous),
                    height: rowHeight)
+        // The whole pill, glass and all — the app's press, applied where the
+        // object actually is. Same numbers as `.skeuPress`.
+        .scaleEffect(swollen ? SkeuMotion.pressGrow : 1)
+        .animation(SkeuMotion.pressSwell, value: swollen)
+    }
+
+    private func swell() {
+        swollen = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            swollen = false
+        }
     }
 }
 
