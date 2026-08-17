@@ -167,12 +167,19 @@ struct TaskListView: View {
                         }
                     }
                 } else {
-                    ForEach(Array(active.enumerated()), id: \.element.id) { index, task in
+                    // `first?.id` rather than `enumerated()`: the latter
+                    // materialised an N-element tuple array on every render of
+                    // the app's hottest list, to answer "is this row the top
+                    // one".
+                    let firstID = active.first?.id
+                    ForEach(active, id: \.id) { task in
                         TaskRowView(task: task)
                             .id(task.id.uuidString)
                             // The walkthrough points at the FIRST row, which is
-                            // the one it just asked you to write.
-                            .onboardingTarget(index == 0 ? .taskRow : .none)
+                            // the one it just asked you to write — and only
+                            // while there is a walkthrough to point with.
+                            .onboardingTarget(
+                                !settings.hasOnboarded && task.id == firstID ? .taskRow : nil)
                     }
                 }
 
@@ -186,7 +193,7 @@ struct TaskListView: View {
                 if bucket != .general {
                     AddRowView(bucket: bucket)
                         .id(EditingCoordinator.addRowID)
-                        .onboardingTarget(.addRow)
+                        .onboardingTarget(settings.hasOnboarded ? nil : .addRow)
                 }
             }
             // The WINDOW margin — the same line the title bar and the taskbar

@@ -161,23 +161,18 @@ final class AppSettings {
     /// its own coordinators — this is the one object both roots already read.
     /// Deliberately NOT persisted. A list that comes back folded after a
     /// relaunch looks like a list that lost something.
-    private var collapsedSections: Set<String> = []
-
-    private func sectionKey(_ day: Date?) -> String {
-        guard let day else { return "general" }
-        return String(Int(day.timeIntervalSinceReferenceDate))
-    }
+    /// Keyed on the day ITSELF. `Date?` is already Hashable, and nil is
+    /// already the "General" case — the seconds-to-string conversion this used
+    /// to do bought nothing and truncated the value on the way past.
+    private var collapsedSections: Set<Date?> = []
 
     func isCollapsed(_ day: Date?) -> Bool {
-        collapsedSections.contains(sectionKey(day))
+        collapsedSections.contains(day)
     }
 
     func toggleCollapsed(_ day: Date?) {
-        let key = sectionKey(day)
-        if collapsedSections.contains(key) {
-            collapsedSections.remove(key)
-        } else {
-            collapsedSections.insert(key)
+        if collapsedSections.insert(day).inserted == false {
+            collapsedSections.remove(day)
         }
     }
 

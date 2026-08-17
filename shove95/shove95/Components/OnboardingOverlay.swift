@@ -26,6 +26,10 @@ enum OnboardingLayout {
     /// the hole meant to reveal it.
     static let halo: CGFloat = 8
 
+    /// How hard the page is dimmed. Stated once — both looks were carrying
+    /// the same number with the same comment beside it.
+    static let scrim: Double = 0.62
+
     static func hole(for target: CGRect) -> CGRect {
         target.insetBy(dx: -halo, dy: -halo)
     }
@@ -82,15 +86,9 @@ struct Win95OnboardingOverlay: View {
 
                 // OUTSIDE the expansion above, so a bar sent to the top clears
                 // the status bar instead of sitting under it.
-                VStack(spacing: 0) {
-                    if OnboardingLayout.barAtTop(target, in: geo.size) {
-                        bar
-                        Spacer(minLength: 0)
-                    } else {
-                        Spacer(minLength: 0)
-                        bar
-                    }
-                }
+                bar.frame(maxHeight: .infinity,
+                          alignment: OnboardingLayout.barAtTop(target, in: geo.size)
+                              ? .top : .bottom)
             }
         }
     }
@@ -103,7 +101,12 @@ struct Win95OnboardingOverlay: View {
         // EVEN-ODD, so the second rectangle punches the first rather than
         // painting over it. One fill, one pass, and the control below shows
         // through at full strength.
-        .fill(Color.black.opacity(0.62), style: FillStyle(eoFill: true))
+        //
+        // The SCHEME's darkest tone, not black — the same rule the dialogs
+        // and the settings scrim follow. A palette whose darkest tone is not
+        // black would have shown a black veil over its own colours.
+        .fill(Win95.darkShadow.opacity(OnboardingLayout.scrim),
+              style: FillStyle(eoFill: true))
     }
 
     private func caption(for target: CGRect, in size: CGSize) -> some View {
@@ -139,8 +142,7 @@ struct Win95OnboardingOverlay: View {
             }
             Spacer(minLength: 0)
             Win95Button(action: onNext, compact: true) {
-                TypedText(text: step == .workspace ? "Done" : "Show me next",
-                          face: settings.face, role: .content)
+                TypedText(text: step.nextLabel, face: settings.face, role: .content)
                     .font(W95Font.standard(pixel))
                     .foregroundStyle(Win95.text)
             }
@@ -190,15 +192,9 @@ struct SkeuOnboardingOverlay: View {
 
                 // OUTSIDE the expansion above, so a bar sent to the top clears
                 // the status bar instead of sitting under it.
-                VStack(spacing: 0) {
-                    if OnboardingLayout.barAtTop(target, in: geo.size) {
-                        bar
-                        Spacer(minLength: 0)
-                    } else {
-                        Spacer(minLength: 0)
-                        bar
-                    }
-                }
+                bar.frame(maxHeight: .infinity,
+                          alignment: OnboardingLayout.barAtTop(target, in: geo.size)
+                              ? .top : .bottom)
             }
         }
     }
@@ -214,9 +210,10 @@ struct SkeuOnboardingOverlay: View {
             }
         }
         // EVEN-ODD, so the rounded rectangle punches the page rather than
-        // painting over it. A scrim at 0.45 over a dark canvas is barely a
-        // veil; this one has to actually dim.
-        .fill(Color.black.opacity(0.62), style: FillStyle(eoFill: true))
+        // painting over it. The palette's own shadow rather than black, for
+        // the same reason its Win95 twin uses the scheme's darkest tone.
+        .fill(skeu.shadow.opacity(OnboardingLayout.scrim),
+              style: FillStyle(eoFill: true))
     }
 
     private func caption(for target: CGRect, in size: CGSize) -> some View {
@@ -260,7 +257,7 @@ struct SkeuOnboardingOverlay: View {
 
             Spacer(minLength: 0)
 
-            Text(step == .workspace ? "Done" : "Show me next")
+            Text(step.nextLabel)
                 .font(SkeuFont.at(labelSize, weight: .medium))
                 .foregroundStyle(skeu.ink)
                 .padding(.horizontal, SkeuSpace.xl)

@@ -70,44 +70,67 @@ extension View {
 /// A modifier rather than four clauses inlined in a root's body, because
 /// inlined they put both roots over the type checker's budget — and because
 /// the two looks then differ in exactly one thing, which is the overlay.
-struct OnboardingHost: ViewModifier {
+struct OnboardingHost<Overlay: View>: ViewModifier {
     let onboarding: OnboardingCoordinator
-    /// Read lazily: a root's tally walks the store, and this is consulted on
-    /// every revision.
-    let tally: () -> (all: Int, today: Int)
-    let hasOnboarded: Bool
-    let overlay: (OnboardingCoordinator.Step) -> AnyView
+    /// This look's pace. Everything else the host does is look-agnostic.
+    let animation: Animation
+    /// Handed `next` and `skip` rather than the roots owning them: the rule
+    /// that finishing OR skipping both retire the walkthrough for good is one
+    /// rule, and it was written out in both roots.
+    let overlay: (OnboardingCoordinator.Step,
+                  _ next: @escaping () -> Void,
+                  _ skip: @escaping () -> Void) -> Overlay
 
     @Environment(TaskStore.self) private var store
+    @Environment(AppSettings.self) private var settings
 
     func body(content: Content) -> some View {
         content
             .onPreferenceChange(OnboardingTargetKey.self) { frames in
+                // Also the START signal. This callback IS the event the
+                // walkthrough was waiting for — it used to sleep 400ms first,
+                // a guess about layout speed on one device under one load,
+                // when the arrival of the first target's frame says exactly
+                // when there is something to point at.
+                if !settings.hasOnboarded, !onboarding.isRunning,
+                   frames[OnboardingCoordinator.Step.addRow.target] != nil {
+                    withAnimation(animation) {
+                        onboarding.start(taskCount: store.activeTally().all)
+                    }
+                }
+                // GUARDED. Two of the tagged controls live inside the scrolling
+                // list, so their global frames change every frame of a scroll —
+                // unguarded, this wrote an @Observable sixty times a second for
+                // the life of the app, for a walkthrough that runs once.
+                guard onboarding.isRunning else { return }
                 onboarding.targets = frames
             }
             .overlay {
                 if let step = onboarding.step {
-                    overlay(step).transition(.opacity)
-                }
-            }
-            .task {
-                guard !hasOnboarded else { return }
-                // A beat, so the list has laid out and the tagged frames have
-                // arrived. An overlay that opens before them has nothing to
-                // point at and snaps its hole into place a moment later.
-                try? await Task.sleep(for: .milliseconds(400))
-                withAnimation(.easeOut(duration: 0.25)) {
-                    onboarding.start(taskCount: tally().all)
+                    overlay(step, advance, finish).transition(.opacity)
                 }
             }
             .onChange(of: store.revision) {
                 guard onboarding.isRunning else { return }
-                let counts = tally()
-                withAnimation(.easeOut(duration: 0.25)) {
+                let counts = store.activeTally()
+                withAnimation(animation) {
                     onboarding.storeChanged(taskCount: counts.all,
                                             todayCount: counts.today)
                 }
             }
+    }
+
+    private func advance() {
+        let counts = store.activeTally()
+        withAnimation(animation) {
+            onboarding.next(taskCount: counts.all, todayCount: counts.today)
+        }
+        if !onboarding.isRunning { settings.hasOnboarded = true }
+    }
+
+    private func finish() {
+        withAnimation(animation) { onboarding.finish() }
+        settings.hasOnboarded = true
     }
 }
 
@@ -143,10 +166,10 @@ final class OnboardingCoordinator {
             }
         }
 
-        /// True when doing the real thing finishes the step. The other two
-        /// are places rather than gestures — there is nothing to perform, so
-        /// the docked button carries them.
-        var isGesture: Bool { self == .addRow || self == .shove }
+        /// The docked button's word. Stated here beside the other two strings
+        /// rather than as a ternary in each overlay, so "which step is last"
+        /// is answered once.
+        var nextLabel: String { self == .workspace ? "Done" : "Show me next" }
     }
 
     private(set) var step: Step?

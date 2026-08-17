@@ -24,6 +24,9 @@ struct TitleBar: View {
     // inputs never change when the palette does, so without this dependency
     // SwiftUI has no reason to redraw it (see EnvironmentValues.win95Scheme).
     @Environment(\.win95Scheme) private var scheme
+    /// Read for one thing only: whether the first-run walkthrough still needs
+    /// this bar's frame. After it has run, the measuring reader comes off.
+    @Environment(AppSettings.self) private var settings
     let title: String
     /// Workspace form: the leading `{workspace} ▼` label and its tap action.
     var workspace: String? = nil
@@ -79,7 +82,7 @@ struct TitleBar: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("Workspace: \(workspace)")
                 .accessibilityHint("Switches workspace")
-                .onboardingTarget(.workspace)
+                .onboardingTarget(settings.hasOnboarded ? nil : .workspace)
 
                 Spacer(minLength: 0)
 
@@ -335,7 +338,7 @@ struct Taskbar: View {
             // would, and the row has no width to spare for both.
             LiveTaskbarButton(isActive: showLive, onAir: liveOnAir,
                               action: onSelectLive)
-                .onboardingTarget(.liveButton)
+                .onboardingTarget(settings.hasOnboarded ? nil : .liveButton)
             // Two grid units — enough to say "not with those", and no more.
             // It briefly carried everything the squared button gave up, which
             // left a canyon between the two groups; the width went to the

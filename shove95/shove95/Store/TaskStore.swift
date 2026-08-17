@@ -324,6 +324,29 @@ final class TaskStore {
         return (active, completed)
     }
 
+    /// The two counts the first-run walkthrough watches, in ONE pass.
+    ///
+    /// It used to ask `tasks(in:)` once per bucket, which is three fetches and
+    /// three sorts of the whole table to produce two integers. Same semantics:
+    /// `all` counts active tasks visible in any of the three tabs, so the live
+    /// note — which is in no tab — is left out of both, exactly as summing the
+    /// three buckets did.
+    func activeTally() -> (all: Int, today: Int) {
+        let now = now()
+        var all = 0
+        var today = 0
+        for task in allTasksSorted() where !task.isCompleted {
+            if task.isVisible(in: .today, now: now, calendar: calendar) {
+                today += 1
+                all += 1
+            } else if task.isVisible(in: .tomorrow, now: now, calendar: calendar)
+                        || task.isVisible(in: .general, now: now, calendar: calendar) {
+                all += 1
+            }
+        }
+        return (all, today)
+    }
+
     /// Schedules a task for a given day — the calendar button in Soon.
     ///
     /// Records undo like any other move, because that is what it is: the

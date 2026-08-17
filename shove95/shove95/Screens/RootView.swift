@@ -56,30 +56,6 @@ struct RootView: View {
         }
     }
 
-    /// What the walkthrough counts. Asked of the BUCKETS rather than the
-    /// store's own list, which is private to it: a growing total means a task
-    /// was written, and a shrinking Today means one was shoved out of it.
-    private var taskTally: (all: Int, today: Int) {
-        let today = store.tasks(in: .today).active.count
-        let all = today
-            + store.tasks(in: .tomorrow).active.count
-            + store.tasks(in: .general).active.count
-        return (all, today)
-    }
-
-    private func advanceOnboarding() {
-        let tally = taskTally
-        withAnimation(.easeOut(duration: 0.25)) {
-            onboarding.next(taskCount: tally.all, todayCount: tally.today)
-        }
-        if !onboarding.isRunning { settings.hasOnboarded = true }
-    }
-
-    private func endOnboarding() {
-        withAnimation(.easeOut(duration: 0.25)) { onboarding.finish() }
-        settings.hasOnboarded = true
-    }
-
     /// Moving to Live. It used to be written straight through a binding with
     /// animations explicitly disabled, so the one pane in the window that
     /// never slid was this one (founder bug report 2026-08-17).
@@ -165,16 +141,14 @@ struct RootView: View {
         // Split into a modifier of its own: inlined, the four clauses put the
         // body over the type checker's budget.
         .modifier(OnboardingHost(onboarding: onboarding,
-                                 tally: { taskTally },
-                                 hasOnboarded: settings.hasOnboarded,
-                                 overlay: { step in
-            AnyView(Win95OnboardingOverlay(
+                                 animation: Self.paneSlide) { step, next, skip in
+            Win95OnboardingOverlay(
                 step: step,
                 target: onboarding.targets[step.target],
-                onNext: { advanceOnboarding() },
-                onSkip: { endOnboarding() }
-            ))
-        }))
+                onNext: next,
+                onSkip: skip
+            )
+        })
         // The taskbar is window furniture — it stays docked at the bottom
         // instead of riding up with the keyboard.
         .ignoresSafeArea(.keyboard, edges: .bottom)
