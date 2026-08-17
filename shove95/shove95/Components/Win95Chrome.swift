@@ -74,7 +74,8 @@ struct TitleBar: View {
                 .padding(.trailing, Win95.Px.grid * 2 * pixel)
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
-                .onTapGesture { onWorkspace?() }
+                // `selection`, the same beat the skeu workspace pill gives.
+                .onTapGesture { SkeuHaptic.selection(); onWorkspace?() }
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("Workspace: \(workspace)")
                 .accessibilityHint("Switches workspace")
@@ -96,8 +97,12 @@ struct TitleBar: View {
                 Spacer(minLength: 0)
             }
 
+            // The title bar's controls are raw Buttons with a bevel style, not
+            // `Win95Button`, so they never inherited the haptic that lives
+            // inside it. Fired here, where the control is, for the same reason
+            // it lives inside Win95Button (founder bug report 2026-08-17).
             if let onDelete {
-                Button(action: onDelete) {
+                Button(action: { SkeuHaptic.press(); onDelete() }) {
                     BinGlyph()
                         .fill(Color(hex: scheme.text))
                         .frame(width: Win95.Px.titleBarControlW * pixel * 0.6,
@@ -112,7 +117,7 @@ struct TitleBar: View {
                 .accessibilityLabel("Delete photo")
             }
 
-            Button(action: onSettings) {
+            Button(action: { SkeuHaptic.press(); onSettings() }) {
                 Group {
                     if isClose { CloseGlyph().fill(Color(hex: scheme.text)) }
                     else { GearGlyph().fill(Color(hex: scheme.text)) }
@@ -429,7 +434,11 @@ private struct TaskbarButton: View {
             .background(Color(hex: isActive ? scheme.light : scheme.surface))
             .modifier(TaskbarBevel(isActive: isActive, pixel: pixel))
             .contentShape(Rectangle())
-            .onTapGesture(perform: action)
+            // `selection`, matching the Live button beside it and the skeu
+            // bar's own tab taps. These three were the only controls in the
+            // window that moved the screen without saying so in the hand
+            // (founder bug report 2026-08-17).
+            .onTapGesture { SkeuHaptic.selection(); action() }
             .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
             .accessibilityLabel(settings.name(for: bucket))
     }
