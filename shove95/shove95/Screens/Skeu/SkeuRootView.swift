@@ -824,6 +824,12 @@ private struct SkeuWorkspacePill: View {
                         // large Dynamic Type used to push the settings gear
                         // clean off the screen.
                         .minimumScaleFactor(0.6)
+                        // And a CEILING, because shrinking alone has a floor:
+                        // past it the text grows the pill again and carries
+                        // the gear off the edge with it (founder bug report
+                        // 2026-08-17). Names are bounded now, but the bar
+                        // should not depend on that to stay on screen.
+                        .frame(maxWidth: 200 * scale)
 
                     // Two strokes, nothing else — no circle, no glass of its
                     // own. It rides inside the pill it controls, the same way
@@ -1040,14 +1046,17 @@ private struct SkeuTaskRow: View {
                 get: { viewerIndex != nil },
                 set: { if !$0 { viewerIndex = nil } }
             )) {
-                if let index = viewerIndex, index < task.allPhotos.count,
-                   let image = PhotoCache.image(task.allPhotos[index]) {
-                    SkeuPhotoViewer(image: image) {
+                if let index = viewerIndex, index < task.allPhotos.count {
+                    SkeuPhotoViewer(
+                        photos: task.allPhotos,
+                        index: Binding(get: { viewerIndex ?? index },
+                                       set: { viewerIndex = $0 })
+                    ) { at in
                         // Close first, then delete: the viewer is bound to an
                         // INDEX, and removing the photo under it would leave
                         // the binding pointing past the end for a frame.
                         viewerIndex = nil
-                        store.removePhoto(task, at: index)
+                        store.removePhoto(task, at: at)
                     } onClose: {
                         viewerIndex = nil
                     }
@@ -1476,32 +1485,46 @@ private struct SkeuPhotoViewer: View {
     @Environment(\.skeu) private var skeu
     /// Dynamic Type — the viewer's controls scale with the rest of the chrome.
     @Environment(\.skeuChromeScale) private var chromeScale
-    let image: UIImage
+    let photos: [Data]
+    @Binding var index: Int
     /// Removing a photo was reachable ONLY from the Win95 viewer until now —
     /// `store.removePhoto` had exactly one caller in the app — so a photo
     /// attached in this look could not be deleted without switching design
     /// (found in the 2026-08-16 audit, control placed by founder direction).
-    var onRemove: () -> Void
+    var onRemove: (Int) -> Void
     var onClose: () -> Void
 
     var body: some View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
 
+            // A PAGER, not one photo. A task can carry several, and the strip
+            // in the row is a poor place to go between them once they are
+            // open (founder direction 2026-08-17). Dots only when there is
+            // more than one — a single photo should not advertise a choice
+            // that does not exist.
+            //
             // The SAME zoomable view the Win95 viewer uses — pinch, pan and
             // Live Text selection. This look had a plain Image, so a photo of
-            // a receipt could be opened but neither enlarged nor read from
-            // (founder bug report 2026-08-17).
+            // a receipt could be opened but neither enlarged nor read from.
             //
             // FULL BLEED: no side padding. A photo is the content here, and
             // the canvas around it was frame for frame's sake.
-            ZoomableImageView(image: image)
-                .ignoresSafeArea()
+            TabView(selection: $index) {
+                ForEach(Array(photos.enumerated()), id: \.offset) { offset, data in
+                    if let image = PhotoCache.image(data) {
+                        ZoomableImageView(image: image)
+                            .tag(offset)
+                    }
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .automatic : .never))
+            .ignoresSafeArea()
 
             HStack(spacing: SkeuSpace.sm) {
                 control("trash", label: "Delete photo", tint: skeu.critical) {
                     SkeuHaptic.warning()
-                    onRemove()
+                    onRemove(index)
                 }
                 control("xmark", label: "Close photo", tint: skeu.ink) {
                     SkeuHaptic.press()

@@ -286,7 +286,8 @@ struct SkeuSettingsView: View {
                 }
 
                 HStack(spacing: SkeuSpace.sm) {
-                    field(text: $newWorkspace, prompt: "New workspace",
+                    field(text: $newWorkspace.limited(to: AppSettings.maxNameLength),
+                          prompt: "New workspace",
                           focused: $addWorkspaceFocused)
 
                     SkeuRowButton(title: "Add") {
@@ -550,7 +551,7 @@ private struct SkeuNameField: View {
         HStack(spacing: SkeuSpace.sm) {
             // The field always holds the REAL current name at full strength —
             // a greyed placeholder reads as empty.
-            TextField("", text: $draft,
+            TextField("", text: $draft.limited(to: AppSettings.maxNameLength),
                       prompt: Text(bucket.displayName).foregroundStyle(skeu.inkFaint))
                 .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)
@@ -753,7 +754,7 @@ private struct SkeuWorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: SkeuSpace.sm) {
-            TextField("", text: $draft,
+            TextField("", text: $draft.limited(to: AppSettings.maxNameLength),
                       prompt: Text(workspace.name).foregroundStyle(skeu.inkFaint))
                 .font(SkeuFont.at(labelSize))
                 .foregroundStyle(skeu.ink)

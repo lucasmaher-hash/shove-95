@@ -561,7 +561,7 @@ private struct NameField: View {
 
     var body: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
-            TextField(bucket.displayName, text: $draft)
+            TextField(bucket.displayName, text: $draft.limited(to: AppSettings.maxNameLength))
                 .font(W95Font.standard(pixel))
                 .foregroundStyle(Win95.text)
                 .focused($focused)
@@ -631,7 +631,7 @@ private struct WorkspacesSection: View {
             }
 
             HStack(spacing: Win95.Px.grid * pixel) {
-                TextField("New workspace", text: $newName)
+                TextField("New workspace", text: $newName.limited(to: AppSettings.maxNameLength))
                     .font(W95Font.standard(pixel))
                     .foregroundStyle(Win95.text)
                     .focused($addFocused)
@@ -697,7 +697,7 @@ private struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: Win95.Px.grid * pixel) {
-            TextField(workspace.name, text: $draft)
+            TextField(workspace.name, text: $draft.limited(to: AppSettings.maxNameLength))
                 .font(W95Font.standard(pixel))
                 .foregroundStyle(Win95.text)
                 .focused($focused)
