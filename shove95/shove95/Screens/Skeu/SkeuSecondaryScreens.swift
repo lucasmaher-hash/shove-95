@@ -105,7 +105,15 @@ private struct SkeuSheet<Content: View>: View {
         }
         .swipeToDismiss(headerHeight: S.closeCircle * chromeScale
                         + SkeuSpace.md * 3,
-                        backdrop: skeu.canvas, onClose)
+                        // CLEAR, like the Win95 covers. A canvas-coloured
+                        // backdrop was standing in for the screen behind, and
+                        // once the sheet started fading it out on its way off
+                        // the edge, what it uncovered was the void a
+                        // full-screen cover leaves (founder bug report
+                        // 2026-08-17). Asking the presentation itself to be
+                        // transparent shows the real screen instead.
+                        backdrop: .clear, onClose)
+        .presentationBackground(.clear)
     }
 }
 
