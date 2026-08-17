@@ -57,6 +57,16 @@ struct SkeuLiveSection: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, SkeuSpace.xl)
+        // A downward drag anywhere puts the keyboard away, which is the
+        // gesture every reader already has in their hand. There is no scroll
+        // view here to hand that job to.
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { value in
+                    if value.translation.height > 40 { focused = false }
+                }
+        )
         .overlay {
             if pendingDelete {
                 SkeuPinReplaceDialog(
@@ -95,6 +105,19 @@ struct SkeuLiveSection: View {
             // always open (founder direction 2026-08-17).
             .submitLabel(.done)
             .onSubmit { commit(); focused = false }
+            // RETURN, caught by hand. A field on the vertical axis treats the
+            // blue key as a newline and never calls `onSubmit`, so the only
+            // way out of the keyboard was to leave the tab (founder bug report
+            // 2026-08-17). Wrapping is worth keeping — a live note can run to
+            // two lines — so the newline is intercepted rather than the axis
+            // given up.
+            .onChange(of: draft) { _, new in
+                guard new.contains("\n") else { return }
+                draft = new.replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                commit()
+                focused = false
+            }
             // Leaving by any other route writes too — tapping away from a
             // half-typed thought should not throw it away.
             .onChange(of: focused) { _, isFocused in

@@ -38,6 +38,14 @@ struct LiveSectionView: View {
         }
         .padding(Win95.Px.grid * 4 * pixel)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A downward drag puts the keyboard away — see SkeuLiveSection.
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { value in
+                    if value.translation.height > 40 { focused = false }
+                }
+        )
         .overlay {
             if pendingDelete {
                 Win95PinReplaceDialog(
@@ -68,6 +76,14 @@ struct LiveSectionView: View {
             // SkeuLiveSection for why the box is always open.
             .submitLabel(.done)
             .onSubmit { commit(); focused = false }
+            // RETURN, caught by hand — see SkeuLiveSection.
+            .onChange(of: draft) { _, new in
+                guard new.contains("\n") else { return }
+                draft = new.replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                commit()
+                focused = false
+            }
             .onChange(of: focused) { _, isFocused in
                 if !isFocused { commit() }
             }
