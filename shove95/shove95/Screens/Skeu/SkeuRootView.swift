@@ -213,6 +213,8 @@ struct SkeuRootView: View {
     private static let topAnchor = "list.top"
     /// Half-turns the gear has made. See the settings button.
     @State private var gearTurns = 0
+    /// True when the Live section holds the screen instead of a task list.
+    @State private var showLive = false
 
     var body: some View {
         ZStack {
@@ -228,8 +230,14 @@ struct SkeuRootView: View {
                 // frame reads as fixed and the content as moving through it
                 // (the Win95 root's rule, matched here).
                 ZStack {
-                    taskList
-                        .id(bucket)
+                    Group {
+                        if showLive {
+                            SkeuLiveSection()
+                        } else {
+                            taskList
+                        }
+                    }
+                        .id(showLive ? "live" : bucket.rawValue)
                         .transition(.asymmetric(
                             insertion: .move(edge: goingRight ? .trailing : .leading),
                             removal: .move(edge: goingRight ? .leading : .trailing)
@@ -700,13 +708,69 @@ struct SkeuRootView: View {
 
     // MARK: Tab bar — node 2:639
 
+    /// Live in its own frame, then the three tabs in theirs.
+    ///
+    /// Live is NOT a fourth segment (founder direction 2026-08-17). It is not
+    /// a slice of the date line the other three divide up — it is the thing
+    /// you are doing now — so it stands in a frame of its own, in the same
+    /// materials, rather than sharing their channel.
     private var tabBar: some View {
+        HStack(spacing: SkeuSpace.sm) {
+            liveTab
+            bucketTabs
+        }
+    }
+
+    /// A square of the same channel, holding the mark and no word. A label
+    /// would say what the icon already says, and there is no room for both.
+    private var liveTab: some View {
+        let height = SkeuToggle.height * chromeScale
+        let pill = height - SkeuToggle.padV * chromeScale * 2
+
+        return liveMark(pill: pill)
+            .padding(SkeuToggle.padV * chromeScale)
+            .frame(height: height)
+            .skeuTrough(Capsule(), height: height)
+            .background { liveBloom }
+            .contentShape(Rectangle())
+            .skeuPress(haptic: false) { selectLive() }
+            .accessibilityAddTraits(showLive ? [.isButton, .isSelected] : .isButton)
+            .accessibilityLabel("Live")
+    }
+
+    /// Split out because the whole button in one expression put the type
+    /// checker over its budget — SkeuKit's modifiers are generic enough that a
+    /// chain this long stops resolving in reasonable time.
+    private func liveMark(pill: CGFloat) -> some View {
+        LiveGlyph(tint: skeu.ink, lineWidth: 1.7 * chromeScale)
+            .frame(width: pill * 0.5, height: pill * 0.5)
+            .frame(width: pill, height: pill)
+            .skeuGlass(Capsule(), height: pill, prominent: showLive)
+            .opacity(showLive ? 1 : 0.001)
+            .overlay {
+                if !showLive {
+                    LiveGlyph(tint: skeu.ink, lineWidth: 1.7 * chromeScale)
+                        .frame(width: pill * 0.5, height: pill * 0.5)
+                }
+            }
+    }
+
+    private var liveBloom: some View {
+        Capsule()
+            .fill(LinearGradient(colors: [skeu.materialTop, skeu.recess],
+                                 startPoint: .top, endPoint: .bottom))
+            .padding(-SkeuToggle.bloomOverhang * chromeScale)
+            .blur(radius: SkeuToggle.bloomBlur)
+            .allowsHitTesting(false)
+    }
+
+    private var bucketTabs: some View {
         // The shared toggle — the same construction every settings option row
         // uses. See SkeuSegmented for why it lives in one place: a settings
         // toggle that differs from this bar reads as a different control.
         SkeuSegmentedTrough {
             ForEach(Bucket.line, id: \.self) { line in
-                SkeuSegment(isSelected: bucket == line,
+                SkeuSegment(isSelected: !showLive && bucket == line,
                             namespace: tabPillNS,
                             geometryID: "tabPill") {
                     Text(settings.name(for: line))
@@ -717,16 +781,35 @@ struct SkeuRootView: View {
                 // Same contract as the Win95 taskbar button: the FULL name is
                 // the label even when the visible text is short, and selection
                 // is a trait rather than something you have to see (FR-016).
-                .accessibilityAddTraits(bucket == line ? [.isButton, .isSelected]
-                                                       : .isButton)
+                .accessibilityAddTraits(!showLive && bucket == line ? [.isButton, .isSelected]
+                                                                   : .isButton)
                 .accessibilityLabel(settings.name(for: line))
             }
         }
     }
 
+    /// Live comes in from the LEFT, because that is where its frame is.
+    private func selectLive() {
+        guard !showLive else { return }
+        SkeuHaptic.selection()
+        goingRight = false
+        withAnimation(SkeuMotion.layout) { showLive = true }
+    }
+
     /// Resolves the slide direction BEFORE the selection moves, so the
     /// outgoing and incoming lists agree on which way they are travelling.
     private func select(_ line: Bucket) {
+        // Coming back from Live always travels right — Live sits left of them
+        // all, so any bucket is forward from it.
+        if showLive {
+            SkeuHaptic.selection()
+            goingRight = true
+            withAnimation(SkeuMotion.layout) {
+                showLive = false
+                bucket = line
+            }
+            return
+        }
         guard line != bucket,
               let from = Bucket.line.firstIndex(of: bucket),
               let to = Bucket.line.firstIndex(of: line) else { return }
