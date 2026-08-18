@@ -90,15 +90,23 @@ struct HowToView: View {
         Button(action: onReplay) {
             TypedText(text: "Show me", face: face, role: .content)
                 .font(W95Font.heading(pixel))
-                .foregroundStyle(Win95.text)
+                // The WELL's tone on the accent: the darkest ground this
+                // scheme owns, so the label holds at both appearances.
+                .foregroundStyle(Win95.well)
                 // The BREATH. Scale, not tone: the founder asked for it to
                 // grow and shrink, and this look already spends tone on
                 // pressed and selected states.
                 .scaleEffect(breathing && !reduceMotion ? 1.08 : 1.0)
                 .animation(breath, value: breathing)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // FLAT, and the one flat object on the screen (founder
+                // direction 2026-08-17). No bevel: every other control in
+                // this look is a raised slab, and this one is asked to stand
+                // apart from all of them. The press is carried by the tone
+                // stepping down instead.
+                .background(Win95.accent)
         }
-        .buttonStyle(Win95ButtonStyle(pixel: pixel))
+        .buttonStyle(.plain)
         // A tenth of the SCREEN, not of the well.
         .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
         // INSET, not full-bleed (founder direction 2026-08-17). Square

@@ -430,7 +430,10 @@ struct SkeuHowToView: View {
     private var replayBar: some View {
         Text("Show me")
             .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
-            .foregroundStyle(skeu.ink)
+            // The CANVAS, on the accent — the one pairing in the palette that
+            // is guaranteed to hold at both appearances, since the canvas is
+            // what the accent is always seen against.
+            .foregroundStyle(skeu.canvas)
             // The BREATH. Scale, not tone: the founder asked for it to grow
             // and shrink, and tone in this look already means depth.
             .scaleEffect(breathing && !reduceMotion ? 1.08 : 1.0)
@@ -441,8 +444,16 @@ struct SkeuHowToView: View {
             // one thing this look never does — nothing here runs into the
             // bezel, and a rounded shape needs room to be seen rounding.
             .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
-            .skeuSurface(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
-                         depth: .raised)
+            // FLAT, and the one flat object in the look (founder direction
+            // 2026-08-17). Everything else here is a surface with a rim and a
+            // shadow; this is asked to stand apart from all of it, and the
+            // accent at full strength with no depth is what does that. The
+            // press still answers — `skeuPress` scales it — so the control is
+            // not silent, it simply has no material.
+            .background {
+                RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
+                    .fill(skeu.accent)
+            }
             .padding(.horizontal, S.margin)
             .padding(.bottom, SkeuSpace.lg)
             .contentShape(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous))
