@@ -128,53 +128,49 @@ struct TaskListView: View {
                 // block, then a heading per scheduled day (founder direction
                 // 2026-08-17). The others are one flat run.
                 if bucket == .general {
-                    let sections = store.soonSections()
-                    // The undated block carries its own heading. It was left
-                    // bare originally, on the reasoning that the tab name
-                    // already said what it was — but once dated days sit below
-                    // it, an unlabelled run reads as a preamble to the first
-                    // day rather than as a section of its own. The founder
-                    // reversed that decision (founder direction 2026-08-17).
-                    // Shown even when empty: the section still has its add row.
-                    sectionHeading("General", day: nil)
-                    if !settings.isCollapsed(nil) {
-                        ForEach(sections.undated, id: \.id) { task in
-                            TaskRowView(task: task)
-                                .id(task.id.uuidString)
-                        }
-                    }
-                    // Every section ends in its own add row, which stamps that
-                    // section's date on what it creates (founder direction
-                    // 2026-08-17). One row at the foot of the list could only
-                    // ever add to one section, so typing under a day and
-                    // watching the task appear in General was the app
-                    // disagreeing with its own layout. Soon therefore has NO
-                    // trailing add row — the last day's is the bottom one.
+                    // ONE shape for every block, General included. It used to
+                    // be written out twice — an undated run and then a loop
+                    // over the days — and General is not a special case, it is
+                    // the block whose day is nothing.
                     //
-                    // The add row folds away with its section: a section shut
-                    // is a section with nothing showing, and a stray capture
-                    // row under a closed heading belongs to nothing visible.
-                    if !settings.isCollapsed(nil) {
-                        AddRowView(bucket: bucket, day: nil)
-                            .id(EditingCoordinator.addRowID(for: nil))
-                            // Soon's capture row answers to the walkthrough
-                            // too. Only the flat tabs were tagged, so stepping
-                            // over to Soon during step one left the caption
-                            // saying "type here" over a dimmed screen with
-                            // nothing cut out of it (code review 2026-08-17).
-                            // General's is the one that stands in: it is the
-                            // section a task lands in when no day is chosen.
-                            .onboardingTarget(settings.hasOnboarded ? nil : .addRow)
-                    }
-                    ForEach(sections.days, id: \.day) { section in
-                        dayHeading(section.day)
+                    // Each block carries its own DONE tasks now, so ticking
+                    // something off under Wednesday leaves it under Wednesday
+                    // (founder direction 2026-08-17).
+                    ForEach(store.soonSections()) { section in
+                        sectionHeading(section.day.map {
+                            DayHeading.label(for: $0, calendar: .current)
+                        } ?? "General", day: section.day)
+
+                        // The block folds away entire: a section shut is a
+                        // section with nothing showing, and a stray capture row
+                        // under a closed heading belongs to nothing visible.
                         if !settings.isCollapsed(section.day) {
-                            ForEach(section.tasks, id: \.id) { task in
+                            ForEach(section.active, id: \.id) { task in
                                 TaskRowView(task: task)
                                     .id(task.id.uuidString)
                             }
+
+                            if !section.completed.isEmpty {
+                                Color.clear.frame(height: Win95.Px.grid * 2 * pixel)
+                                ForEach(section.completed, id: \.id) { task in
+                                    TaskRowView(task: task)
+                                        .id(task.id.uuidString)
+                                }
+                            }
+
+                            // Every block ends in its own add row, which stamps
+                            // that block's date on what it creates. One row at
+                            // the foot of the list could only ever add to one
+                            // section. Soon therefore has NO trailing add row —
+                            // the last day's is the bottom one.
                             AddRowView(bucket: bucket, day: section.day)
                                 .id(EditingCoordinator.addRowID(for: section.day))
+                                // Soon's capture row answers to the walkthrough
+                                // too, and General's is the one that stands in:
+                                // it is the block a task lands in when no day
+                                // is chosen (code review 2026-08-17).
+                                .onboardingTarget(
+                                    !settings.hasOnboarded && section.day == nil ? .addRow : nil)
                         }
                     }
                 } else {
@@ -194,7 +190,9 @@ struct TaskListView: View {
                     }
                 }
 
-                if !completed.isEmpty {
+                // Soon's completed tasks sit inside their own block above; only
+                // the flat tabs keep one run of them at the foot.
+                if bucket != .general, !completed.isEmpty {
                     Color.clear.frame(height: Win95.Px.grid * 2 * pixel)
                     ForEach(completed, id: \.id) { task in
                         TaskRowView(task: task)

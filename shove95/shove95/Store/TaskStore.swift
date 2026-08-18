@@ -377,26 +377,57 @@ final class TaskStore {
         commit()
     }
 
-    /// Soon, in the shape that tab draws: the undated block, then one entry
-    /// per day, oldest day first.
+    /// One block of Soon: a heading, the tasks under it, and the ones ticked
+    /// off there.
+    ///
+    /// `day` is nil for General — the same convention the add rows and the
+    /// collapse state already use, so a section is identified one way
+    /// throughout the app.
+    struct SoonSection: Identifiable {
+        let day: Date?
+        let active: [TaskItem]
+        let completed: [TaskItem]
+        var id: Date? { day }
+    }
+
+    /// Soon, in the shape that tab draws: General first, then one block per
+    /// scheduled day, oldest day first.
+    ///
+    /// Completed tasks belong to their OWN block. They used to be returned as
+    /// one run for the foot of the whole list, so ticking something off under
+    /// Wednesday sent it below the last day on screen — away from the day it
+    /// belongs to, and past every heading in between (founder direction
+    /// 2026-08-17). A task that is done is still a task of that day.
     ///
     /// There can never be a day before the day after tomorrow — anything
     /// earlier is in Today or Tomorrow by definition, which is why this needs
-    /// no notion of an overdue section (founder direction 2026-08-17).
+    /// no notion of an overdue section.
     ///
-    /// Manual order survives inside each group: `tasks(in:)` already returns
+    /// Manual order survives inside each block: `tasks(in:)` already returns
     /// them sorted, and grouping preserves that within a day.
-    func soonSections() -> (undated: [TaskItem],
-                            days: [(day: Date, tasks: [TaskItem])],
-                            completed: [TaskItem]) {
+    func soonSections() -> [SoonSection] {
         let (active, completed) = tasks(in: .general)
-        let undated = active.filter { $0.dueDate == nil }
-        let dated = active.filter { $0.dueDate != nil }
-        let grouped = Dictionary(grouping: dated) { calendar.startOfDay(for: $0.dueDate!) }
-        let days = grouped
-            .map { (day: $0.key, tasks: $0.value) }
-            .sorted { $0.day < $1.day }
-        return (undated, days, completed)
+        let day = { (task: TaskItem) -> Date? in
+            task.dueDate.map { self.calendar.startOfDay(for: $0) }
+        }
+
+        let activeByDay = Dictionary(grouping: active, by: day)
+        let completedByDay = Dictionary(grouping: completed, by: day)
+
+        // Every day either side has to appear, or a block holding nothing but
+        // ticked-off tasks would vanish along with them.
+        let days = Set(activeByDay.keys).union(completedByDay.keys)
+            .compactMap { $0 }
+            .sorted()
+
+        let general = SoonSection(day: nil,
+                                  active: activeByDay[nil] ?? [],
+                                  completed: completedByDay[nil] ?? [])
+        return [general] + days.map { day in
+            SoonSection(day: day,
+                        active: activeByDay[day] ?? [],
+                        completed: completedByDay[day] ?? [])
+        }
     }
 
     /// Archive: completed tasks past their visibility window, grouped by

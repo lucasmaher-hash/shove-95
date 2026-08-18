@@ -99,9 +99,13 @@ struct HowToView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(Win95ButtonStyle(pixel: pixel))
-        // A tenth of the SCREEN, not of the well — the bar is furniture on
-        // the window's bottom edge, like the taskbar it sits where.
+        // A tenth of the SCREEN, not of the well.
         .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
+        // INSET, not full-bleed (founder direction 2026-08-17). Square
+        // corners stay — this look does not round anything — but the slab
+        // stands off all three edges rather than running into them.
+        .padding(.horizontal, Win95.Px.windowMargin * pixel)
+        .padding(.bottom, Win95.Px.grid * 4 * pixel)
         .onAppear { breathing = true }
         .accessibilityLabel("Show me how to use the app")
     }

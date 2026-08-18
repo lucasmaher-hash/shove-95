@@ -436,13 +436,16 @@ struct SkeuHowToView: View {
             .scaleEffect(breathing && !reduceMotion ? 1.08 : 1.0)
             .animation(breath, value: breathing)
             .frame(maxWidth: .infinity)
-            // A tenth of the SCREEN, and it runs to the very bottom edge —
-            // this is the one full-bleed slab in the look, because the
-            // founder asked for the whole bottom band.
+            // A tenth of the SCREEN, inset from all three edges (founder
+            // direction 2026-08-17). It was a full-bleed slab, which is the
+            // one thing this look never does — nothing here runs into the
+            // bezel, and a rounded shape needs room to be seen rounding.
             .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
-            .skeuSurface(Rectangle(), depth: .raised)
-            .ignoresSafeArea(edges: .bottom)
-            .contentShape(Rectangle())
+            .skeuSurface(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
+                         depth: .raised)
+            .padding(.horizontal, S.margin)
+            .padding(.bottom, SkeuSpace.lg)
+            .contentShape(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous))
             .skeuPress { onReplay() }
             .onAppear { breathing = true }
             .background {
