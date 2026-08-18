@@ -131,7 +131,15 @@ struct SettingsView: View {
                 .id(settings.face.rawValue + settings.scheme.id)
         }
         .fullScreenCover(isPresented: $showHowTo) {
-            HowToView { showHowTo = false }
+            HowToView(onClose: { showHowTo = false }, onReplay: {
+                // Clearing the flag is the whole mechanism: the roots publish
+                // their control frames again, and the walkthrough starts from
+                // the first one that arrives. Both sheets have to go, or it
+                // would be pointing at a list nobody can see.
+                settings.hasOnboarded = false
+                showHowTo = false
+                onClose()
+            })
                 .environment(\.pixel, pixel)
                 .environment(\.win95Scheme, resolvedScheme)
         }

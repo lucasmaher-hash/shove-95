@@ -375,7 +375,19 @@ struct SkeuHowToView: View {
 
     private var labelSize: CGFloat { S.label * textScale }
     @Environment(\.skeu) private var skeu
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onClose: () -> Void
+    /// Runs the first-run walkthrough again. The caller closes this screen
+    /// AND settings behind it — the walkthrough plays over the list, and a
+    /// sheet on top of it would be pointing at controls nobody can see.
+    var onReplay: () -> Void
+
+    /// Drives the label's breath. Set once on appear.
+    @State private var breathing = false
+    /// The docked bar's measured height, so the last card can clear it.
+    /// Measured rather than assumed: the bar is a tenth of the screen, which
+    /// is not a number this file otherwise knows.
+    @State private var barHeight: CGFloat = 0
 
     var body: some View {
         SkeuSheet(title: "How to use", onClose: onClose) {
@@ -406,7 +418,50 @@ struct SkeuHowToView: View {
                     }
                 }
             }
+            // Clears the docked bar below, which lies OVER this scroll view
+            // rather than beside it — the sheet's own frame is one piece.
+            .padding(.bottom, barHeight)
         }
+        .overlay(alignment: .bottom) { replayBar }
+    }
+
+    /// The whole bottom edge of the screen, a tenth of it tall (founder
+    /// direction 2026-08-17).
+    private var replayBar: some View {
+        Text("Show me")
+            .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
+            .foregroundStyle(skeu.ink)
+            // The BREATH. Scale, not tone: the founder asked for it to grow
+            // and shrink, and tone in this look already means depth.
+            .scaleEffect(breathing && !reduceMotion ? 1.08 : 1.0)
+            .animation(breath, value: breathing)
+            .frame(maxWidth: .infinity)
+            // A tenth of the SCREEN, and it runs to the very bottom edge —
+            // this is the one full-bleed slab in the look, because the
+            // founder asked for the whole bottom band.
+            .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
+            .skeuSurface(Rectangle(), depth: .raised)
+            .ignoresSafeArea(edges: .bottom)
+            .contentShape(Rectangle())
+            .skeuPress { onReplay() }
+            .onAppear { breathing = true }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { barHeight = proxy.size.height }
+                        .onChange(of: proxy.size.height) { _, h in barHeight = h }
+                }
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Show me how to use the app")
+    }
+
+    /// §8.5: Reduce Motion holds it still rather than slowing it down — a
+    /// breath is decoration, and decoration is what that setting turns off.
+    private var breath: Animation {
+        reduceMotion
+            ? .easeOut(duration: 0.01)
+            : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
     }
 
     /// The gesture reads as the heading and its outcome as the body — the same
