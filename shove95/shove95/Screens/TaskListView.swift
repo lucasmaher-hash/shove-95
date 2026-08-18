@@ -154,6 +154,14 @@ struct TaskListView: View {
                     if !settings.isCollapsed(nil) {
                         AddRowView(bucket: bucket, day: nil)
                             .id(EditingCoordinator.addRowID(for: nil))
+                            // Soon's capture row answers to the walkthrough
+                            // too. Only the flat tabs were tagged, so stepping
+                            // over to Soon during step one left the caption
+                            // saying "type here" over a dimmed screen with
+                            // nothing cut out of it (code review 2026-08-17).
+                            // General's is the one that stands in: it is the
+                            // section a task lands in when no day is chosen.
+                            .onboardingTarget(settings.hasOnboarded ? nil : .addRow)
                     }
                     ForEach(sections.days, id: \.day) { section in
                         dayHeading(section.day)
