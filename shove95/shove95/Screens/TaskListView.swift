@@ -37,6 +37,9 @@ struct TaskListView: View {
     /// The keyboard's own animation, kept from its last notification so the
     /// inset and the lift both travel on it.
     @State private var keyboardAnimation: Animation = .easeOut(duration: 0.25)
+    /// How far this list's bottom edge sits above the screen's — measured,
+    /// because the taskbar's height is not the same number. See KeyboardDock.
+    @State private var bottomGap: CGFloat = 0
 
     /// A section's name, and the control that folds it shut.
     ///
@@ -230,11 +233,11 @@ struct TaskListView: View {
         // docked, and that same modifier is why the automatic field-avoidance
         // never fired here — the inset and the scroll below replace it.
         .contentMargins(.bottom, keyboardOverlap, for: .scrollContent)
+        .bottomGapToScreen($bottomGap)
         .scrollDismissesKeyboard(.interactively)
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillChangeFrameNotification)) { note in
-            let chrome = Win95.Px.taskbar * pixel + Win95.Px.grid * 4 * pixel
-            guard let change = KeyboardDock.read(note, chrome: chrome) else { return }
+            guard let change = KeyboardDock.read(note, clearance: bottomGap) else { return }
             keyboardTop = change.top
             // Held so the lift below travels on the same curve — see
             // KeyboardDock for why the keyboard's own is the only right one.
