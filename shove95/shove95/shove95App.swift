@@ -128,7 +128,12 @@ struct shove95App: App {
                 }
                 #endif
 
-                if showLaunchCover { LaunchCover() }
+                // The cover is a SIBLING of the shell, not a child, so it
+                // does not inherit the shell's environment — and it now needs
+                // the settings to know which theme's colour to wear.
+                if showLaunchCover {
+                    LaunchCover().environment(settings)
+                }
             }
             // TWO conditions, and the cover waits for both: the animation has
             // finished, and the store has answered. Either alone leaves a
