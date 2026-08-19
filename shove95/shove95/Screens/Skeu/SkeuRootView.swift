@@ -1310,6 +1310,9 @@ private struct SkeuTaskRow: View {
     @State private var pendingPhotoDelete: Int?
     /// True while the day list is up.
     @State private var showDayPicker = false
+    /// A day picked in the calendar that would take this task OUT of Soon.
+    /// Held until the edit ends — see `pickDay`.
+    @State private var pendingLeaveDay: Date?
     /// One photo per edit session: the camera retires after a pick and returns
     /// the next time the row enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -1386,11 +1389,19 @@ private struct SkeuTaskRow: View {
                         .task { rowFrame = proxy.frame(in: .global) }
                 }
             }
-            .onAppear { dragOffset = 0 } // row identity survives tab switches
+            .onAppear {
+                dragOffset = 0 // row identity survives tab switches
+                // This row may BE the one that just moved into another day.
+                // The old one handed the edit over on its way out; pick it up.
+                if editing.reopenTaskID == task.id {
+                    editing.reopenTaskID = nil
+                    beginEditing()
+                }
+            }
             .sheet(isPresented: $showDayPicker) {
                 SkeuDayPickerSheet(current: task.dueDate) { day in
                     showDayPicker = false
-                    withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
+                    pickDay(day)
                 }
             }
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItem, matching: .images)
@@ -1544,6 +1555,13 @@ private struct SkeuTaskRow: View {
             return
         }
         guard !task.isCompleted, !isEditing else { return }
+        beginEditing()
+    }
+
+    /// Opens the row for typing. Split out of the tap handler because the row
+    /// also opens itself when it arrives carrying a handed-over edit — see
+    /// `reopenTaskID`.
+    private func beginEditing() {
         draft = task.title
         isEditing = true
         addedPhotoThisEdit = false // fresh session, the camera returns
@@ -1555,11 +1573,51 @@ private struct SkeuTaskRow: View {
         Task { @MainActor in editFocused = true }
     }
 
+    /// A day chosen from the calendar while editing.
+    ///
+    /// A day still in Soon is applied AT ONCE, so the task appears under that
+    /// heading while you are still typing into it — and the edit follows it
+    /// there, handed over through `reopenTaskID`. Today and Tomorrow are held
+    /// instead: they take the task out of this tab altogether, and a row that
+    /// vanishes mid-word is not an edit continuing anywhere (founder direction
+    /// 2026-08-17). They land when the edit ends, with the same leftward wipe
+    /// the gesture would have made.
+    private func pickDay(_ day: Date) {
+        let destination = DateEngine.bucket(for: store.calendar.startOfDay(for: day),
+                                            now: store.now(), calendar: store.calendar)
+        guard destination == .general else {
+            pendingLeaveDay = day
+            return
+        }
+        guard isEditing else {
+            withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
+            return
+        }
+        // The text first: the row is about to be rebuilt elsewhere, and its
+        // draft does not travel.
+        store.editTitle(task, to: draft)
+        editing.reopenTaskID = task.id
+        withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
+    }
+
     private func commitEdit() {
         guard isEditing else { return }
         isEditing = false
         editing.end(task.id.uuidString)
         store.editTitle(task, to: draft) // empty draft → store reverts
+
+        // A day that takes the task out of this tab was held until now. It
+        // leaves the way a swipe would send it: leftward, off the edge, then
+        // the move — so the list closing up is the end of one movement rather
+        // than a row blinking out of existence.
+        if let day = pendingLeaveDay {
+            pendingLeaveDay = nil
+            withAnimation(.easeIn(duration: 0.22)) { dragOffset = -rowWidth }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(220))
+                withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
+            }
+        }
     }
 
     /// Return commits instead of adding a line: a vertical-axis TextField

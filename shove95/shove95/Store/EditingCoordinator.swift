@@ -38,6 +38,16 @@ final class EditingCoordinator {
     /// that was just typed into, not the one at the bottom.
     var lastAddRowID: String?
 
+    /// A task whose editing should resume the moment its row next appears.
+    ///
+    /// Giving a task a day in Soon moves it into that day's block, and a row
+    /// that changes block is not the same view any more: SwiftUI tears the old
+    /// one down and builds a fresh one, taking the edit with it. Rather than
+    /// hoist every scrap of a row's editing state up here to survive that, the
+    /// row hands over one id on its way out and the new row picks the edit up
+    /// on the way in (founder direction 2026-08-17).
+    var reopenTaskID: UUID?
+
     func begin(_ id: String, bottom: CGFloat) {
         focused = id
         focusedBottom = bottom
