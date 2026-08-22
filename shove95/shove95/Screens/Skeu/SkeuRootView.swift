@@ -284,6 +284,15 @@ struct SkeuRootView: View {
         }
         .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
         .onChange(of: store.revision) { syncWorkspaceScope() }
+        // A row that just sent itself to another day names the tab it landed
+        // on — see `EditingCoordinator.followTo`. Going there is what keeps
+        // the edit visible instead of leaving it on a row that is no longer
+        // in this list.
+        .onChange(of: editing.followTo) { _, destination in
+            guard let destination else { return }
+            editing.followTo = nil
+            select(destination)
+        }
         // Fires at midnight, timezone changes and clock changes (PRD §2).
         // Without it a task left overnight never gets its arrival placement
         // and the day boundary silently passes — a DATA bug, not a cosmetic
@@ -1301,9 +1310,6 @@ private struct SkeuTaskRow: View {
     @State private var pendingPhotoDelete: Int?
     /// True while the day list is up.
     @State private var showDayPicker = false
-    /// A day picked in the calendar that would take this task OUT of Soon.
-    /// Held until the edit ends — see `pickDay`.
-    @State private var pendingLeaveDay: Date?
     /// One photo per edit session: the camera retires after a pick and returns
     /// the next time the row enters edit mode.
     @State private var addedPhotoThisEdit = false
@@ -1565,28 +1571,31 @@ private struct SkeuTaskRow: View {
 
     /// A day chosen from the calendar while editing.
     ///
-    /// A day still in Soon is applied AT ONCE, so the task appears under that
-    /// heading while you are still typing into it — and the edit follows it
-    /// there, handed over through `reopenTaskID`. Today and Tomorrow are held
-    /// instead: they take the task out of this tab altogether, and a row that
-    /// vanishes mid-word is not an edit continuing anywhere (founder direction
-    /// 2026-08-17). They land when the edit ends, with the same leftward wipe
-    /// the gesture would have made.
+    /// Applied AT ONCE, whatever the day: the task appears under that heading
+    /// while you are still typing into it, and the edit follows it there,
+    /// handed over through `reopenTaskID`.
+    ///
+    /// Today and Tomorrow used to be HELD until the edit ended, on the
+    /// reasoning that a row vanishing mid-word is not an edit continuing
+    /// anywhere (founder direction 2026-08-17). That made the rule "the task
+    /// moves at once" true only for the dates that happened to stay in Soon —
+    /// pick tomorrow and the row sat there unchanged until Return, which is
+    /// what the founder came back about (2026-08-22). It moves now, and the
+    /// list travels to the tab it moved to rather than letting it vanish.
     private func pickDay(_ day: Date) {
-        let destination = DateEngine.bucket(for: store.calendar.startOfDay(for: day),
-                                            now: store.now(), calendar: store.calendar)
-        guard destination == .general else {
-            pendingLeaveDay = day
-            return
-        }
         guard isEditing else {
             withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
             return
         }
+        let destination = DateEngine.bucket(for: store.calendar.startOfDay(for: day),
+                                            now: store.now(), calendar: store.calendar)
         // The text first: the row is about to be rebuilt elsewhere, and its
         // draft does not travel.
         store.editTitle(task, to: draft)
         editing.reopenTaskID = task.id
+        // Named unconditionally. The list knows which tab it is showing and
+        // ignores a destination it is already on; the row does not.
+        editing.followTo = destination
         withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
     }
 
@@ -1596,18 +1605,6 @@ private struct SkeuTaskRow: View {
         editing.end(task.id.uuidString)
         store.editTitle(task, to: draft) // empty draft → store reverts
 
-        // A day that takes the task out of this tab was held until now. It
-        // leaves the way a swipe would send it: leftward, off the edge, then
-        // the move — so the list closing up is the end of one movement rather
-        // than a row blinking out of existence.
-        if let day = pendingLeaveDay {
-            pendingLeaveDay = nil
-            withAnimation(.easeIn(duration: 0.22)) { dragOffset = -rowWidth }
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(220))
-                withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
-            }
-        }
     }
 
     /// Return commits instead of adding a line: a vertical-axis TextField

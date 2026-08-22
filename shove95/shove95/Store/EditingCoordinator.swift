@@ -48,6 +48,17 @@ final class EditingCoordinator {
     /// on the way in (founder direction 2026-08-17).
     var reopenTaskID: UUID?
 
+    /// A tab the list should travel to, because a task just took the edit
+    /// there.
+    ///
+    /// Giving a task today's or tomorrow's date moves it out of Soon
+    /// altogether, and `reopenTaskID` alone cannot follow it — the row's new
+    /// home is on a tab that is not on screen. The row names the destination
+    /// and the list goes there, which is what makes "the task moves at once"
+    /// true for every date rather than only for the ones that happen to stay
+    /// put (founder direction 2026-08-22).
+    var followTo: Bucket?
+
     func begin(_ id: String, bottom: CGFloat) {
         focused = id
         focusedBottom = bottom
