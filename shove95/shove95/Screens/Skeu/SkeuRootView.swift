@@ -473,6 +473,22 @@ struct SkeuRootView: View {
                 proxy.scrollTo(target, anchor: .bottom)
             }
         }
+        // Go to the task that just took an edit to another day. The list is
+        // LAZY, so this is not a convenience — the row does not exist until
+        // something scrolls to it, and until it exists there is nothing to
+        // hand the edit back to. See `EditingCoordinator.reopenTaskID`.
+        //
+        // Deferred a runloop turn for the same reason the workspace change is:
+        // the section it landed in is being built on this very pass, so a
+        // `scrollTo` run inline aims at the list as it was before the move.
+        .onChange(of: editing.reopenTaskID) { _, id in
+            guard let id else { return }
+            Task { @MainActor in
+                withAnimation(SkeuMotion.layout) {
+                    proxy.scrollTo(id.uuidString, anchor: .center)
+                }
+            }
+        }
         .onChange(of: editing.focused) { _, _ in
             // The NEXT runloop turn, not a fixed beat. The inset is applied in
             // this same pass and a `scrollTo` run inline would aim at the

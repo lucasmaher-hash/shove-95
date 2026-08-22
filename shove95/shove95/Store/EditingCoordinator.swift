@@ -46,6 +46,13 @@ final class EditingCoordinator {
     /// hoist every scrap of a row's editing state up here to survive that, the
     /// row hands over one id on its way out and the new row picks the edit up
     /// on the way in (founder direction 2026-08-17).
+    ///
+    /// The LIST watches this too, and scrolls to the id. It has to: the list
+    /// is lazy, so a task sent to a day below the fold has no row to appear
+    /// and no `onAppear` to fire — the handover was simply dropped, and the
+    /// task moved with the edit silently ending (founder bug report
+    /// 2026-08-22, "es klappt immer noch nicht"). Scrolling there is what
+    /// builds the row that then picks the edit up.
     var reopenTaskID: UUID?
 
     /// A tab the list should travel to, because a task just took the edit

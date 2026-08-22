@@ -868,6 +868,28 @@ final class TaskStore {
         }
         revision += 1
     }
+
+    /// Fillers SPREAD across the next three weeks, so Soon has many day
+    /// sections rather than one long block.
+    ///
+    /// The list's length is what makes a handed-over edit hard to follow: a
+    /// task sent from General to a day near the bottom lands off-screen, and
+    /// a two-section list cannot show that. Added for the 2026-08-22 report.
+    func seedSoonSpread() {
+        let today = DateEngine.startOfToday(now: now(), calendar: calendar)
+        for day in 2...20 {
+            guard let date = calendar.date(byAdding: .day, value: day, to: today) else { continue }
+            for i in 1...2 {
+                let task = TaskItem()
+                task.title = "Tag \(day) – \(i)"
+                task.dueDate = date
+                task.sortOrder = Placement.sortOrderForNewTask(allInBucket: allInBucket(.general))
+                context.insert(task)
+            }
+        }
+        try? context.save()
+        revision += 1
+    }
     #endif
 
     // MARK: - Private
