@@ -13,9 +13,9 @@
 //  2026-08-17). It also means someone who wants none of it can simply carry
 //  on; the walkthrough follows rather than blocks.
 //
-//  Two overlays, one geometry. `OnboardingLayout` decides where the caption
-//  sits and how big the hole is; each look then draws that in its own parts,
-//  the way every other screen in this app is built twice.
+//  `OnboardingLayout` decides where the caption sits and how big the hole is;
+//  the overlay below draws it. There were two of these, one per look, until
+//  the Windows 95 interface was removed on 2026-08-22.
 //
 
 import SwiftUI
@@ -51,112 +51,6 @@ enum OnboardingLayout {
         return target.maxY > screen.height - 170
     }
 }
-
-// MARK: - Win95
-
-struct Win95OnboardingOverlay: View {
-    @Environment(\.pixel) private var pixel
-    @Environment(\.win95Scheme) private var scheme
-    @Environment(AppSettings.self) private var settings
-    let step: OnboardingCoordinator.Step
-    let target: CGRect?
-    var onNext: () -> Void
-    var onSkip: () -> Void
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                ZStack(alignment: .topLeading) {
-                    scrim(in: geo.size)
-
-                    if let target {
-                        // The hole gets a frame of its own: on a dimmed page a
-                        // cut-out alone reads as a gap, not as a thing.
-                        Rectangle()
-                            .strokeBorder(Color(hex: scheme.titleA), lineWidth: pixel)
-                            .frame(width: OnboardingLayout.hole(for: target).width,
-                                   height: OnboardingLayout.hole(for: target).height)
-                            .position(x: target.midX, y: target.midY)
-
-                        caption(for: target, in: geo.size)
-                    }
-                }
-                .allowsHitTesting(false)
-                .ignoresSafeArea()
-
-                // OUTSIDE the expansion above, so a bar sent to the top clears
-                // the status bar instead of sitting under it.
-                bar.frame(maxHeight: .infinity,
-                          alignment: OnboardingLayout.barAtTop(target, in: geo.size)
-                              ? .top : .bottom)
-            }
-        }
-    }
-
-    private func scrim(in size: CGSize) -> some View {
-        Path { path in
-            path.addRect(CGRect(origin: .zero, size: size))
-            if let target { path.addRect(OnboardingLayout.hole(for: target)) }
-        }
-        // EVEN-ODD, so the second rectangle punches the first rather than
-        // painting over it. One fill, one pass, and the control below shows
-        // through at full strength.
-        //
-        // The SCHEME's darkest tone, not black — the same rule the dialogs
-        // and the settings scrim follow. A palette whose darkest tone is not
-        // black would have shown a black veil over its own colours.
-        .fill(Win95.darkShadow.opacity(OnboardingLayout.scrim),
-              style: FillStyle(eoFill: true))
-    }
-
-    private func caption(for target: CGRect, in size: CGSize) -> some View {
-        let below = OnboardingLayout.captionIsBelow(target, in: size)
-        let hole = OnboardingLayout.hole(for: target)
-
-        return VStack(alignment: .leading, spacing: Win95.Px.grid * pixel) {
-            TypedText(text: step.title, face: settings.face, role: .chrome)
-                .font(W95Font.heading(pixel))
-                .foregroundStyle(Win95.text)
-            Text(step.detail)
-                .font(W95Font.standard(pixel))
-                .foregroundStyle(Win95.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Win95.Px.grid * 3 * pixel)
-        .background(Win95.surface)
-        .bevelRaised(pixel)
-        .padding(.horizontal, Win95.Px.windowMargin * pixel)
-        .frame(width: size.width, alignment: .leading)
-        .position(x: size.width / 2,
-                  y: below ? hole.maxY + Win95.Px.grid * 12 * pixel
-                           : hole.minY - Win95.Px.grid * 12 * pixel)
-    }
-
-    private var bar: some View {
-        HStack(spacing: Win95.Px.grid * 2 * pixel) {
-            Win95Button(action: onSkip, compact: true) {
-                TypedText(text: "Skip", face: settings.face, role: .content)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-            }
-            Spacer(minLength: 0)
-            Win95Button(action: onNext, compact: true) {
-                TypedText(text: step.nextLabel, face: settings.face, role: .content)
-                    .font(W95Font.standard(pixel))
-                    .foregroundStyle(Win95.text)
-            }
-        }
-        .padding(.horizontal, Win95.Px.windowMargin * pixel)
-        .padding(.vertical, Win95.Px.grid * 3 * pixel)
-        .background(Win95.surface)
-        .overlay(alignment: .top) {
-            Rectangle().fill(Win95.highlight).frame(height: pixel)
-        }
-    }
-}
-
-// MARK: - Skeu
 
 struct SkeuOnboardingOverlay: View {
     @Environment(\.skeu) private var skeu

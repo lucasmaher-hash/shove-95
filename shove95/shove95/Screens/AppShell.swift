@@ -100,57 +100,23 @@ struct AppShell: View {
          isDark ? "d" : "l"].joined(separator: "|")
     }
 
+    /// One look, so no switch. The Windows 95 interface used to live beside
+    /// this one and every change had to be made twice; the founder settled on
+    /// skeuomorphism and it was removed root and branch (founder direction
+    /// 2026-08-22).
     @ViewBuilder
     private var root: some View {
-        switch settings.design {
-        case .win95:
-            // The palette is read through statics (`Win95.scheme`), which
-            // SwiftUI cannot observe, so the dark variant is pushed there and
-            // the subtree rebuilt on the flip — the same mechanism the scheme
-            // picker itself uses.
-            //
-            // This assignment must happen HERE, synchronously, not in
-            // `.onAppear` — `.onAppear` fires after RootView's first body
-            // evaluation, so every descendant that reads `Win95.*` directly
-            // (not through `\.win95Scheme`) painted once with the stale
-            // light-mode value and then never repainted, because nothing
-            // about their own state changed to make SwiftUI re-run their
-            // body. Task rows stayed white in dark mode forever unless
-            // something unrelated (a press, a menu) forced a redraw (founder
-            // bug report 2026-08-14).
-            let resolved = settings.scheme.resolved(dark: isDark)
-            let _ = { Win95.scheme = resolved }()
-            RootView(showSettings: $showSettings)
-                .id(isDark ? "dark" : "light")
-                // The reactive counterpart to the static assignment above:
-                // anything reading `\.win95Scheme` (TitleBar, Taskbar) repaints
-                // the instant this changes, no `.id()` rebuild required.
-                .environment(\.win95Scheme, resolved)
-                .preferredColorScheme(settings.appearance.preferred)
-                .onChange(of: isDark) { _, dark in
-                    Win95.scheme = settings.scheme.resolved(dark: dark)
-                }
-                .onChange(of: settings.scheme.id) { _, _ in
-                    Win95.scheme = settings.scheme.resolved(dark: isDark)
-                }
-                // Both halves of the dissolve — see `body`. Opacity only: a
-                // slide or a scale would say the screen went somewhere, and
-                // it did not.
-                .transition(.opacity)
-        case .skeu:
-            SkeuRootView(showSettings: $showSettings)
-                // The palette rides the environment, so it needs no help. The
-                // TYPEFACE does: SkeuFont reads a static, which SwiftUI cannot
-                // see, so the subtree has to be rebuilt when it changes.
-                .id(settings.skeuFace.rawValue)
-                // Dynamic Type (FR-015). The Win95 side gets this from its
-                // stepped pixel unit; the skeu look has no such unit, so it
-                // resolves the setting into two multipliers here.
-                .skeuTypeScaling()
-                .skeuTheme(settings.skeuTheme.palette(dark: isDark))
-                .preferredColorScheme(settings.appearance.preferred)
-                .transition(.opacity)
-        }
+        SkeuRootView(showSettings: $showSettings)
+            // The palette rides the environment, so it needs no help. The
+            // TYPEFACE does: SkeuFont reads a static, which SwiftUI cannot
+            // see, so the subtree has to be rebuilt when it changes.
+            .id(settings.skeuFace.rawValue)
+            // Dynamic Type (FR-015). This look has no stepped pixel unit, so
+            // it resolves the setting into two multipliers here.
+            .skeuTypeScaling()
+            .skeuTheme(settings.skeuTheme.palette(dark: isDark))
+            .preferredColorScheme(settings.appearance.preferred)
+            .transition(.opacity)
     }
 
     /// The settings screen in whichever look is active. Both variants need the
@@ -164,36 +130,21 @@ struct AppShell: View {
         ZStack { settingsSheetContent }
     }
 
+    /// One look, so no switch — see `root`.
     @ViewBuilder
     private var settingsSheetContent: some View {
-        switch settings.design {
-        case .win95:
-            SettingsView { showSettings = false }
-                .environment(\.win95Scheme, settings.scheme.resolved(dark: isDark))
-                // NO face in the `.id`, for the reason the skeu sheet has none
-                // either: rebuilding on a face change is a brand-new tree, and
-                // TypedText never animates a first appearance, so this look
-                // had the setting and none of the typing. The face rides the
-                // environment instead and the few leaves that don't observe
-                // AppSettings read it to declare the dependency.
-                .environment(\.appFace, settings.face)
-                .id(settings.scheme.id + (isDark ? "d" : "l"))
-                .preferredColorScheme(settings.appearance.preferred)
-                .transition(.opacity)
-        case .skeu:
-            // NO `.id(face)` here, unlike the root above. Rebuilding this
-            // sheet on a typeface change tore down the toggle mid-glide, so
-            // the Typeface switch was the one switch on the screen that
-            // snapped instead of sliding. The face rides the environment
-            // instead; the few leaf views that don't otherwise observe
-            // AppSettings read it to declare the dependency.
-            SkeuSettingsView { showSettings = false }
-                .environment(\.skeuFace, settings.skeuFace)
-                .skeuTypeScaling()
-                .skeuTheme(settings.skeuTheme.palette(dark: isDark))
-                .preferredColorScheme(settings.appearance.preferred)
-                .transition(.opacity)
-        }
+        // NO `.id(face)` here, unlike the root above. Rebuilding this
+        // sheet on a typeface change tore down the toggle mid-glide, so
+        // the Typeface switch was the one switch on the screen that
+        // snapped instead of sliding. The face rides the environment
+        // instead; the few leaf views that don't otherwise observe
+        // AppSettings read it to declare the dependency.
+        SkeuSettingsView { showSettings = false }
+            .environment(\.skeuFace, settings.skeuFace)
+            .skeuTypeScaling()
+            .skeuTheme(settings.skeuTheme.palette(dark: isDark))
+            .preferredColorScheme(settings.appearance.preferred)
+            .transition(.opacity)
     }
 
     private var isDark: Bool {

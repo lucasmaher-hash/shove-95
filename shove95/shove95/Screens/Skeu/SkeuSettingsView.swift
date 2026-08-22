@@ -139,11 +139,10 @@ struct SkeuSettingsView: View {
                 // made the presentation stutter (founder bug report
                 // 2026-08-14). Only the cards actually on screen now render.
                 LazyVStack(alignment: .leading, spacing: G.sectionGap) {
-                    // Section order MATCHES the Win95 settings exactly — the
-                    // two are the same screen in two looks, and a reader who
-                    // switches design should find the same control in the same
-                    // place (founder bug report 2026-08-14). Win95's
-                    // "Appearance" swatch row is this "Theme" row.
+                    // The "Design" row that used to sit between Typeface and
+                    // Light & dark is gone: there is one look now (founder
+                    // direction 2026-08-22), and a picker offering a single
+                    // option is a question with no answer.
                     panel("Theme") {
                         ForEach(SkeuTheme.all) { theme in
                             swatchOption(theme,
@@ -160,19 +159,6 @@ struct SkeuSettingsView: View {
                                    selected: settings.skeuFace == face,
                                    in: faceNS) {
                                 settings.skeuFace = face
-                            }
-                        }
-                    }
-
-                    panel("Design") {
-                        ForEach(DesignMode.allCases, id: \.self) { mode in
-                            option(mode.label,
-                                   selected: settings.design == mode,
-                                   in: designNS) {
-                                // The two looks cross-fade — see DesignSwitch.
-                                withAnimation(DesignSwitch.animation) {
-                                    settings.design = mode
-                                }
                             }
                         }
                     }

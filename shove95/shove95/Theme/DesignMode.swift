@@ -12,22 +12,21 @@
 
 import SwiftUI
 
+/// The app speaks one visual language now.
+///
+/// It shipped with two — soft skeuomorphism and a pixel-faithful Windows 95
+/// interface, built side by side, every change made twice. The founder settled
+/// on skeuomorphism and the other was removed root and branch (founder
+/// direction 2026-08-22), along with the rule that made every feature cost
+/// double.
+///
+/// The type survives as a single case rather than being deleted outright: it
+/// is what the stored preference decodes into, and a one-case enum reads as a
+/// decision rather than as an oversight.
 enum DesignMode: String, CaseIterable, Sendable {
-    // Order is the PICKER's order — `allCases` drives both settings screens.
-    // Skeu leads because it is the default; the option a reader already has
-    // should be the one they meet first (founder direction 2026-08-17).
-
-    /// Soft skeuomorphism — see docs/SKEUOMORPHIC_DESIGN_SYSTEM.md.
     case skeu
-    /// The pixel-faithful Windows 95 interface the app is named after.
-    case win95
 
-    var label: String {
-        switch self {
-        case .win95: "Windows 95"
-        case .skeu:  "Skeuomorph"
-        }
-    }
+    var label: String { "Skeuomorph" }
 }
 
 enum AppearanceMode: String, CaseIterable, Sendable {

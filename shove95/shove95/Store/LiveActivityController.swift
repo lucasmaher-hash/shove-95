@@ -144,37 +144,25 @@ final class LiveActivityController {
                                     now: store.now(),
                                     calendar: store.calendar)
 
-        switch settings.design {
-        case .win95:
-            let scheme = settings.scheme.resolved(dark: isDark)
-            return .init(
-                title: task.title,
-                chip: chip,
-                look: .win95,
-                palette: ActivityPalette(
-                    surface: .init(hex: scheme.surface),
-                    ink: .init(hex: scheme.text),
-                    inkMuted: .init(hex: scheme.shadow),
-                    accent: .init(hex: scheme.titleA),
-                    light: .init(hex: scheme.highlight),
-                    dark: .init(hex: scheme.darkShadow)),
-                fontName: settings.face == .w95 ? W95Font.postScriptName : nil)
-
-        case .skeu:
-            let palette = settings.skeuTheme.palette(dark: isDark)
-            return .init(
-                title: task.title,
-                chip: chip,
-                look: .skeu,
-                palette: ActivityPalette(
-                    surface: .init(palette.material),
-                    ink: .init(palette.ink),
-                    inkMuted: .init(palette.inkMuted),
-                    accent: .init(palette.accent),
-                    light: .init(palette.edgeLight),
-                    dark: .init(palette.shadow)),
-                fontName: settings.skeuFace == .w95 ? W95Font.postScriptName : nil)
-        }
+        // One look — the Windows 95 variant was removed on 2026-08-22.
+        //
+        // The Lock Screen card never carried the pixel face anyway unless the
+        // reader had chosen the all-pixel option, and that option is gone too:
+        // the blend keeps the pixel face for CHROME, and a live note is the
+        // user's own words. So the card is set in the system face, always.
+        let palette = settings.skeuTheme.palette(dark: isDark)
+        return .init(
+            title: task.title,
+            chip: chip,
+            look: .skeu,
+            palette: ActivityPalette(
+                surface: .init(palette.material),
+                ink: .init(palette.ink),
+                inkMuted: .init(palette.inkMuted),
+                accent: .init(palette.accent),
+                light: .init(palette.edgeLight),
+                dark: .init(palette.shadow)),
+            fontName: nil)
     }
 }
 

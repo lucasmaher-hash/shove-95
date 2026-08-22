@@ -37,23 +37,29 @@ enum TextRole {
 /// itself and still want to read their own list (founder direction
 /// 2026-08-16).
 enum AppFace: String, CaseIterable, Sendable {
-    case w95, blend, system
+    /// TWO faces, not three. There was an all-pixel option; the founder cut
+    /// it as too much, on the reasoning that a blend is what almost everyone
+    /// actually wants and the third choice only made the decision harder
+    /// (founder direction 2026-08-22).
+    ///
+    /// `blend` inherits the name "Retro" now that nothing retro-er exists to
+    /// claim it — the label describes what a reader gets, not how the
+    /// implementation mixes two faces.
+    case blend, system
 
     var label: String {
         switch self {
-        // "Retro", not "W95FA" (founder direction 2026-08-16): the file name
-        // of a typeface is not what the setting is offering. The credit for
-        // the face itself stays in About, where it belongs.
-        case .w95:    "Retro"
-        case .blend:  "Blend"
-        case .system: "System"
+        // Never "W95FA" (founder direction 2026-08-16): the file name of a
+        // typeface is not what the setting is offering. The credit for the
+        // face itself stays in About, where it belongs.
+        case .blend:  "Retro"
+        case .system: "Modern"
         }
     }
 
     /// Whether text in `role` is set in the pixel face.
     func isPixel(_ role: TextRole) -> Bool {
         switch self {
-        case .w95:    true
         case .blend:  role == .chrome
         case .system: false
         }
@@ -64,7 +70,7 @@ enum W95Font {
     /// Set from the synced preference before any view renders. A static
     /// because the fonts are read from every view in the app, exactly like
     /// `Win95.scheme` — and rebuilt the same way when it changes.
-    nonisolated(unsafe) static var face: AppFace = .w95
+    nonisolated(unsafe) static var face: AppFace = .blend
 
     /// PostScript name, verified via CoreText: family "W95FA", one Regular face.
     static let postScriptName = "W95FARegular"
@@ -111,5 +117,5 @@ extension EnvironmentValues {
     ///
     /// Reading this instead declares the dependency without destroying the
     /// tree — the same move the skeu sheet already makes with `\.skeuFace`.
-    @Entry var appFace: AppFace = .w95
+    @Entry var appFace: AppFace = .blend
 }

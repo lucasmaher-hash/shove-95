@@ -34,19 +34,14 @@ struct LaunchCover: View {
 
     /// The ground: this look's own strong tone, resolved for light or dark.
     ///
-    /// Win95 takes the title bar's colour and skeu the accent, because those
-    /// are the two the looks already set white lettering on — the wordmark is
-    /// white in both, so the ground has to be a tone that carries it. It was
-    /// the icon's fixed blue, which sat outside every palette the app can be
-    /// wearing (founder direction 2026-08-17).
+    /// The accent, because that is the tone this look already sets white
+    /// lettering on — the wordmark is white, so the ground has to be one that
+    /// carries it. It was the icon's fixed blue, which sat outside every
+    /// palette the app can be wearing (founder direction 2026-08-17).
     private var ground: Color {
-        let dark = settings.appearance.isDark(system: systemScheme)
-        switch settings.design {
-        case .win95:
-            return Color(hex: settings.scheme.resolved(dark: dark).titleA)
-        case .skeu:
-            return settings.skeuTheme.palette(dark: dark).accent
-        }
+        settings.skeuTheme
+            .palette(dark: settings.appearance.isDark(system: systemScheme))
+            .accent
     }
 
     /// How far left the mark sits. Kept from the animated version: this is

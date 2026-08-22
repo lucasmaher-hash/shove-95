@@ -79,7 +79,7 @@ final class AppSettings {
 
     /// The typeface, mirrored from the synced record. Assigning it updates the
     /// static W95Font reads from, exactly as `scheme` does for the palette.
-    var face: AppFace = .w95 {
+    var face: AppFace = .blend {
         didSet { W95Font.face = face }
     }
 
@@ -185,8 +185,14 @@ final class AppSettings {
             ?? .skeu
         appearance = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: Key.appearance) ?? "")
             ?? .system
-        let storedFace = AppFace(rawValue: UserDefaults.standard.string(forKey: Key.skeuFace) ?? "")
-            ?? .system
+        // "w95" was the all-pixel face, cut on 2026-08-22. Decoding it now
+        // yields nil, and the plain fallback would drop those readers on
+        // Modern — the furthest thing from what they had chosen. They land on
+        // the blend, which is the closest face that still exists and is what
+        // now carries the name "Retro".
+        let storedFaceName = UserDefaults.standard.string(forKey: Key.skeuFace) ?? ""
+        let storedFace = AppFace(rawValue: storedFaceName)
+            ?? (storedFaceName == "w95" ? .blend : .system)
         skeuFace = storedFace
         SkeuFont.face = storedFace
 
