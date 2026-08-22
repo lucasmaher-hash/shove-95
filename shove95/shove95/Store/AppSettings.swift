@@ -23,6 +23,9 @@ final class AppSettings {
         static let currentWorkspace = "settings.workspace.current"
         static let language = "settings.language"
         static let colorSlot = "settings.color.slot"
+        // v2: the palette was cut from six to four and reordered on
+        // 2026-08-22, which moved every position. See the migration in `init`.
+        static let colorSlotV2 = "settings.color.slot.v2"
         static let onboarded = "settings.onboarded"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
         static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
@@ -48,8 +51,11 @@ final class AppSettings {
     /// owning the list. Only one look is left (2026-08-22), so the position
     /// now simply indexes `SkeuTheme.all` — and the machinery that kept a
     /// "last colour both looks had" is gone with the look that needed it.
+    ///
+    /// A position is only as stable as that list, which is why cutting the
+    /// palette needed `storedColorSlot()`.
     var colorSlot: Int = 0 {
-        didSet { UserDefaults.standard.set(colorSlot, forKey: Key.colorSlot) }
+        didSet { UserDefaults.standard.set(colorSlot, forKey: Key.colorSlotV2) }
     }
 
     /// Which visual language the app speaks. One case since 2026-08-22 — the
@@ -186,14 +192,42 @@ final class AppSettings {
         languageCode = UserDefaults.standard.string(forKey: Key.language)
             ?? Language.english_.code
 
-        // Migrated from the old name-keyed setting on first run. There were
-        // two names to read, one per look; the Windows one went with the look
-        // (2026-08-22), so an install that only ever wore Windows and never
-        // reached the slot-based store lands on the first colour. Pre-release,
-        // and the slot has been the stored form since 2026-08-17.
-        let legacySkeu = UserDefaults.standard.string(forKey: Key.skeuTheme)
-        let migrated = SkeuTheme.all.firstIndex { $0.id == legacySkeu } ?? 0
-        colorSlot = UserDefaults.standard.object(forKey: Key.colorSlot) as? Int ?? migrated
+        colorSlot = Self.storedColorSlot()
+    }
+
+    /// The colour to open with, migrating the two older stored forms.
+    ///
+    /// This has been written three ways. A NAME per look came first; then one
+    /// shared POSITION (2026-08-17), which is what made a picker of coloured
+    /// pills possible; then the palette itself was cut from six to four and
+    /// reordered (2026-08-22), and a position that used to mean Moss came to
+    /// mean Slate. A position is only as stable as the list under it, so the
+    /// move is mapped by NAME here and re-saved under a fresh key — otherwise
+    /// everyone's app quietly changes colour on update, which reads as a bug
+    /// rather than as a change to the palette.
+    private static func storedColorSlot() -> Int {
+        let defaults = UserDefaults.standard
+        if let current = defaults.object(forKey: Key.colorSlotV2) as? Int {
+            return min(max(current, 0), SkeuTheme.all.count - 1)
+        }
+
+        func slot(_ id: String) -> Int { SkeuTheme.all.firstIndex { $0.id == id } ?? 0 }
+
+        // Where each of the six old positions lands. Clay and Ember were both
+        // warm, and Cream and Rose are what is left of that half; Silver was a
+        // near-neutral, which is Slate now.
+        let wasAt = ["cream", "cream", "moss", "slate", "rose", "slate"]
+
+        let migrated: Int
+        if let old = defaults.object(forKey: Key.colorSlot) as? Int {
+            migrated = wasAt.indices.contains(old) ? slot(wasAt[old]) : 0
+        } else {
+            // Older still: a name, one per look. The Windows one went with the
+            // look it named, so only this one is read.
+            migrated = slot(defaults.string(forKey: Key.skeuTheme) ?? "")
+        }
+        defaults.set(migrated, forKey: Key.colorSlotV2)
+        return migrated
     }
 
     /// The label to show for a bucket — the user's name if set, else the default.
