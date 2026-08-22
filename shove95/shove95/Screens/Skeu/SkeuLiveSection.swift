@@ -35,6 +35,29 @@ struct SkeuLiveSection: View {
     @State private var pendingDelete = false
     @FocusState private var focused: Bool
 
+    /// How far the keyboard eats into this screen, and the curve it travels
+    /// on — read off the keyboard's own notification, see `KeyboardDock`.
+    ///
+    /// The tab bar and the workspace bar are furniture and deliberately hold
+    /// still under the keyboard, which is why the screen around them ignores
+    /// the keyboard safe area entirely. That leaves this box knowing nothing
+    /// about the keyboard: it stayed its resting size with the keyboard drawn
+    /// over the bottom of it (founder direction 2026-08-22, against MonoNote,
+    /// where the field takes the whole space above the keys).
+    @State private var keyboardOverlap: CGFloat = 0
+    @State private var keyboardAnimation: Animation = SkeuMotion.layout
+    /// This screen's own clearance from the bottom of the display, so the
+    /// keyboard is not counted twice — see `KeyboardDock.read`.
+    @State private var bottomGap: CGFloat = 0
+
+    /// Whether the box is filling the space above the keyboard.
+    ///
+    /// Keyed on the KEYBOARD rather than on focus, so growing and the keys
+    /// arriving are one movement on one curve. Focus alone would snap the box
+    /// open while the keyboard was still sliding, and with a hardware keyboard
+    /// there is no space above anything to fill.
+    private var isExpanded: Bool { keyboardOverlap > 0 }
+
     private var note: TaskItem? { store.liveNote() }
     private var textSize: CGFloat { 22 * textScale }
     /// Every control down here is the height of the ✕ and the gear.
@@ -46,17 +69,40 @@ struct SkeuLiveSection: View {
     private var binIcon: CGFloat { SkeuTopBar.icon * chromeScale }
 
     var body: some View {
-        VStack(spacing: SkeuSpace.lg) {
-            Spacer(minLength: 0)
-            box
-            // Directly under the box, not pushed to the floor (founder
-            // direction 2026-08-17). They act on what is IN the box, and a
-            // control parked at the far end of the screen reads as belonging
-            // to the screen instead.
-            controls
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, SkeuSpace.xl)
+        // The height is COMPUTED from the space this screen was handed, not
+        // asked for with `.infinity` and a bottom padding. That first attempt
+        // fed back on itself: the box's own growth pushed the frame it was
+        // measuring its clearance from, which shrank the clearance, which
+        // asked for more growth — until it had climbed over the workspace bar
+        // and the gear, which the founder wants left where they are
+        // (2026-08-22). A slot cannot be moved by what is put in it.
+        GeometryReader { geo in
+            VStack(spacing: SkeuSpace.lg) {
+                // The box is centred at rest and fills the screen when the
+                // keyboard is up, so the spacers stand down for the expansion
+                // — left in, they would claim half the growth each.
+                if !isExpanded { Spacer(minLength: 0) }
+                box(maxHeight: boxHeight(in: geo))
+                // Directly under the box, not pushed to the floor (founder
+                // direction 2026-08-17). They act on what is IN the box, and a
+                // control parked at the far end of the screen reads as
+                // belonging to the screen instead.
+                controls
+                if !isExpanded { Spacer(minLength: 0) }
+            }
+            // TOP-aligned once expanded. The box is sized to the space above
+            // the keys, but a centred stack puts that size in the middle of
+            // the whole screen and half of it ends up behind them.
+            .frame(maxWidth: .infinity, maxHeight: .infinity,
+                   alignment: isExpanded ? .top : .center)
+            .padding(.vertical, SkeuSpace.xl)
+            .bottomGapToScreen($bottomGap)
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+                guard let change = KeyboardDock.read(note, clearance: bottomGap) else { return }
+                keyboardAnimation = change.animation
+                withAnimation(change.animation) { keyboardOverlap = change.overlap }
+            }
         // A downward drag anywhere puts the keyboard away, which is the
         // gesture every reader already has in their hand. There is no scroll
         // view here to hand that job to.
@@ -83,13 +129,33 @@ struct SkeuLiveSection: View {
                 }
             }
         }
+        } // GeometryReader
+    }
+
+    /// The box's resting size: one line, shown at the size it deserves.
+    private var restingHeight: CGFloat { 260 * chromeScale }
+
+    /// How tall the box may grow, given the space this screen was handed.
+    ///
+    /// Everything that has to keep its room is subtracted by name, so the sum
+    /// can be read rather than trusted. Never below the resting size: on a
+    /// short screen under a tall keyboard the box holds its size and the
+    /// keyboard covers what it covers, which is what it did before any of
+    /// this.
+    private func boxHeight(in geo: GeometryProxy) -> CGFloat {
+        guard isExpanded else { return restingHeight }
+        let spokenFor = SkeuSpace.xl * 2   // this screen's own top and bottom
+                      + SkeuSpace.lg       // the gap down to the controls
+                      + buttonH            // the controls themselves
+                      + keyboardOverlap    // and the keys
+        return max(restingHeight, geo.size.height - spokenFor)
     }
 
     // MARK: The box
 
     /// A trough, not a card: this is a place a thing SITS, cut into the page,
     /// which is the same reading every field in the app gets.
-    private var box: some View {
+    private func box(maxHeight: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
 
         return TextField("", text: $draft,
@@ -131,7 +197,11 @@ struct SkeuLiveSection: View {
             }
         .frame(maxWidth: .infinity)
         .padding(SkeuSpace.xl)
-        .frame(minHeight: 260 * chromeScale)
+        // At rest this is a floor and the box grows with wrapped text; with
+        // the keyboard up it is both floor and ceiling, and the box stands
+        // exactly in the space above the keys.
+        .frame(minHeight: restingHeight,
+               maxHeight: isExpanded ? maxHeight : nil)
         // The rim is stated at CONTROL size, not at the box's own.
         //
         // `skeuTrough` scales every inset by `height / 148.2`, so handing it
