@@ -858,7 +858,7 @@ final class TaskStore {
     }
 
     func seedScrollFillers() {
-        for i in 1...15 {
+        for i in 1...40 {
             let task = TaskItem()
             task.title = "Filler \(i)"
             task.dueDate = DateEngine.startOfToday(now: now(), calendar: calendar)

@@ -1289,7 +1289,8 @@ private struct SkeuTaskRow: View {
     /// True while the swipe is past the point where letting go commits — see
     /// `swipeChanged`. Kept so the tick fires on the crossing, not every frame.
     @State private var passedThreshold = false
-    @State private var rowFrame: CGRect = .zero
+    /// Not @State — see RowFrameBox.
+    @State private var frames = RowFrameBox()
     @State private var rowWidth: CGFloat = 390
 
     // Inline edit
@@ -1384,9 +1385,9 @@ private struct SkeuTaskRow: View {
                     Color.clear
                         .onAppear { rowWidth = proxy.size.width }
                         .onChange(of: proxy.frame(in: .global)) { _, frame in
-                            rowFrame = frame
+                            frames.rect = frame
                         }
-                        .task { rowFrame = proxy.frame(in: .global) }
+                        .task { frames.rect = proxy.frame(in: .global) }
                 }
             }
             .onAppear {
@@ -1536,7 +1537,7 @@ private struct SkeuTaskRow: View {
             onHold: {
                 guard !isEditing else { return }
                 SkeuHaptic.press()
-                menu.show(task: task, rowFrame: rowFrame)
+                menu.show(task: task, rowFrame: frames.rect)
             },
             onSwipeChanged: swipeChanged,
             onSwipeEnded: swipeEnded,
@@ -1549,7 +1550,7 @@ private struct SkeuTaskRow: View {
     /// hit-transparent on purpose, because a photo with its own tap gesture
     /// swallows the whole touch and swiping across it moves nothing.
     private func handleTap(at point: CGPoint) {
-        let local = CGPoint(x: point.x - rowFrame.minX, y: point.y - rowFrame.minY)
+        let local = CGPoint(x: point.x - frames.rect.minX, y: point.y - frames.rect.minY)
         if let index = photoIndex(at: local) {
             openViewer(index)
             return
@@ -1567,7 +1568,7 @@ private struct SkeuTaskRow: View {
         addedPhotoThisEdit = false // fresh session, the camera returns
         // Tells the list where this field sits, so it can be lifted clear of
         // the keyboard if it opens underneath one.
-        editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
+        editing.begin(task.id.uuidString, bottom: frames.rect.maxY)
         // Focus must land AFTER the TextField exists — setting it in the same
         // pass that creates the field is a race.
         Task { @MainActor in editFocused = true }
@@ -1650,7 +1651,7 @@ private struct SkeuTaskRow: View {
         guard !task.allPhotos.isEmpty else { return nil }
         let stripHeight = F.thumb + SkeuSpace.sm
         // The strip is always the bottom band, whatever height the title grew to.
-        guard local.y > rowFrame.height - stripHeight else { return nil }
+        guard local.y > frames.rect.height - stripHeight else { return nil }
 
         let leading = SkeuControl.minTouch + F.glassGap
         guard local.x >= leading else { return nil }

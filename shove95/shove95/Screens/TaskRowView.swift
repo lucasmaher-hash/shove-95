@@ -40,7 +40,8 @@ struct TaskRowView: View {
     @State private var passedThreshold = false
 
     // Geometry
-    @State private var rowFrame: CGRect = .zero
+    /// Not @State — see RowFrameBox.
+    @State private var frames = RowFrameBox()
     @State private var rowWidth: CGFloat = 390
 
     // Inline edit
@@ -92,9 +93,9 @@ struct TaskRowView: View {
                     Color.clear
                         .onAppear { rowWidth = proxy.size.width }
                         .onChange(of: proxy.frame(in: .global)) { _, frame in
-                            rowFrame = frame
+                            frames.rect = frame
                         }
-                        .task { rowFrame = proxy.frame(in: .global) }
+                        .task { frames.rect = proxy.frame(in: .global) }
                 }
             }
             .onAppear {
@@ -394,7 +395,7 @@ struct TaskRowView: View {
         let gap = Win95.Px.grid * pixel
         let stripHeight = thumb + gap
         // The strip is always the bottom band, whatever height the title grew to.
-        guard local.y > rowFrame.height - stripHeight else { return nil }
+        guard local.y > frames.rect.height - stripHeight else { return nil }
 
         let leading = Win95.rowHeight(pixel) + gap
         guard local.x >= leading else { return nil }
@@ -467,7 +468,7 @@ struct TaskRowView: View {
     /// else starts an edit. Geometry, not gestures — see the note on the photo
     /// strip for why the images can't handle their own taps.
     private func handleTap(at point: CGPoint) {
-        let local = CGPoint(x: point.x - rowFrame.minX, y: point.y - rowFrame.minY)
+        let local = CGPoint(x: point.x - frames.rect.minX, y: point.y - frames.rect.minY)
         if let index = photoIndex(at: local) {
             openViewer(index)
             return
@@ -483,7 +484,7 @@ struct TaskRowView: View {
         draft = task.title
         isEditing = true
         addedPhotoThisEdit = false // fresh session, the plus returns
-        editing.begin(task.id.uuidString, bottom: rowFrame.maxY)
+        editing.begin(task.id.uuidString, bottom: frames.rect.maxY)
         // Focus must land AFTER the TextField exists. Setting it in the same
         // pass that creates the field is a race — sometimes the keyboard never
         // came up because focus was applied to a view not yet in the tree.
@@ -496,7 +497,7 @@ struct TaskRowView: View {
     private func handleHold() {
         guard !isEditing else { return }
         SkeuHaptic.press()
-        menu.show(task: task, rowFrame: rowFrame)
+        menu.show(task: task, rowFrame: frames.rect)
     }
 
     /// Swipe left = pull forward (toward Today), right = defer (toward

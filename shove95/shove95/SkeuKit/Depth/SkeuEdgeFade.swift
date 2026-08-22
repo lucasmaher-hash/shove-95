@@ -79,35 +79,51 @@ struct SkeuScrollEdgeFade: ViewModifier {
     let amount: CGFloat
     let edges: Edge.Set
 
-    @State private var topHidden: CGFloat = 0
-    @State private var bottomHidden: CGFloat = 0
+    @State private var strength = Strength()
 
     func body(content: Content) -> some View {
         content
-            .onScrollGeometryChange(for: Hidden.self) { geometry in
+            // The RAMPED value is what is stored, not the raw offset.
+            //
+            // `onScrollGeometryChange` only calls its action when the value it
+            // computes actually CHANGES, so what that value is decides how
+            // often this modifier does any work at all. It used to hand back
+            // the raw scroll offset — which changes on every single frame of
+            // every scroll, for the whole length of the list. The fade itself
+            // saturates after `amount` points and looks identical from then
+            // on, so every frame past that was a state write, a body re-run,
+            // and a fresh full-screen mask for a picture that did not change
+            // (device trace 2026-08-22: the GPU sat at 5% while this churned).
+            //
+            // Quantised on top, because the ramp is a fade a reader cannot
+            // resolve to more than a few dozen steps — sub-step changes are
+            // work with nothing to show for it.
+            .onScrollGeometryChange(for: Strength.self) { geometry in
                 let offset = geometry.contentOffset.y + geometry.contentInsets.top
                 let overflow = geometry.contentSize.height
                     - geometry.containerSize.height
                     + geometry.contentInsets.top
                     + geometry.contentInsets.bottom
-                return Hidden(above: offset, below: overflow - offset)
-            } action: { _, hidden in
-                topHidden = hidden.above
-                bottomHidden = hidden.below
+                return Strength(top: ramp(offset), bottom: ramp(overflow - offset))
+            } action: { _, new in
+                strength = new
             }
             // Ramped over the fade's own height rather than switched on: a
             // fade that appeared at full strength the instant you moved would
             // be its own hard edge.
-            .skeuEdgeFade(top: edges.contains(.top) ? amount * ramp(topHidden) : 0,
-                          bottom: edges.contains(.bottom) ? amount * ramp(bottomHidden) : 0)
+            .skeuEdgeFade(top: edges.contains(.top) ? amount * strength.top : 0,
+                          bottom: edges.contains(.bottom) ? amount * strength.bottom : 0)
     }
 
+    /// 0…1, quantised to `steps` so the value settles instead of drifting.
     private func ramp(_ hidden: CGFloat) -> CGFloat {
-        max(0, min(1, hidden / max(amount, 1)))
+        let steps: CGFloat = 32
+        let raw = max(0, min(1, hidden / max(amount, 1)))
+        return (raw * steps).rounded() / steps
     }
 
-    private struct Hidden: Equatable {
-        var above: CGFloat = 0
-        var below: CGFloat = 0
+    private struct Strength: Equatable {
+        var top: CGFloat = 0
+        var bottom: CGFloat = 0
     }
 }
