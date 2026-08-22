@@ -143,7 +143,7 @@ struct SkeuSettingsView: View {
                             swatchOption(theme,
                                          selected: settings.skeuTheme.id == theme.id,
                                          in: themeNS) {
-                                settings.colorSlot = SkeuTheme.all.firstIndex { $0.id == theme.id } ?? 0
+                                settings.themeID = theme.id
                             }
                         }
                     }

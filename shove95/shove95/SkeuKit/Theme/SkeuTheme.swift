@@ -10,9 +10,13 @@
 //  real, not a set of hand-tuned specials.
 //
 //  FOUR of them, chosen by the founder from the six that were here
-//  (2026-08-22): Cream, Moss, Slate and a rose that is new. Clay and Ember
+//  (2026-08-22): Slate, Cream, Moss and a rose that is new. Clay and Ember
 //  both sat in the warm half beside Cream, and Silver needed machinery of its
 //  own to stop reading as Slate.
+//
+//  The ORDER below is what the picker shows, and it is the founder's — blue
+//  first (2026-08-22). Nothing reads a theme by its position any more, so this
+//  list can be rearranged freely; see `AppSettings.storedThemeID`.
 //
 
 import SwiftUI
@@ -45,14 +49,14 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
         dark: .derived(from: Color(hex: 0xB4BAC4), accent: Color(hex: 0x3F5670), dark: true))
 
     /// Rose, added when the palette was cut to four (founder direction
-    /// 2026-08-22). The seed is held at Moss's saturation and Slate's
-    /// brightness rather than at a fuller pink: these are SURFACES, and the
-    /// picker shows the seed at more than double strength anyway, so a theme
-    /// that looks quiet in the app still announces itself in the swatch.
-    static let rose = SkeuTheme(
-        id: "rose", name: "Rose",
-        light: .derived(from: Color(hex: 0xC9A6AE), accent: Color(hex: 0x8E4257)),
-        dark: .derived(from: Color(hex: 0xC9A6AE), accent: Color(hex: 0x8E4257), dark: true))
+    /// 2026-08-22).
+    ///
+    /// It started at Moss's saturation, on the reasoning that these are
+    /// SURFACES and the swatch shows the seed at more than double strength
+    /// anyway. Too quiet: the founder asked for it stronger in both lightings
+    /// the same day. At 0.33 it is the most saturated seed in the palette by
+    /// some way, which is the point — the other three are near-neutrals and
+    /// this is the one that is a colour.
 
     /// The colour this theme shows in the PICKER.
     ///
@@ -72,7 +76,13 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
     /// hue being grey no matter how it is tuned.
     var swatchStyle: AnyShapeStyle { AnyShapeStyle(swatch) }
 
-    static let all: [SkeuTheme] = [cream, moss, slate, rose]
+    static let rose = SkeuTheme(
+        id: "rose", name: "Rose",
+        light: .derived(from: Color(hex: 0xD48DA2), accent: Color(hex: 0x9E3F5D)),
+        dark: .derived(from: Color(hex: 0xD48DA2), accent: Color(hex: 0x9E3F5D), dark: true))
+
+    /// Blue first (founder direction 2026-08-22).
+    static let all: [SkeuTheme] = [slate, cream, moss, rose]
 
     static func named(_ id: String) -> SkeuTheme {
         all.first { $0.id == id } ?? cream

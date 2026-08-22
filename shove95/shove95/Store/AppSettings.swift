@@ -24,8 +24,11 @@ final class AppSettings {
         static let language = "settings.language"
         static let colorSlot = "settings.color.slot"
         // v2: the palette was cut from six to four and reordered on
-        // 2026-08-22, which moved every position. See the migration in `init`.
+        // 2026-08-22, which moved every position.
         static let colorSlotV2 = "settings.color.slot.v2"
+        // And then reordered again the same day, which is what finally settled
+        // the question — the colour is stored by NAME now. See `storedThemeID`.
+        static let themeID = "settings.color.id"
         static let onboarded = "settings.onboarded"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
         static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
@@ -44,18 +47,18 @@ final class AppSettings {
 
     var language: Language { Language.named(languageCode) }
 
-    /// The chosen colour, as a POSITION rather than a name (founder decision
-    /// 2026-08-17).
+    /// The chosen colour, by NAME.
     ///
-    /// It was a position because two looks had to agree on it without either
-    /// owning the list. Only one look is left (2026-08-22), so the position
-    /// now simply indexes `SkeuTheme.all` — and the machinery that kept a
-    /// "last colour both looks had" is gone with the look that needed it.
+    /// It was a POSITION for most of its life (founder decision 2026-08-17),
+    /// because two looks had to agree on a colour without either owning the
+    /// list. That cost exactly what it sounds like it would: cutting the
+    /// palette to four moved every index, and a Moss install opened on Slate.
+    /// Moving blue to the front an hour later would have done it again.
     ///
-    /// A position is only as stable as that list, which is why cutting the
-    /// palette needed `storedColorSlot()`.
-    var colorSlot: Int = 0 {
-        didSet { UserDefaults.standard.set(colorSlot, forKey: Key.colorSlotV2) }
+    /// A name survives any reordering, and reordering is a design decision the
+    /// founder should be able to make without a migration each time.
+    var themeID: String = SkeuTheme.all[0].id {
+        didSet { UserDefaults.standard.set(themeID, forKey: Key.themeID) }
     }
 
     /// Which visual language the app speaks. One case since 2026-08-22 — the
@@ -86,10 +89,9 @@ final class AppSettings {
         set { skeuFace = newValue }
     }
 
-    /// The palette, chosen by slot.
-    var skeuTheme: SkeuTheme {
-        SkeuTheme.all[min(colorSlot, SkeuTheme.all.count - 1)]
-    }
+    /// The palette. Falls back to the first theme if the stored name is one
+    /// that no longer exists.
+    var skeuTheme: SkeuTheme { SkeuTheme.named(themeID) }
 
     /// Custom tab labels. Empty string = use the built-in name.
     private var customNames: [Bucket: String]
@@ -192,42 +194,52 @@ final class AppSettings {
         languageCode = UserDefaults.standard.string(forKey: Key.language)
             ?? Language.english_.code
 
-        colorSlot = Self.storedColorSlot()
+        themeID = Self.storedThemeID()
     }
 
-    /// The colour to open with, migrating the two older stored forms.
+    /// The colour to open with, migrating every older stored form.
     ///
-    /// This has been written three ways. A NAME per look came first; then one
-    /// shared POSITION (2026-08-17), which is what made a picker of coloured
-    /// pills possible; then the palette itself was cut from six to four and
-    /// reordered (2026-08-22), and a position that used to mean Moss came to
-    /// mean Slate. A position is only as stable as the list under it, so the
-    /// move is mapped by NAME here and re-saved under a fresh key — otherwise
-    /// everyone's app quietly changes colour on update, which reads as a bug
-    /// rather than as a change to the palette.
-    private static func storedColorSlot() -> Int {
+    /// This has been written four ways: a NAME per look; one shared POSITION
+    /// (2026-08-17), which is what made a picker of coloured pills possible; a
+    /// second position after the palette was cut from six to four; and a name
+    /// again (2026-08-22), because the second reorder that day proved the
+    /// position was the wrong thing to keep.
+    ///
+    /// Each older form is read once and written forward, so nobody's app
+    /// quietly changes colour on update — which reads as a bug rather than as
+    /// a change to the palette.
+    private static func storedThemeID() -> String {
         let defaults = UserDefaults.standard
-        if let current = defaults.object(forKey: Key.colorSlotV2) as? Int {
-            return min(max(current, 0), SkeuTheme.all.count - 1)
+        let fallback = SkeuTheme.all[0].id
+
+        func settle(_ id: String) -> String {
+            let known = SkeuTheme.named(id).id
+            defaults.set(known, forKey: Key.themeID)
+            return known
         }
 
-        func slot(_ id: String) -> Int { SkeuTheme.all.firstIndex { $0.id == id } ?? 0 }
-
-        // Where each of the six old positions lands. Clay and Ember were both
-        // warm, and Cream and Rose are what is left of that half; Silver was a
-        // near-neutral, which is Slate now.
-        let wasAt = ["cream", "cream", "moss", "slate", "rose", "slate"]
-
-        let migrated: Int
-        if let old = defaults.object(forKey: Key.colorSlot) as? Int {
-            migrated = wasAt.indices.contains(old) ? slot(wasAt[old]) : 0
-        } else {
-            // Older still: a name, one per look. The Windows one went with the
-            // look it named, so only this one is read.
-            migrated = slot(defaults.string(forKey: Key.skeuTheme) ?? "")
+        if let current = defaults.string(forKey: Key.themeID) {
+            return SkeuTheme.named(current).id
         }
-        defaults.set(migrated, forKey: Key.colorSlotV2)
-        return migrated
+
+        // The four, in the order they sat in for the hour the second key was
+        // the current one.
+        let cutOrder = ["cream", "moss", "slate", "rose"]
+        if let slot = defaults.object(forKey: Key.colorSlotV2) as? Int {
+            return settle(cutOrder.indices.contains(slot) ? cutOrder[slot] : fallback)
+        }
+
+        // The six before the cut. Clay and Ember were both warm, and Cream and
+        // Rose are what is left of that half; Silver was a near-neutral, which
+        // is Slate now.
+        let sixOrder = ["cream", "cream", "moss", "slate", "rose", "slate"]
+        if let slot = defaults.object(forKey: Key.colorSlot) as? Int {
+            return settle(sixOrder.indices.contains(slot) ? sixOrder[slot] : fallback)
+        }
+
+        // Older still: a name, one per look. The Windows one went with the
+        // look it named, so only this one is read.
+        return settle(defaults.string(forKey: Key.skeuTheme) ?? fallback)
     }
 
     /// The label to show for a bucket — the user's name if set, else the default.
