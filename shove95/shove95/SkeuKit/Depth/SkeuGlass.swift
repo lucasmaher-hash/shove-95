@@ -80,14 +80,13 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                         // 2026-08-16).
                         Rectangle().fill(skeu.canvas.opacity(skeu.isDark ? 0.62 : 0.55))
                     }
-                    lensStack
+                    bakedLens
                     // NO GLOW when frosted. The glow's radius is a fraction of
                     // the SHAPE (0.62), not of `k` — on a pill that is a thin
                     // band along the bottom edge, but on a tall panel it
                     // washes out the lower half. It is also additive, and
                     // plus-lighter over arbitrary content behind frosted glass
                     // is not something that can be predicted.
-                    if prominent && !frosted { glow }
                 }
             }
             .overlay {
@@ -102,24 +101,34 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// Halves every light the piece throws when it is at rest.
     private var strength: Double { prominent ? 1 : 0.5 }
 
-    /// Five concentric layers at 1% white each. Thickness, not a highlight.
-    private var lensStack: some View {
-        ZStack {
-            ForEach(Array(lenses.enumerated()), id: \.offset) { _, inset in
-                shape
-                    .fill(.white.opacity(0.01))
-                    .padding(.vertical, inset.v * k)
-                    .padding(.horizontal, inset.h * k)
+    /// The lens stack, as a PICTURE where one can be made.
+    ///
+    /// Its shape never depended on the content behind it, so it is the same
+    /// image for every object of a given size and palette — thirteen view
+    /// nodes and a Gaussian blur, collapsed to one (founder direction
+    /// 2026-08-22, and see SkeuGlassBakery for why building rather than
+    /// drawing was the cost).
+    ///
+    /// Falls back to building it live when there is no size to bake at yet or
+    /// the renderer declines, so this can only ever cost speed.
+    @ViewBuilder
+    private var bakedLens: some View {
+        GeometryReader { proxy in
+            let pad = SkeuGlassBakery.bleed(k: k)
+            if let picture = SkeuGlassBakery.background(
+                shape: shape, size: proxy.size, k: k,
+                prominent: prominent && !frosted, skeu: skeu) {
+                picture
+                    .resizable()
+                    .frame(width: proxy.size.width + pad * 2,
+                           height: proxy.size.height + pad * 2)
+                    .offset(x: -pad, y: -pad)
+                    .allowsHitTesting(false)
+            } else {
+                SkeuGlassBackground(shape: shape, k: k,
+                                    prominent: prominent && !frosted)
             }
         }
-        .blur(radius: 3.281 * k)
-        // NOT rasterised, deliberately. `drawingGroup` renders a subtree at
-        // its LAYOUT BOUNDS, and this blur is meant to spread past the shape's
-        // edge — rasterising cut the highlight off square at the rim (founder
-        // bug report 2026-08-16). Anything whose effect bleeds outside its own
-        // frame has to stay un-grouped; the trough's channel can be grouped
-        // only because its mask already confines it.
-        .allowsHitTesting(false)
     }
 
     /// The rim: bright along the top and bottom edges, all but gone across the
@@ -164,21 +173,6 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                     .init(color: skeu.edgeShade.opacity(0.14), location: 0.45),
                     .init(color: skeu.edgeShade.opacity(0.42), location: 1.0)],
             startPoint: .top, endPoint: .bottom)
-    }
-
-    /// Rises from below the bottom edge; additive, so it lifts the material
-    /// underneath without staining it.
-    private var glow: some View {
-        shape.fill(
-            EllipticalGradient(
-                stops: [.init(color: .white.opacity(0.50), location: 0.0),
-                        .init(color: .white.opacity(0.00), location: 1.0)],
-                center: UnitPoint(x: 0.5, y: 1.20),
-                startRadiusFraction: 0,
-                endRadiusFraction: 0.62)
-        )
-        .blendMode(.plusLighter)
-        .allowsHitTesting(false)
     }
 
     private func drop(_ alpha: Double) -> Color {
