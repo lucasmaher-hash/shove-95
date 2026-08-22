@@ -9,9 +9,8 @@
 //  in `F` is its value times 402/1495, with the source value alongside so any
 //  of them can be checked against the file.
 //
-//  STEP 3: the list between the bars is live — real tasks from the store,
-//  completion toggles, and an add row. Swipes, the row menu, photos and date
-//  chips are still Win95-only and follow in later steps.
+//  The list between the bars is live — real tasks from the store, completion
+//  toggles, an add row, swipes, the row menu, photos and date chips.
 //
 //  Row construction follows the founder's established language rather than the
 //  design-system §9.6 slat: a task is a TROUGH cut into the ground (the same
@@ -138,7 +137,7 @@ private enum F {
     static let rowHeight: CGFloat = 44 * scaleUp      // 56.3
     static let rowGap: CGFloat = 2 * scaleUp          // 2.6
     static let check: CGFloat = 26 * scaleUp          // 33.3
-    /// Photo thumbnail — the Win95 side's 64pt spec size (TASK-045), scaled
+    /// Photo thumbnail — the 64pt spec size (TASK-045), scaled
     /// up with everything else so it doesn't read small next to a bigger row.
     static let thumb: CGFloat = 64 * scaleUp          // 82.0
 }
@@ -156,14 +155,12 @@ struct SkeuRootView: View {
     @Binding var showSettings: Bool
     @State private var bucket: Bucket = .today
     /// Which way the last tab change travelled — decided BEFORE `bucket`
-    /// moves, so both halves of the transition agree on a direction. Same
-    /// mechanism the Win95 root uses.
+    /// moves, so both halves of the transition agree on a direction.
     @State private var goingRight = true
     @State private var menu = MenuCoordinator()
     /// The first run, held over this screen — see Onboarding.swift.
     @State private var onboarding = OnboardingCoordinator()
-    /// Which field is open and where its bottom edge sits — the same
-    /// coordinator the Win95 list uses, so both looks lift fields identically.
+    /// Which field is open and where its bottom edge sits.
     @State private var editing = EditingCoordinator()
     /// How much of the list the keyboard is covering, in points.
     @State private var keyboardOverlap: CGFloat = 0
@@ -219,8 +216,7 @@ struct SkeuRootView: View {
                 // Tabs slide in from the side they live on: tapping a tab to
                 // the right brings its list in from the right. Only the LIST
                 // travels — the bars are furniture and hold still, so the
-                // frame reads as fixed and the content as moving through it
-                // (the Win95 root's rule, matched here).
+                // frame reads as fixed and the content as moving through it.
                 ZStack {
                     Group {
                         if showLive {
@@ -247,8 +243,7 @@ struct SkeuRootView: View {
                     .padding(.bottom, F.marginNotch)
             }
         }
-        // The bars are furniture: they stay put while the keyboard is up, the
-        // same rule the Win95 root follows for its taskbar.
+        // The bars are furniture: they stay put while the keyboard is up.
         .ignoresSafeArea(.keyboard, edges: .bottom)
         // The row menu draws above everything, unclipped by the scroll view.
         .overlay { SkeuMenuOverlay() }
@@ -270,8 +265,8 @@ struct SkeuRootView: View {
         .animation(SkeuMotion.present, value: menu.pendingLive?.id)
         .environment(menu)
         .environment(editing)
-        // The walkthrough — see Onboarding.swift. Same host as the Win95 root;
-        // the looks differ in the overlay and nothing else.
+        // The walkthrough — see Onboarding.swift. The host is generic over
+        // its overlay, which is what let two looks share one walkthrough.
         .modifier(OnboardingHost(onboarding: onboarding,
                                  animation: SkeuMotion.layout) { step, next, skip in
             SkeuOnboardingOverlay(
@@ -281,19 +276,18 @@ struct SkeuRootView: View {
                 onSkip: skip
             )
         })
-        // The store's queries are scoped to the active workspace. The Win95
-        // root does this sync when IT is mounted; in skeu mode this view is
-        // the one that has to keep the scope pointed at the user's pick.
+        // The store's queries are scoped to the active workspace, and this
+        // view is the one that has to keep that scope pointed at the pick.
         .onAppear {
             store.seedWorkspacesIfNeeded(legacy: settings.legacyWorkspaces)
             syncWorkspaceScope()
         }
         .onChange(of: settings.currentWorkspaceID) { syncWorkspaceScope() }
         .onChange(of: store.revision) { syncWorkspaceScope() }
-        // Fires at midnight, timezone changes and clock changes (PRD §2). The
-        // Win95 root has always done this; without it here, a task left
-        // overnight in the skeu look never gets its arrival placement and the
-        // day boundary silently passes — a DATA bug, not a cosmetic one.
+        // Fires at midnight, timezone changes and clock changes (PRD §2).
+        // Without it a task left overnight never gets its arrival placement
+        // and the day boundary silently passes — a DATA bug, not a cosmetic
+        // one.
         .onReceive(NotificationCenter.default.publisher(
             for: UIApplication.significantTimeChangeNotification)) { _ in
             store.runDayRolloverPassIfNeeded(
@@ -341,7 +335,7 @@ struct SkeuRootView: View {
         let (active, completed) = store.tasks(in: bucket)
 
         // ScrollView, not List — List eats the horizontal pans the app's core
-        // swipe will need (the TASK-019 spike finding; same reason as Win95).
+        // swipe will need (the TASK-019 spike finding).
         //
         // ScrollViewReader so a field that opens under the keyboard can be
         // lifted to sit just above it, exactly as TaskListView does. Without
@@ -535,7 +529,7 @@ struct SkeuRootView: View {
     /// row's own body, or the row belongs to the parent's observation scope
     /// and keeps its stale look after a toggle — the task moved to the
     /// completed section but kept rendering unchecked (caught on device
-    /// 2026-08-13). Same reason the Win95 side has TaskRowView.
+    /// 2026-08-13).
     private func taskRow(_ task: TaskItem) -> some View {
         SkeuTaskRow(task: task)
     }
@@ -578,8 +572,8 @@ private struct SkeuAddRow: View {
     @State private var draft = ""
     @FocusState private var addFocused: Bool
 
-    // Photo attach from the add row. NOT the Win95 AddRowView flow — that one
-    // commits the draft the moment ✚ is pressed and then targets the fresh
+    // Photo attach from the add row. NOT the flow the old add row used — that
+    // one committed the draft the moment ✚ was pressed and then targeted the fresh
     // task, which reads as "my editing just ended and a photo menu opened for
     // something else" (founder bug report 2026-08-13). Here the picked photos
     // are BUFFERED alongside the draft and attach when the task is actually
@@ -609,8 +603,8 @@ private struct SkeuAddRow: View {
     private var rowID: String { EditingCoordinator.addRowID(for: day) }
 
     /// The two glyphs take the "add" placeholder's ink until something is
-    /// typed, and the full ink after — the same principle the Win95 row has
-    /// always used (founder direction 2026-08-17). Standing at full strength
+    /// typed, and the full ink after (founder direction 2026-08-17).
+    /// Standing at full strength
     /// over an empty field, they were the brightest things in the list and the
     /// loudest part of a row that has nothing in it yet.
     private var controlInk: Color {
@@ -628,7 +622,7 @@ private struct SkeuAddRow: View {
                 .onTapGesture { addFocused = true }
 
             // Vertical axis so a long entry wraps and the row grows a line at a
-            // time, matching the Win95 add row. That growth is the ONLY way a
+            // time. That growth is the ONLY way a
             // line is added — Return is a commit, never a break.
             TextField("", text: returnCommittingAdd,
                       prompt: Text("add").foregroundStyle(skeu.inkFaint),
@@ -738,7 +732,7 @@ private struct SkeuAddRow: View {
             }
             .ignoresSafeArea()
         }
-        // The one system sheet worth keeping — same reasoning as the Win95 row.
+        // The one system sheet worth keeping — see the row's own picker.
         .confirmationDialog("Add photo", isPresented: $showSourceChoice) {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Camera") { showCamera = true }
@@ -958,8 +952,8 @@ extension SkeuRootView {
                         .foregroundStyle(skeu.ink)
                 }
                 .skeuPress(haptic: false) { select(line) }
-                // Same contract as the Win95 taskbar button: the FULL name is
-                // the label even when the visible text is short, and selection
+                // The FULL name is the label even when the visible text is
+                // short, and selection
                 // is a trait rather than something you have to see (FR-016).
                 .accessibilityAddTraits(!showLive && bucket == line ? [.isButton, .isSelected]
                                                                    : .isButton)
@@ -1082,8 +1076,7 @@ extension SkeuRootView {
     // hold still — at which point a "selected" and an "unselected" spelling
     // of the same label were the very thing causing the drift.
 
-    /// Points the store's queries at the selected workspace — the same logic
-    /// the Win95 root runs, minus its scheme adoption (skeu themes are local).
+    /// Points the store's queries at the selected workspace.
     private func syncWorkspaceScope() {
         let all = store.workspaces()
         let ids = Set(all.compactMap(\.taskStampID))
@@ -1098,13 +1091,12 @@ extension SkeuRootView {
 
 // MARK: - Workspace switcher
 
-/// The workspace switcher: the Win95 mechanism (a title, a ▼, a mini menu)
-/// translated into this look's own vocabulary instead of copying its floating
-/// panel — the CURRENT workspace stays living in the glass pill, and tapping
+/// The workspace switcher: a title, a ▼ and a short menu, in this look's own
+/// vocabulary rather than as a floating panel — the CURRENT workspace stays
+/// living in the glass pill, and tapping
 /// it or the chevron grows that same pill straight down into a short list of
 /// the others (founder direction 2026-08-14). Nothing detaches from the
-/// control the way the Win95 dropdown detaches from the title bar; the pill
-/// itself is the menu.
+/// control; the pill itself is the menu.
 ///
 /// A separate STRUCT, not a helper property on SkeuRootView, and that is
 /// load-bearing — the same lesson SkeuTaskRow records. The open/closed flag
@@ -1165,8 +1157,7 @@ private struct SkeuWorkspacePill: View {
                         .frame(maxWidth: 200 * scale)
 
                     // Two strokes, nothing else — no circle, no glass of its
-                    // own. It rides inside the pill it controls, the same way
-                    // the Win95 ▼ rides inside the title bar it controls.
+                    // own. It rides inside the pill it controls.
                     // Only when there is somewhere to go. One workspace means
                     // nothing to pick, and an arrow onto an empty list is a
                     // promise the app cannot keep (founder direction
@@ -1257,9 +1248,8 @@ private struct ChevronGlyph: Shape {
 
 /// See the comment at `taskRow(_:)` for why this is its own view.
 ///
-/// The touch layer is the SAME state machine the Win95 row uses —
-/// RowGestureView, with the swipe physics transcribed from TaskRowView. The
-/// machine is UIKit and look-agnostic; only two things differ here: no
+/// The touch layer is RowGestureView, a UIKit state machine that carries the
+/// swipe physics. It is look-agnostic; two things differ here: no
 /// pixel-grid snapping of the drag (the skeu look has no pixel grid), and the
 /// press reads as the skeu scale-down rather than a tint.
 private struct SkeuTaskRow: View {
@@ -1330,8 +1320,7 @@ private struct SkeuTaskRow: View {
     ///
     /// Editing was the odd one out: the row with the caret in it was the only
     /// one you could be working on that did not say so, while a row merely
-    /// held down did (founder direction 2026-08-17). The Win95 row has always
-    /// listed all four.
+    /// held down did (founder direction 2026-08-17). All four are listed.
     private var isMarked: Bool {
         isPressing || dragOffset != 0 || isEditing || menu.request?.taskID == task.id
     }
@@ -1369,8 +1358,8 @@ private struct SkeuTaskRow: View {
             // is measured against, so a background attached after it stays
             // exactly where it was: the row travelled out from under its own
             // lit slat and left it standing (founder bug report 2026-08-17).
-            // Win95 never had this because its row and its ground are the same
-            // painted rectangle.
+            // A flat row over a flat ground never needs this — there the row
+            // and its ground are the same painted rectangle.
             //
             // The gesture catcher below DOES stay put, on purpose — the touch
             // area belongs to the row's place in the list, not to how far the
@@ -1825,8 +1814,8 @@ private struct SkeuTaskRow: View {
                 Text(task.title)
                     .font(SkeuFont.at(labelSize))
                     .tracking(-0.02 * F.label)
-                    // Important stays red in EVERY look — colour carries
-                    // exactly one meaning, the rule the Win95 side enforces.
+                    // Important stays red — colour carries exactly one
+                    // meaning.
                     .foregroundStyle(task.isImportant && !task.isCompleted
                                      ? skeu.critical
                                      : (task.isCompleted ? skeu.inkMuted : skeu.ink))
@@ -1845,7 +1834,7 @@ private struct SkeuTaskRow: View {
             // Trailing column: the camera while editing, otherwise the overdue
             // chip. Pinned to the first line's band however tall the row grows.
             if isEditing && !addedPhotoThisEdit {
-                // One photo per session, matching the Win95 row.
+                // One photo per session.
                 // Bare glyph, no glass circle — see the add row's camera.
                 Image(systemName: "camera")
                     .font(SkeuFont.at(glyphSize, weight: .medium))
@@ -1893,9 +1882,8 @@ private struct SkeuTaskRow: View {
                     .accessibilityHidden(true) // the row's label already says it
             }
         }
-        // NO surface. A task is plain text on the ground, exactly as in the
-        // Win95 look (founder direction 2026-08-13) — only the checkbox is an
-        // object. The troughs are reserved for chrome: bars, inputs, panels.
+        // NO surface. A task is plain text on the ground (founder direction
+        // 2026-08-13) — only the checkbox is an object. The troughs are reserved for chrome: bars, inputs, panels.
         .padding(.leading, SkeuSpace.xs)
         .padding(.trailing, F.padTrail)
         .frame(minHeight: rowH)
@@ -1949,19 +1937,18 @@ private struct SkeuTaskRow: View {
 
 // MARK: - Photo viewer
 
-/// Full-screen photo. The Win95 side wraps its viewer in window furniture;
-/// here the photo simply sits on the canvas with one glass ✕ — there is no
-/// window metaphor in this look to honour.
+/// Full-screen photo: it simply sits on the canvas with one glass ✕. There is
+/// no window metaphor in this look to honour, so it gets no furniture.
 private struct SkeuPhotoViewer: View {
     @Environment(\.skeu) private var skeu
     /// Dynamic Type — the viewer's controls scale with the rest of the chrome.
     @Environment(\.skeuChromeScale) private var chromeScale
     let photos: [Data]
     @Binding var index: Int
-    /// Removing a photo was reachable ONLY from the Win95 viewer until now —
-    /// `store.removePhoto` had exactly one caller in the app — so a photo
-    /// attached in this look could not be deleted without switching design
-    /// (found in the 2026-08-16 audit, control placed by founder direction).
+    /// Removing a photo was reachable from ONE viewer only — the other look's
+    /// — so `store.removePhoto` had a single caller and a photo attached here
+    /// could not be deleted without switching design (found in the 2026-08-16
+    /// audit, control placed by founder direction).
     var onRemove: (Int) -> Void
     var onClose: () -> Void
 
@@ -1975,9 +1962,9 @@ private struct SkeuPhotoViewer: View {
             // more than one — a single photo should not advertise a choice
             // that does not exist.
             //
-            // The SAME zoomable view the Win95 viewer uses — pinch, pan and
-            // Live Text selection. This look had a plain Image, so a photo of
-            // a receipt could be opened but neither enlarged nor read from.
+            // A zoomable view — pinch, pan and Live Text selection. This was
+            // a plain Image, so a photo of a receipt could be opened but
+            // neither enlarged nor read from.
             //
             // FULL BLEED: no side padding. A photo is the content here, and
             // the canvas around it was frame for frame's sake.

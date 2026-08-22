@@ -104,8 +104,8 @@ struct SkeuOnboardingOverlay: View {
             }
         }
         // EVEN-ODD, so the rounded rectangle punches the page rather than
-        // painting over it. The palette's own shadow rather than black, for
-        // the same reason its Win95 twin uses the scheme's darkest tone.
+        // painting over it. The palette's own shadow rather than black, so a
+        // dimmed page still belongs to the theme it is dimming.
         .fill(skeu.shadow.opacity(OnboardingLayout.scrim),
               style: FillStyle(eoFill: true))
     }

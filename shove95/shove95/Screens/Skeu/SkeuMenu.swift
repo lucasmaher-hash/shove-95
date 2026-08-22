@@ -2,13 +2,12 @@
 //  SkeuMenu.swift
 //  shove95
 //
-//  The row menu in the skeu look. The COORDINATION is shared — MenuCoordinator
-//  and RowMenuRequest are look-agnostic and this file reuses them — only the
-//  panel is different: a raised card in the settings-panel construction
-//  (material fill, the mirrored contour stroke, floating shadows) instead of a
-//  bevelled Win95 rectangle.
+//  The row menu. The COORDINATION lives apart from the drawing —
+//  MenuCoordinator and RowMenuRequest know nothing about either — and the
+//  panel here is a raised card in the settings-panel construction: material
+//  fill, the mirrored contour stroke, floating shadows.
 //
-//  Placement logic is a transcription of MenuOverlay (Win95Menu.swift): global
+//  Placement logic came from the menu overlay this replaced: global
 //  row frame → overlay space, drop below the row unless the panel would run
 //  off-screen, then flip above. Height is CALCULATED from the item table, not
 //  measured — a PreferenceKey round-trip reports zero on the first pass and
@@ -156,7 +155,7 @@ struct SkeuMenu: View {
 // MARK: - Overlay
 
 /// Places the menu near the row, clamped inside the screen. No scrim — a tap
-/// anywhere else dismisses, exactly as the Win95 overlay behaves.
+/// anywhere else dismisses.
 struct SkeuMenuOverlay: View {
     @Environment(MenuCoordinator.self) private var menu
     @Environment(TaskStore.self) private var store

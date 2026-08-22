@@ -8,13 +8,7 @@
 //  content state, because the app is the only place allowed to know colours
 //  (CLAUDE.md rule 2) and duplicating the palettes here would have meant two
 //  places to change when a theme changes. What lives here is GEOMETRY, which
-//  the app cannot send: a 2px Win95 bevel and a soft skeu slab are drawings,
-//  not values.
-//
-//  The two looks share no layout on purpose. A Windows 95 dialog and a
-//  skeuomorphic slab are different objects that happen to carry the same
-//  sentence; expressing them as one view with a style flag would have forced
-//  a compromise geometry that is neither.
+//  the app cannot send: a soft slab is a drawing, not values.
 //
 
 import SwiftUI
@@ -49,7 +43,7 @@ struct PinnedTaskLiveActivity: Widget {
         ActivityConfiguration(for: PinnedTaskAttributes.self) { context in
             LockScreenCard(state: context.state, taskID: context.attributes.taskID)
                 // The card paints its own surface edge to edge; without this
-                // iOS puts its default material behind it and the Win95 grey
+                // iOS puts its default material behind it and the flat grey
                 // floats on a translucent slab.
                 .activityBackgroundTint(Color(context.state.palette.surface))
                 .activitySystemActionForegroundColor(Color(context.state.palette.ink))
@@ -87,109 +81,10 @@ private struct LockScreenCard: View {
     let taskID: UUID
 
     var body: some View {
-        switch state.look {
-        case .win95: Win95Card(state: state, taskID: taskID)
-        case .skeu:  SkeuCardView(state: state, taskID: taskID)
-        }
-    }
-}
-
-// MARK: Windows 95
-
-/// A dialog box, because that is what 1995 put on screen when it had one
-/// thing to tell you. Title bar, message, one button.
-private struct Win95Card: View {
-    let state: PinnedTaskAttributes.ContentState
-    let taskID: UUID
-
-    /// The Lock Screen is not the app, so there is no `\.pixel` environment
-    /// here. Two is the app's default scale and the one the bevel geometry
-    /// was drawn for.
-    private let pixel: CGFloat = 2
-
-    var body: some View {
-        // The TASK and the tick, and nothing else (founder direction
-        // 2026-08-17). The card used to be a whole Win95 dialog — a title bar
-        // reading "shove.95", a chip, a bevelled face around it all — which
-        // is furniture the Lock Screen already provides. What is left is the
-        // one thing you came to see and the one thing you can do about it.
-        //
-        // The bevel stays on the BUTTON alone. That is where it earns its
-        // keep: it says "this is pressable" in the look's own grammar, which
-        // a flat word on a Lock Screen cannot.
-        HStack(alignment: .center, spacing: 4 * pixel) {
-            Text(state.title)
-                // A READING size, not the app's 11px chrome size. On the Lock
-                // Screen this is the only line of content, seen at arm's
-                // length and often in a glance (founder direction
-                // 2026-08-17).
-                .font(state.font(17))
-                .foregroundStyle(Color(state.palette.ink))
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(intent: CompletePinnedTaskIntent(taskID: taskID)) {
-                CheckGlyph()
-                    .fill(Color(state.palette.ink))
-                    .frame(width: 9 * pixel, height: 9 * pixel)
-                    .padding(4 * pixel)
-                    .background(Color(state.palette.surface))
-                    .bevel(raised: true, pixel: pixel, state: state)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Complete task")
-            // Clear of the right edge by the same figure that clears it top
-            // and bottom, so the button sits in the card rather than against
-            // its side (founder direction 2026-08-17).
-            .padding(.trailing, 4)
-        }
-        .padding(12)
-    }
-}
-
-/// The tick, drawn on the app's pixel grid. The Lock Screen card cannot reach
-/// the app's own glyphs, so it carries its own — same staircase, same weights.
-private struct CheckGlyph: Shape {
-    func path(in rect: CGRect) -> Path {
-        let u = rect.width / 9
-        var p = Path()
-        for (x, y) in [(0,4),(1,5),(2,6),(3,7),(4,6),(5,5),(6,4),(7,3),(8,2)] {
-            p.addRect(CGRect(x: CGFloat(x) * u, y: CGFloat(y) * u, width: u, height: u * 2))
-        }
-        return p
-    }
-}
-
-private extension View {
-    /// The 2px Win95 bevel — two nested 1px frames, light above and left,
-    /// dark below and right. Reimplemented rather than shared: the app's
-    /// modifier reads `Win95.*` statics that do not exist in this process.
-    func bevel(raised: Bool, pixel: CGFloat,
-               state: PinnedTaskAttributes.ContentState) -> some View {
-        let light = Color(raised ? state.palette.light : state.palette.dark)
-        let dark = Color(raised ? state.palette.dark : state.palette.light)
-        return overlay {
-            ZStack {
-                Path { p in p.addRect(.infinite) }
-                    .stroke(lineWidth: 0) // keeps the ZStack laid out
-                GeometryReader { proxy in
-                    let w = proxy.size.width, h = proxy.size.height
-                    Path { p in
-                        p.move(to: CGPoint(x: 0, y: h))
-                        p.addLine(to: CGPoint(x: 0, y: 0))
-                        p.addLine(to: CGPoint(x: w, y: 0))
-                    }
-                    .stroke(light, lineWidth: pixel)
-                    Path { p in
-                        p.move(to: CGPoint(x: w, y: 0))
-                        p.addLine(to: CGPoint(x: w, y: h))
-                        p.addLine(to: CGPoint(x: 0, y: h))
-                    }
-                    .stroke(dark, lineWidth: pixel)
-                }
-            }
-        }
+        // One grammar. A Windows 95 dialog card stood beside this one until
+        // the look was removed (2026-08-22), which is why the state still
+        // names a look at all.
+        SkeuCardView(state: state, taskID: taskID)
     }
 }
 

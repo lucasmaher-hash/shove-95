@@ -2,9 +2,7 @@
 //  SkeuSettingsView.swift
 //  shove95
 //
-//  Settings in the skeu look — a ROUGH first pass, built to nail the
-//  construction before the content is complete. Tab names, workspaces, archive
-//  and about still live in the Win95 settings and arrive here in step 4 proper.
+//  Settings.
 //
 //  Construction transcribed from the founder's menu study (shove95 file, node
 //  2:182, the "Dashboard / Projects 10 / Account / Support" card):
@@ -38,10 +36,9 @@ private enum G {
     /// with a card edge, and seven settings ran together as one column.
     static let sectionGap: CGFloat = 44
 
-    /// Heading → the control it labels. Raised from `SkeuSpace.sm` (12): the
-    /// Win95 sheet sets 12 too, but its heading has the taller line box, so
-    /// the same number read tighter here. 16 lands the two side by side
-    /// (founder direction 2026-08-17).
+    /// Heading → the control it labels. Raised from `SkeuSpace.sm` (12),
+    /// which read tight under this heading's line box; 16 lands the two side
+    /// by side (founder direction 2026-08-17).
     static let headingGap: CGFloat = 16
 
     static let pillPadH = 36.923 * q        // 17.1
@@ -114,9 +111,8 @@ struct SkeuSettingsView: View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
 
-            // The header is a SIBLING of the scroll view, not its first row —
-            // the Win95 window's arrangement, where the title bar stays put
-            // and only the well's contents travel (founder direction
+            // The header is a SIBLING of the scroll view, not its first row:
+            // it stays put and only the contents travel (founder direction
             // 2026-08-16). Scrolled inside, the title and the ✕ rode up under
             // the status bar and the first panel collided with the clock.
             VStack(alignment: .leading, spacing: 0) {
@@ -124,10 +120,9 @@ struct SkeuSettingsView: View {
                     // Lands the ✕ on exactly the gear's y — see SkeuTopBar.
                     .padding(.top, SkeuTopBar.inset)
                     .padding(.horizontal, SkeuTopBar.margin)
-                    // A band of its own. The Win95 window gets this for free
-                    // from the title bar's height; here the panels would
-                    // otherwise travel a few points under the word "Settings"
-                    // and read as a collision rather than a dock.
+                    // A band of its own. Without it the panels travel a few
+                    // points under the word "Settings" and read as a collision
+                    // rather than a dock.
                     .padding(.bottom, SkeuSpace.md)
 
                 ScrollView {
@@ -185,16 +180,16 @@ struct SkeuSettingsView: View {
                 .padding(.bottom, SkeuSpace.md + G.bottomClearance)
                 }
                 .scrollIndicators(.hidden)
-                // Matches the Win95 sheet: a swipe puts the keyboard away
-                // rather than leaving it standing over what you scrolled to.
+                // A swipe puts the keyboard away rather than leaving it
+                // standing over what you scrolled to.
                 .scrollDismissesKeyboard(.interactively)
                 // The header is docked and the panels run under it, so they
                 // dissolve on the way rather than being cut — and only once
                 // something has scrolled past. See SkeuEdgeFade.
                 .skeuScrollEdgeFade(G.edgeFade * chromeScale, edges: .top)
                 // Runs to the BOTTOM OF THE SCREEN. Stopping at the safe area
-                // left a dead band under the last panel that read as a bar —
-                // the same thing the Win95 well was fixed for on 2026-08-04.
+                // left a dead band under the last panel that read as a bar
+                // (the same fault fixed in the well on 2026-08-04).
                 // Content travels through it; the padding above is what keeps
                 // the last row reachable above the home indicator.
                 .ignoresSafeArea(.container, edges: .bottom)
@@ -215,7 +210,7 @@ struct SkeuSettingsView: View {
         .swipeToDismiss(headerHeight: SkeuTopBar.inset
                         + SkeuTopBar.control * chromeScale
                         + SkeuSpace.md * 2,
-                        // CLEAR, like the Win95 covers. A canvas-coloured
+                        // CLEAR. A canvas-coloured
                         // backdrop was standing in for the screen behind, and
                         // once the sheet started fading it out on its way off
                         // the edge, what it uncovered was the void a

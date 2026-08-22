@@ -30,12 +30,11 @@ struct LiveGlyph: View {
     }
 }
 
-/// Win95's drawing: the same mark on a pixel grid.
+/// The same mark on a pixel grid.
 ///
-/// Not the skeu one re-tinted — a true circle stroked at 1.7pt lands on
-/// fractional pixels at every scale step, which is the one thing this look
-/// does not bend. Drawn on an 11×11 grid instead, as a ring of whole cells
-/// around a 3×3 core.
+/// Not the soft one re-tinted — a true circle stroked at 1.7pt lands on
+/// fractional pixels at every scale step, which a pixel grid does not bend on.
+/// Drawn on an 11×11 grid instead, as a ring of whole cells around a 3×3 core.
 struct PixelLiveGlyph: View {
     let pixel: CGFloat
     let tint: Color

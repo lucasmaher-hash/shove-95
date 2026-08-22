@@ -136,17 +136,12 @@ extension View {
 /// covering with a thumb.
 struct SkeuPulse: ViewModifier {
     let active: Bool
-    /// Whether the page behind the mark is dark, when the system's answer is
-    /// the wrong one to ask. Win95 picks its palette separately from the
-    /// light/dark appearance, so it states its own scheme's darkness; skeu
-    /// leaves this nil and the system answer is right.
-    var darkOverride: Bool? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var up = false
 
     private var small: Bool { active && up && !reduceMotion }
-    private var isDark: Bool { darkOverride ?? (colorScheme == .dark) }
+    private var isDark: Bool { colorScheme == .dark }
 
     /// ONE rule, both looks, stated by the founder (2026-08-17) after three
     /// partial fixes each broke it somewhere else:
@@ -171,7 +166,7 @@ struct SkeuPulse: ViewModifier {
 }
 
 extension View {
-    func skeuPulse(_ active: Bool, dark: Bool? = nil) -> some View {
-        modifier(SkeuPulse(active: active, darkOverride: dark))
+    func skeuPulse(_ active: Bool) -> some View {
+        modifier(SkeuPulse(active: active))
     }
 }

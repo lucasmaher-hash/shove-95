@@ -2,13 +2,12 @@
 //  SkeuTypeScale.swift
 //  shove95
 //
-//  Dynamic Type for the skeu look (FR-015).
+//  Dynamic Type (FR-015).
 //
-//  The Win95 side scales by redefining its `pixel` unit in whole steps, which
-//  works because every value there is expressed in 1995 pixels. The skeu look
-//  has no such unit — its sizes come from a Figma frame — so it needs its own
-//  mechanism, and this is it: ONE multiplier in the environment that the size
-//  tokens read.
+//  `PixelScale` scales by redefining a `pixel` unit in whole steps, which
+//  works only where every value is expressed in 1995 pixels. These sizes come
+//  from a Figma frame and have no such unit, so they need their own mechanism:
+//  ONE multiplier in the environment that the size tokens read.
 //
 //  Why a multiplier rather than `@ScaledMetric` at each call site:
 //

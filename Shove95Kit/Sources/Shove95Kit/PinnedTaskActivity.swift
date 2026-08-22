@@ -52,17 +52,20 @@ public struct ActivityColor: Codable, Hashable, Sendable {
     }
 }
 
-/// Which grammar the Lock Screen card is drawn in. The two are not variations
-/// of one card — a Win95 dialog and a skeu slab share no geometry — so this
-/// picks a whole layout, not a style flag.
+/// Which grammar the Lock Screen card is drawn in.
+///
+/// There were two, and they were not variations of one card — they shared no
+/// geometry, so this picked a whole layout rather than a style flag. One is
+/// left (2026-08-22). The field stays because it is part of the activity's
+/// encoded state: an activity still running from an older build carries the
+/// removed value, fails to decode, and is simply replaced when the app next
+/// reconciles.
 public enum ActivityLook: String, Codable, Sendable {
-    case win95
     case skeu
 }
 
-/// The six roles the card needs. Named by ROLE, not by look, so one set of
-/// names serves both grammars: `surface` is the dialog face in Win95 and the
-/// slab in skeu, and neither drawing has to ask which it is.
+/// The six roles the card needs. Named by ROLE rather than by what draws
+/// them, so the card asks for `surface` and not for a particular material.
 public struct ActivityPalette: Codable, Hashable, Sendable {
     public var surface: ActivityColor
     public var ink: ActivityColor

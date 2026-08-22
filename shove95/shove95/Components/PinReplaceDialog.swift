@@ -4,10 +4,10 @@
 //
 //  "Something else is already pinned. Replace it?"
 //
-//  One question, drawn twice. The Win95 half is a modal dialog box — title
-//  bar, message, two buttons, the raised bevel — because that is what 1995
-//  did when it needed an answer. The skeu half is a floating card. Neither
-//  reuses the other's geometry; only the words and the outcome are shared,
+//  One question on a floating card. It was drawn twice — the other half was a
+//  modal dialog box, title bar and raised bevel, because that is what 1995 did
+//  when it needed an answer — and neither reused the other's geometry; only
+//  the words and the outcome were shared,
 //  The pin-swap question it was built for is gone with the pin itself; it
 //  serves the app's other two weighty questions now — deleting a workspace
 //  and deleting a photo or a live note.

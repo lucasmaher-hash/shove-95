@@ -4,10 +4,9 @@
 //
 //  The pictograms on the How-to screen.
 //
-//  DRAWN, not lettered. The same screen exists in both looks, and the Win95
-//  one may not use SF Symbols (design.md §9) — so rather than branch per look,
-//  every glyph here is a path on a unit square that takes a tint and works in
-//  either. They are deliberately plain: a reader scanning for "the one where
+//  DRAWN, not lettered. This screen existed in two looks, one of which could
+//  not use SF Symbols (design.md §9), so every glyph here is a path on a unit
+//  square that takes a tint. They are deliberately plain: a reader scanning for "the one where
 //  you drag" needs to recognise it at a glance, not admire it.
 //
 //  One stroke width, one cap style, one geometry. A picture set that varies

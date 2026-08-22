@@ -15,8 +15,8 @@
 //  The settings sheet is where that bill comes due: it stands up roughly
 //  eleven troughs and thirteen glass pills, against one or two troughs on the
 //  home screen. Same scrolling, same data — the only difference was how many
-//  of these stacks were live, which is why the skeu sheet dropped frames while
-//  the Win95 one (flat fills, no blur anywhere) never did.
+//  of these stacks were live, which is why this sheet dropped frames while the
+//  flat one that preceded it — no blur anywhere — never did.
 //
 //  So: mask ONCE for the whole set, and rasterise the result. These layers are
 //  static for a given size and palette, so `drawingGroup` composites them into

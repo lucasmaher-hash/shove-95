@@ -13,12 +13,10 @@
 //  It plays on every COLD launch. Returning from the background does not
 //  re-run the process, so a warm return still goes straight to the list.
 //
-//  ONE drawing, two grounds. The mark is the icon and the icon has a single
-//  drawing, so there is no Win95 variant of it missing here — but the ground
-//  it sits on now follows the app's theme rather than the icon's fixed blue
-//  (founder direction, same pass). Win95 takes its title-bar colour, skeu its
-//  accent: in both looks those are the tone that look already carries white
-//  lettering on, so the wordmark stays legible in every palette.
+//  The ground follows the app's theme rather than the icon's fixed blue
+//  (founder direction, same pass): the accent, because that is the tone this
+//  look already carries white lettering on, so the wordmark stays legible in
+//  every palette.
 //
 
 import SwiftUI
@@ -44,9 +42,18 @@ struct LaunchCover: View {
             .accent
     }
 
+    /// The mark's own grid, in points at 1×. These were read from the Windows
+    /// look's pixel unit until that look was removed (2026-08-22); they are
+    /// stated here now because the wordmark is the icon, and the icon has its
+    /// own proportions rather than an interface's.
+    private enum Mark {
+        static let unit: CGFloat = 4        // the grid these figures are in
+        static let bodySize: CGFloat = 11   // the word's type size
+    }
+
     /// How far left the mark sits. Kept from the animated version: this is
     /// the frame that one began on, and the founder asked for that frame.
-    private var lead: CGFloat { Win95.Px.grid * 11 * pixel }
+    private var lead: CGFloat { Mark.unit * 11 * pixel }
 
     var body: some View {
         ZStack {
@@ -54,7 +61,7 @@ struct LaunchCover: View {
 
             HStack(spacing: 5 * pixel) {
                 Text("sho")
-                    .font(.system(size: Win95.Px.fontStandard * 2.6 * pixel,
+                    .font(.system(size: Mark.bodySize * 2.6 * pixel,
                                   weight: .regular, design: .monospaced))
                     .foregroundStyle(.white)
 
@@ -65,8 +72,8 @@ struct LaunchCover: View {
                     // gap between them 0.10 of it. 8 and 12 grid units give
                     // the 6:9 drawing its icon size; the spacing above is the
                     // icon's gap.
-                    .frame(width: Win95.Px.grid * 8 * pixel,
-                           height: Win95.Px.grid * 12 * pixel)
+                    .frame(width: Mark.unit * 8 * pixel,
+                           height: Mark.unit * 12 * pixel)
             }
             .offset(x: -lead)
         }

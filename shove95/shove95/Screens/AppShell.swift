@@ -92,10 +92,7 @@ struct AppShell: View {
     /// Everything the Lock Screen card's appearance depends on, in one value
     /// so a single `onChange` catches all of it.
     private var lookSignature: String {
-        [settings.design.rawValue,
-         settings.scheme.id,
-         settings.skeuTheme.id,
-         settings.face.rawValue,
+        [settings.skeuTheme.id,
          settings.skeuFace.rawValue,
          isDark ? "d" : "l"].joined(separator: "|")
     }

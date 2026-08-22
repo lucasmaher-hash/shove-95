@@ -4,9 +4,9 @@
 //
 //  Colour utilities the design system requires (SKEUOMORPHIC_DESIGN_SYSTEM §2.7).
 //
-//  `Color(hex:alpha:)` is NOT redeclared here — Win95Theme.swift already owns it
-//  and now carries the alpha parameter. One hex initialiser for the whole app;
-//  two would be ambiguous at every call site.
+//  `Color(hex:alpha:)` is NOT redeclared here — Theme/PixelScale.swift owns it.
+//  One hex initialiser for the whole app; two would be ambiguous at every call
+//  site.
 //
 
 import SwiftUI

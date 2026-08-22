@@ -108,7 +108,6 @@ struct shove95App: App {
                 .environment(store)
                 .environment(settings)
                 .environment(sync)
-                .environment(\.win95Scheme, settings.scheme)
                 .modifier(PixelScale()) // stepped 2×/3×/4× (FR-015)
                 .task {
                     // Photos moved into their own records for CloudKit; this

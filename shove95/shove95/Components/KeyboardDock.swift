@@ -35,10 +35,11 @@ enum KeyboardDock {
     /// those two edges is the only thing that reconciles them.
     ///
     /// This used to be a hand-computed `chrome` constant — the bar's height
-    /// plus a margin — and it was wrong in BOTH looks, in opposite directions:
-    /// skeu over-counted by 9pt so a docked field sat that far under the
-    /// keyboard, Win95 under-counted by 10pt so it floated that far above
-    /// (measured 2026-08-17, founder bug report "etwas zu niedrig"). Measured,
+    /// plus a margin — and it was wrong in BOTH looks then shipping, in
+    /// opposite directions: one over-counted by 9pt so a docked field sat that
+    /// far under the keyboard, the other under-counted by 10pt so it floated
+    /// that far above (measured 2026-08-17, founder bug report "etwas zu
+    /// niedrig"). Measured,
     /// it is right at every type size and on every device.
     static func read(_ note: Notification, clearance: CGFloat) -> Change? {
         guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey]

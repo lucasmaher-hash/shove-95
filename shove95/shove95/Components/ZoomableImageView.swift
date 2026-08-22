@@ -12,9 +12,9 @@
 //  literally what Photos uses; a hand-rolled version would be worse and would
 //  never match the selection UI people already know.
 //
-//  Deliberately NOT skinned. The Win95 costume stops at the window frame: text
-//  selection handles and the lookup menu are OS furniture, and dressing them
-//  up would break the one interaction people already understand.
+//  Deliberately NOT skinned. The costume stops at the frame: text selection
+//  handles and the lookup menu are OS furniture, and dressing them up would
+//  break the one interaction people already understand.
 //
 
 import SwiftUI

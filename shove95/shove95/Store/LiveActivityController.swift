@@ -169,7 +169,7 @@ final class LiveActivityController {
 // MARK: - Colour bridging
 
 extension ActivityColor {
-    /// From the 24-bit literals the Win95 schemes are written in.
+    /// From the 24-bit literals the palettes are written in.
     init(hex: UInt32) {
         self.init(red: Double((hex >> 16) & 0xFF) / 255,
                   green: Double((hex >> 8) & 0xFF) / 255,

@@ -7,11 +7,11 @@
 //  established: cards for grouping, troughs for chrome, glass for controls,
 //  plain text on the ground for content.
 //
-//  Neither screen has a Win95 counterpart worth transcribing structurally —
-//  the originals are built out of window furniture (title bar, sunken well)
-//  that has no equivalent here. What IS carried over is their content and
-//  their rules: the archive's day grouping and non-actionable rows, About's
-//  two licence credits, which are conditions rather than courtesies.
+//  Neither screen took its structure from the version that came before — those
+//  were built out of window furniture (title bar, sunken well) that has no
+//  equivalent here. What IS carried over is their content and their rules: the
+//  archive's day grouping and non-actionable rows, About's two licence
+//  credits, which are conditions rather than courtesies.
 //
 
 import SwiftUI
@@ -120,7 +120,7 @@ private struct SkeuSheet<Content: View>: View {
         }
         .swipeToDismiss(headerHeight: S.closeCircle * chromeScale
                         + SkeuSpace.md * 3,
-                        // CLEAR, like the Win95 covers. A canvas-coloured
+                        // CLEAR. A canvas-coloured
                         // backdrop was standing in for the screen behind, and
                         // once the sheet started fading it out on its way off
                         // the edge, what it uncovered was the void a
@@ -367,8 +367,8 @@ struct SkeuAboutView: View {
 
 // MARK: - How to use
 
-/// The gestures, listed. Content comes from `HowTo` so this screen and its
-/// Win95 twin cannot say different things.
+/// The gestures, listed. Content comes from `HowTo`, which is what kept this
+/// screen and the walkthrough from saying different things.
 struct SkeuHowToView: View {
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale

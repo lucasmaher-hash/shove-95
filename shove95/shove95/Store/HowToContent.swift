@@ -31,8 +31,8 @@
 import Foundation
 
 enum HowTo {
-    /// The pictogram beside an item. Drawn, not lettered: these have to read
-    /// in the Win95 look too, where SF Symbols are prohibited (design.md §9).
+    /// The pictogram beside an item. Drawn, not lettered: they had to read in
+    /// a look where SF Symbols are prohibited (design.md §9).
     ///
     /// A VOCABULARY, not a list of what is currently used — a case with no
     /// item pointing at it costs nothing and lets the content above change

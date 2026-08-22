@@ -2,10 +2,8 @@
 //  SkeuTheme.swift
 //  shove95
 //
-//  A named light/dark PAIR of palettes — the unit the theme picker deals in.
-//  The app-level shape deliberately mirrors `Win95Scheme`: an id for
-//  persistence, a display name, and the colours. Same picker idiom, two design
-//  languages.
+//  A named light/dark PAIR of palettes — the unit the theme picker deals in:
+//  an id for persistence, a display name, and the colours.
 //
 //  Cream is spelled out by hand (§2.4 ships exact hexes); the rest are derived
 //  from one seed each (§2.5), which is the point — theming has to be provably
@@ -78,10 +76,9 @@ struct SkeuTheme: Identifiable, Equatable, Sendable {
             startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 
-    /// Silver. Skeu only — there is no Win95 twin, and the founder's rule is
-    /// that Windows falls back to the last shared colour while this is chosen
-    /// (2026-08-17). Inventing a sixth Win95 scheme nobody designed would have
-    /// been the worse answer.
+    /// Silver. It had no twin in the look that shipped beside this one, which
+    /// fell back to the last shared colour while this was chosen (2026-08-17)
+    /// rather than have a sixth scheme invented for it that nobody designed.
     ///
     /// A near-neutral base at a hint of blue: metal is not grey, it is a grey
     /// that remembers the sky. The metallic read comes from the SWATCH's

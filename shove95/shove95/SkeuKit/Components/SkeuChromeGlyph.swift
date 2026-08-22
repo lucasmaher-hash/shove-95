@@ -11,9 +11,10 @@
 //  `.chrome` exactly as a heading does — pixel under Retro and Blend, the
 //  system symbol under System.
 //
-//  The pixel shapes are the Win95 look's own `GearGlyph` and `CloseGlyph`,
-//  used rather than redrawn. They are a grid of rectangles, so they take the
-//  skeu palette's tint like anything else and stay crisp at any size.
+//  The pixel shapes are `GearGlyph` and `CloseGlyph` (Components/PixelGlyphs),
+//  kept when the look they were drawn for was removed. They are a grid of
+//  rectangles, so they take the palette's tint like anything else and stay
+//  crisp at any size.
 //
 
 import SwiftUI

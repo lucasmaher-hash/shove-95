@@ -8,10 +8,9 @@
 //      @Environment(\.skeu) private var skeu
 //      Text("Hello").foregroundStyle(skeu.ink)
 //
-//  Note the contrast with the Win95 side, which reads its palette from statics
-//  (`Win95.surface`) and has to force redraws with `.id(scheme.id)`. SkeuKit
-//  goes through the environment, so SwiftUI sees the dependency and repaints on
-//  its own — no rebuild hack needed anywhere in the skeu tree.
+//  The look this replaced read its palette from statics and had to force
+//  redraws with `.id(scheme.id)`. Going through the environment means SwiftUI
+//  sees the dependency and repaints on its own — no rebuild hack anywhere.
 //
 
 import SwiftUI

@@ -6,8 +6,8 @@
 //  not weightless, so they settle quickly with a small overshoot. Nothing
 //  linear, nothing bouncy.
 //
-//  This is the exact opposite of the Win95 rule, where appearance changes are
-//  instant and the press IS the animation. Same app, two physics.
+//  This is the exact opposite of the rule the app shipped with, where
+//  appearance changes were instant and the press WAS the animation.
 //
 
 import SwiftUI
@@ -27,10 +27,10 @@ enum SkeuMotion {
 
 /// Touch-DOWN rather than release is deliberate: it reinforces that the object
 /// physically moved under the finger.
-/// The app's haptics — BOTH looks. Named for the skeu kit because that is
-/// where it started, but the Win95 rows call it too: a swipe should feel the
-/// same whichever costume it is wearing (founder bug report 2026-08-17, that
-/// the slide buzzes in skeu and not in Windows).
+/// The app's haptics. Named for the skeu kit because that is where it
+/// started; it was shared so a swipe would feel the same in either costume
+/// (founder bug report 2026-08-17, that the slide buzzed in one and not the
+/// other).
 ///
 /// The generators are HELD and PREPARED rather than built at the call site.
 /// A generator constructed and fired in the same breath frequently drops its
@@ -48,11 +48,10 @@ enum SkeuHaptic {
         light.prepare()
         rigid.prepare()
         soft.prepare()
-        // The selector and the notifier were left out, and they are exactly
-        // the two the Win95 look leans on — every choice in its settings and
-        // every menu row (founder bug report 2026-08-17). A generator that is
-        // never prepared drops or weakens its first impulse, which in a look
-        // that fires rarely is most of them.
+        // The selector and the notifier were left out, and they carry every
+        // choice in settings and every menu row (founder bug report
+        // 2026-08-17). A generator that is never prepared drops or weakens its
+        // first impulse, which where one fires rarely is most of them.
         selector.prepare()
         notifier.prepare()
     }

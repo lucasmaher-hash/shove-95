@@ -16,9 +16,9 @@
 //  anything but the canvas is behind it. A mask takes the pixels out, so it is
 //  right in every theme and over anything.
 //
-//  Win95 does NOT get this. Its content is clipped by a sunken well with a
-//  drawn border, and an edge that dissolves is the opposite of what a bevel
-//  says — there, the hard line IS the design.
+//  The Windows 95 look never got this. Its content was clipped by a sunken
+//  well with a drawn border, and an edge that dissolves is the opposite of
+//  what a bevel says — there the hard line WAS the design.
 //
 
 import SwiftUI

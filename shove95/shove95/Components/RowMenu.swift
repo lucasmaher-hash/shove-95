@@ -58,7 +58,7 @@ final class MenuCoordinator {
     func cancelLive() { pendingLive = nil }
 
     /// Springs in with a little overshoot; the anchor is the row's bottom-left,
-    /// so it grows out of the row the way a Win95 menu drops from its title.
+    /// so it grows out of the row the way a menu drops from what opened it.
     func show(task: TaskItem, rowFrame: CGRect) {
         withAnimation(.spring(duration: 0.26, bounce: 0.38)) {
             request = RowMenuRequest(taskID: task.id, rowFrame: rowFrame)

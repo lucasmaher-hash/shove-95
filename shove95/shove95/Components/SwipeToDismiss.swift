@@ -29,9 +29,9 @@
 //
 //  2. Offsetting the sheet revealed BLACK. Nothing is behind a full-screen
 //     cover — the screen it came from is not rendered underneath — so moving
-//     it exposes the void. The Win95 covers ask for a clear presentation
-//     background and get the real screen; the skeu ones sit on their own
-//     canvas colour, which is what is behind them anyway.
+//     it exposes the void. Asking for a clear presentation background gets
+//     the real screen back; these covers sit on their own canvas colour, which
+//     is what is behind them anyway.
 //
 //  3. A committed drag used to dismiss on the spot and spring the offset back
 //     to zero, so the sheet snapped to the middle and then dropped — the hand

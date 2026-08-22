@@ -14,22 +14,18 @@
 //     `title1` → `.title` is 28pt on the nose.
 //
 //  2. The tokens honour a typeface switch, because the founder kept that choice
-//     in the menu — the bitmap face stays reachable from the skeu look too.
-//     W95FA is set ~1.22× the system size: the inverse of the 0.82 factor
-//     W95Font already uses to keep the two faces optically level.
-//
-//     The selection is SEPARATE from `W95Font.face`. The two looks default
-//     differently — SF Pro here, W95FA there — and sharing one value would mean
-//     the skeu screens silently inheriting a bitmap face they were not drawn
-//     for, which is exactly what the first build did.
+//     in the menu — the bitmap face stays reachable. W95FA is set ~1.22× the
+//     system size, which is what keeps the two faces optically level: its
+//     glyphs fill their em box, so matching the raw point size makes the
+//     system face look oversized in the same layout.
 //
 
 import SwiftUI
 
 enum SkeuFont {
 
-    /// Set from `AppSettings` before any view renders — a static for the same
-    /// reason `W95Font.face` is one: every view in the tree reads it.
+    /// Set from `AppSettings` before any view renders. A static because every
+    /// view in the tree reads it.
     nonisolated(unsafe) static var face: AppFace = .system
 
     // MARK: Display
@@ -40,7 +36,7 @@ enum SkeuFont {
         // Asked by ROLE, not by case, so Blend resolves like every other
         // token instead of needing its own branch here.
         SkeuFont.face.isPixel(.content)
-            ? .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+            ? .custom(AppFace.pixelPostScriptName, size: 40, relativeTo: .largeTitle)
             : .system(.largeTitle, design: .serif).italic()
     }
 
@@ -73,7 +69,7 @@ enum SkeuFont {
     /// shuffle the layout around it.
     static var numeral: Font {
         SkeuFont.face.isPixel(.content)
-            ? .custom(W95Font.postScriptName, size: 40, relativeTo: .largeTitle)
+            ? .custom(AppFace.pixelPostScriptName, size: 40, relativeTo: .largeTitle)
             : .system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit()
     }
 
@@ -85,8 +81,8 @@ enum SkeuFont {
     /// those screens went through SF Pro regardless of the setting, which is
     /// why picking W95FA did nothing there (founder bug report 2026-08-14).
     ///
-    /// W95FA is set 1.22× the system size: the inverse of the 0.82 factor
-    /// `W95Font` uses to keep the two faces optically level.
+    /// W95FA is set 1.22× the system size, which keeps the two faces
+    /// optically level — its glyphs fill their em box.
     /// `role` is what lets the Blend face tell furniture from the user's own
     /// words — see `TextRole`. It defaults to `.content`, so a site that says
     /// nothing gets the readable face and only the marked ones stay pixel.
@@ -94,7 +90,7 @@ enum SkeuFont {
                    weight: Font.Weight = .regular,
                    role: TextRole = .content) -> Font {
         face.isPixel(role)
-            ? .custom(W95Font.postScriptName, fixedSize: size * 1.22)
+            ? .custom(AppFace.pixelPostScriptName, fixedSize: size * 1.22)
             : .system(size: size, weight: weight)
     }
 
@@ -105,7 +101,7 @@ enum SkeuFont {
                                w95 size: CGFloat,
                                role: TextRole = .content) -> Font {
         SkeuFont.face.isPixel(role)
-            ? .custom(W95Font.postScriptName, size: size, relativeTo: style)
+            ? .custom(AppFace.pixelPostScriptName, size: size, relativeTo: style)
             : .system(style).weight(weight)
     }
 }

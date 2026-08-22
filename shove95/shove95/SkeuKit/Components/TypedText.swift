@@ -10,9 +10,10 @@
 //  subject rather than a side effect: you see the words being set again in the
 //  face you just chose (founder direction 2026-08-16).
 //
-//  Belongs to BOTH looks. The trigger is passed in rather than read here, so a
-//  Win95 label reacts to `AppFace` and a skeu one to the skeu face, and
-//  neither has to know about the other's setting.
+//  The trigger is passed in rather than read here. That is what let one
+//  typewriter serve two looks, each reacting to its own face setting; one look
+//  is left, and passing the trigger in still keeps this view from knowing
+//  where the face comes from.
 //
 //  Style rides the OUTSIDE: `.font`, `.foregroundStyle`, `.tracking` and the
 //  rest are ordinary View modifiers and reach the Text inside, so a call site
