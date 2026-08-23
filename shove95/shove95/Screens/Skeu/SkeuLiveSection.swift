@@ -48,6 +48,15 @@ struct SkeuLiveSection: View {
     /// This screen's own clearance from the bottom of the display, so the
     /// keyboard is not counted twice — see `KeyboardDock.read`.
     @State private var bottomGap: CGFloat = 0
+    /// The last duration the keyboard actually named.
+    ///
+    /// It names one on the way UP and reports ZERO on the way down — measured
+    /// 0.383 then 0.000 (2026-08-23). A keyboard dismissed from code rather
+    /// than by a finger apparently has nothing to say about how long it will
+    /// take, and the box was reading that zero as "do not animate": the whole
+    /// reason the glide shut never appeared however the curve was written.
+    /// The trip back is timed by the trip out.
+    @State private var lastDuration: Double = 0.32
 
     /// Whether the box is filling the space above the keyboard.
     ///
@@ -97,6 +106,7 @@ struct SkeuLiveSection: View {
             .onReceive(NotificationCenter.default.publisher(
                 for: UIResponder.keyboardWillChangeFrameNotification)) { note in
                 guard let change = KeyboardDock.read(note, clearance: bottomGap) else { return }
+                if change.duration > 0 { lastDuration = change.duration }
                 withAnimation(motion(for: change)) { keyboardOverlap = change.overlap }
             }
         // A downward drag anywhere puts the keyboard away, which is the
@@ -138,15 +148,14 @@ struct SkeuLiveSection: View {
     /// was that it simply reappeared at its resting size.
     ///
     /// Both take the keyboard's own DURATION as their base, so neither drifts
-    /// away from the keys it is moving with. Zero means the keyboard is not
-    /// animating at all — a hardware one attaching — and nothing here should
-    /// either.
+    /// away from the keys it is moving with — and when it names none, the one
+    /// it named last time. See `lastDuration` for why that is not a detail.
     private func motion(for change: KeyboardDock.Change) -> Animation {
-        guard change.duration > 0 else { return .linear(duration: 0) }
+        let base = change.duration > 0 ? change.duration : lastDuration
         if change.overlap > 0 {
-            return .spring(response: change.duration, dampingFraction: 0.62)
+            return .spring(response: base, dampingFraction: 0.62)
         }
-        return .easeOut(duration: change.duration * 1.45)
+        return .easeOut(duration: base * 1.45)
     }
 
     /// The box's resting size: one line, shown at the size it deserves.
