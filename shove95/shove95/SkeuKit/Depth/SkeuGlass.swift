@@ -216,34 +216,30 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
         max(0.8, 2.971 * k * (shadesInward ? 1.35 : 1))
     }
 
-    /// Shading INSIDE the piece: hard against the edge, gone by the middle.
+    /// The inside of the piece, lit at the top and shaded at the bottom.
     ///
-    /// A stroke on the shape's own border, blurred so it spreads both ways,
-    /// then clipped back to the shape — what is left is the inward half, which
-    /// is an edge shadow that fades toward the centre. The same trick the
-    /// troughs use, at a fraction of their weight.
+    /// A VERTICAL gradient across the whole shape, which is why there is
+    /// nothing at the sides: the first version was a blurred stroke round the
+    /// whole outline, and a stroke round an outline necessarily hugs the ends
+    /// too. The founder wanted the left and right gone (2026-08-23), and a
+    /// gradient that only knows up and down cannot draw them.
     ///
-    /// LEFT, RIGHT and BOTTOM. It ran the other way up first — the founder
-    /// asked for it inverted on sight (2026-08-23), dark along the bottom and
-    /// clear along the top, which is the reading a piece lit from above
-    /// actually has: the top edge catches the light, the bottom sits in its
-    /// own shade.
+    /// BOTH ends of it. The shade alone was the founder's second question —
+    /// why the top had no highlight answering the bottom's shadow. It did not,
+    /// because the only light up there was the rim, which is a line a couple
+    /// of points wide. This gives the top an actual lit band, easing to
+    /// nothing before the middle, with the shade rising again to meet the
+    /// bottom edge — one inner bevel rather than a shadow on its own.
     private var innerShade: some View {
         shape
-            // WIDER than it first was (founder direction 2026-08-23): the
-            // stroke is thicker and the blur broader, so the shade reaches
-            // further in before it goes. Same weight at the edge — only the
-            // distance it travels changed.
-            .strokeBorder(skeu.edgeShade.opacity(0.375), lineWidth: 15 * k)
-            .blur(radius: 11 * k)
-            .mask {
-                LinearGradient(
-                    stops: [.init(color: .clear, location: 0.08),
-                            .init(color: .black.opacity(0.72), location: 0.55),
-                            .init(color: .black, location: 1.0)],
-                    startPoint: .top, endPoint: .bottom)
-            }
-            .clipShape(shape)
+            .fill(LinearGradient(
+                stops: [.init(color: skeu.edgeLight.opacity(0.70), location: 0.00),
+                        .init(color: skeu.edgeLight.opacity(0.22), location: 0.14),
+                        .init(color: .clear, location: 0.34),
+                        .init(color: .clear, location: 0.60),
+                        .init(color: skeu.edgeShade.opacity(0.16), location: 0.80),
+                        .init(color: skeu.edgeShade.opacity(0.375), location: 1.00)],
+                startPoint: .top, endPoint: .bottom))
             .allowsHitTesting(false)
     }
 
