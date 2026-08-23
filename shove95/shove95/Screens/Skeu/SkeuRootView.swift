@@ -96,6 +96,11 @@ private enum F {
     // Shared trough padding — nodes 2:639 / 2:655
     static let padLead = 71.313 * s * scaleUp         // 19.2 → 24.6
     static let padTrail = 20.617 * s * scaleUp        // 5.5 → 7.1
+    /// How much further OUT a row's two edges sit than the figures above put
+    /// them (founder direction 2026-08-23): the tick and the title a touch
+    /// left, the day chip and the grip a touch right. Small on purpose — the
+    /// ask was for a nudge, not a new margin.
+    static let edgeNudge: CGFloat = 4
 
     // Glass pill — node 2:657
     static let glassPadH = 35.656 * s * scaleUp       // 9.6 → 12.3
@@ -775,8 +780,8 @@ private struct SkeuAddRow: View {
                     .accessibilityLabel("Schedule")
             }
         }
-        .padding(.leading, SkeuSpace.xs)
-        .padding(.trailing, F.padTrail)
+        .padding(.leading, max(0, SkeuSpace.xs - F.edgeNudge))
+        .padding(.trailing, max(0, F.padTrail - F.edgeNudge))
         .frame(minHeight: rowH)
         .animation(SkeuMotion.press, value: addFocused)
         .background {
@@ -2019,8 +2024,8 @@ private struct SkeuTaskRow: View {
         }
         // NO surface. A task is plain text on the ground (founder direction
         // 2026-08-13) — only the checkbox is an object. The troughs are reserved for chrome: bars, inputs, panels.
-        .padding(.leading, SkeuSpace.xs)
-        .padding(.trailing, F.padTrail)
+        .padding(.leading, max(0, SkeuSpace.xs - F.edgeNudge))
+        .padding(.trailing, max(0, F.padTrail - F.edgeNudge))
         .frame(minHeight: rowH)
     }
 
@@ -2043,7 +2048,10 @@ private struct SkeuTaskRow: View {
                 // 2026-08-23). It sits beside the grip now, and two marks at
                 // the right of a row want one weight between them.
                 .opacity(ReorderGrip.restingOpacity)
-                .padding(.horizontal, SkeuSpace.sm)
+                // LEADING only. The eight points on its right were the whole
+                // gap to the grip, and the founder wanted the two closer
+                // (2026-08-23).
+                .padding(.leading, SkeuSpace.sm)
                 .frame(height: rowH)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true) // the row's label already says it

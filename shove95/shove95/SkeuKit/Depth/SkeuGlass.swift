@@ -58,6 +58,20 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// the palette back over the blur, so the piece frosts without changing
     /// colour. Still no texture: a blur is a lens, not an image fill.
     var frosted: Bool = false
+    /// TRIAL, on one control only (founder direction 2026-08-23).
+    ///
+    /// In the dark the lit rim has all the room it needs and the buttons read
+    /// as objects. In the light it has none — the material already sits near
+    /// the top of the range — so a prominent piece is a pale shape on a pale
+    /// page. The resting pieces were given a CONTACT edge for exactly this
+    /// reason on 2026-08-16; prominent ones never were, because the glow was
+    /// supposed to carry them, and on a light palette it does not.
+    ///
+    /// This gives a prominent piece both edges at once: lit along the top,
+    /// where the key light lands, and shaded along the bottom, where it sits
+    /// on the page. If the founder likes it, it stops being a flag and
+    /// becomes what light mode does.
+    var contrastProbe: Bool = false
 
     private var k: CGFloat { height / 104.54 }
 
@@ -159,6 +173,16 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// and the full-strength stops to carry it, and that is the look as signed
     /// off.
     private var rim: LinearGradient {
+        // The trial: on a light page, a prominent piece gets a lit top AND a
+        // contact bottom. See `contrastProbe`.
+        if contrastProbe, !skeu.isDark, prominent {
+            return LinearGradient(
+                stops: [.init(color: skeu.edgeLight.opacity(0.70), location: 0.0),
+                        .init(color: skeu.edgeLight.opacity(0.04), location: 0.38),
+                        .init(color: skeu.edgeShade.opacity(0.22), location: 0.62),
+                        .init(color: skeu.edgeShade.opacity(0.55), location: 1.0)],
+                startPoint: .top, endPoint: .bottom)
+        }
         guard !skeu.isDark, !prominent else {
             return LinearGradient(
                 stops: [.init(color: skeu.edgeLight.opacity(0.55 * strength), location: 0.0),
@@ -186,8 +210,10 @@ extension View {
     func skeuGlass<S: InsettableShape>(_ shape: S,
                                        height: CGFloat = 44,
                                        prominent: Bool = true,
-                                       frosted: Bool = false) -> some View {
+                                       frosted: Bool = false,
+                                       contrastProbe: Bool = false) -> some View {
         modifier(SkeuGlass(shape: shape, height: height,
-                           prominent: prominent, frosted: frosted))
+                           prominent: prominent, frosted: frosted,
+                           contrastProbe: contrastProbe))
     }
 }

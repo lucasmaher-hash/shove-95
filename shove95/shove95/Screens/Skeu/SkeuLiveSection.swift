@@ -329,7 +329,10 @@ struct SkeuLiveSection: View {
         // its label even after the opacity was moved off it (founder bug
         // report 2026-08-17). The state is carried entirely by the mark and
         // the word now; the button looks like a button either way.
-        .skeuGlass(Capsule(), height: buttonH, prominent: true)
+        // The one control carrying the light-mode contrast trial — see
+        // `SkeuGlass.contrastProbe`. The bin beside it is untouched, so the
+        // two can be judged against each other on one screen.
+        .skeuGlass(Capsule(), height: buttonH, prominent: true, contrastProbe: true)
         .contentShape(Capsule())
         .skeuPress {
             withAnimation(SkeuMotion.tint) { store.setLiveOnLockScreen(!on) }
@@ -366,7 +369,7 @@ struct SkeuLiveSection: View {
         }
         .padding(.horizontal, SkeuSpace.xl)
         .frame(height: buttonH)
-        .skeuGlass(Capsule(), height: buttonH, prominent: filled)
+        .skeuGlass(Capsule(), height: buttonH, prominent: filled, contrastProbe: true)
         .contentShape(Capsule())
         .skeuPress(action)
         .accessibilityAddTraits(.isButton)
