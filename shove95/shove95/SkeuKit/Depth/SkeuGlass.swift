@@ -216,31 +216,54 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
         max(0.8, 2.971 * k * (shadesInward ? 1.35 : 1))
     }
 
-    /// The inside of the piece, lit at the top and shaded at the bottom.
+    /// The inside of the piece: lit at the top, shaded at the bottom, and
+    /// drawn in at the sides.
     ///
-    /// A VERTICAL gradient across the whole shape, which is why there is
-    /// nothing at the sides: the first version was a blurred stroke round the
-    /// whole outline, and a stroke round an outline necessarily hugs the ends
-    /// too. The founder wanted the left and right gone (2026-08-23), and a
-    /// gradient that only knows up and down cannot draw them.
+    /// TWO layers, because they answer to different axes and the founder
+    /// tuned them separately (2026-08-23).
     ///
-    /// BOTH ends of it. The shade alone was the founder's second question —
-    /// why the top had no highlight answering the bottom's shadow. It did not,
-    /// because the only light up there was the rim, which is a line a couple
-    /// of points wide. This gives the top an actual lit band, easing to
-    /// nothing before the middle, with the shade rising again to meet the
-    /// bottom edge — one inner bevel rather than a shadow on its own.
+    /// The vertical one is the bevel. It replaced a blurred stroke round the
+    /// whole outline — a stroke round an outline necessarily hugs the ends,
+    /// which is where the first version's side shading came from, and it left
+    /// the top with nothing but the rim: a line a couple of points wide, and
+    /// so no lit AREA to answer the shadow below. A gradient carries both ends
+    /// of the lighting and cannot draw the sides at all. Its top is at 0.7 of
+    /// where it started, the founder having found the first strength too much
+    /// once it was finally visible.
+    ///
+    /// The horizontal one puts the sides back — the ask was for them subtler,
+    /// not gone. It is the ring again, masked to the left and right so it adds
+    /// nothing to the bevel it sits over.
+    ///
+    /// Every figure below then came down a further fifth (founder direction
+    /// 2026-08-23). The RIM is left where it is: it is the frame round the
+    /// piece, not part of the relief inside it.
     private var innerShade: some View {
-        shape
-            .fill(LinearGradient(
-                stops: [.init(color: skeu.edgeLight.opacity(0.70), location: 0.00),
-                        .init(color: skeu.edgeLight.opacity(0.22), location: 0.14),
-                        .init(color: .clear, location: 0.34),
-                        .init(color: .clear, location: 0.60),
-                        .init(color: skeu.edgeShade.opacity(0.16), location: 0.80),
-                        .init(color: skeu.edgeShade.opacity(0.375), location: 1.00)],
-                startPoint: .top, endPoint: .bottom))
-            .allowsHitTesting(false)
+        ZStack {
+            shape
+                .fill(LinearGradient(
+                    stops: [.init(color: skeu.edgeLight.opacity(0.392), location: 0.00),
+                            .init(color: skeu.edgeLight.opacity(0.123), location: 0.14),
+                            .init(color: .clear, location: 0.34),
+                            .init(color: .clear, location: 0.60),
+                            .init(color: skeu.edgeShade.opacity(0.128), location: 0.80),
+                            .init(color: skeu.edgeShade.opacity(0.30), location: 1.00)],
+                    startPoint: .top, endPoint: .bottom))
+
+            shape
+                .strokeBorder(skeu.edgeShade.opacity(0.16), lineWidth: 13 * k)
+                .blur(radius: 9 * k)
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .black, location: 0.00),
+                                .init(color: .clear, location: 0.30),
+                                .init(color: .clear, location: 0.70),
+                                .init(color: .black, location: 1.00)],
+                        startPoint: .leading, endPoint: .trailing)
+                }
+                .clipShape(shape)
+        }
+        .allowsHitTesting(false)
     }
 
     private func drop(_ alpha: Double) -> Color {
