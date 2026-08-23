@@ -182,6 +182,17 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// and the full-strength stops to carry it, and that is the look as signed
     /// off.
     private var rim: LinearGradient {
+        // Under the trial the TOP stop is lifted by 30% (founder direction
+        // 2026-08-23, "die helligkeit oben ist nicht wirklich sichtbar").
+        // With the shade inverted the top edge is the only thing left saying
+        // where the light comes from, so it has to be seen.
+        if shadesInward {
+            return LinearGradient(
+                stops: [.init(color: skeu.edgeLight.opacity(0.55 * 1.3 * strength), location: 0.0),
+                        .init(color: skeu.edgeLight.opacity(0.05 * strength), location: 0.5),
+                        .init(color: skeu.edgeLight.opacity(0.60 * strength), location: 1.0)],
+                startPoint: .top, endPoint: .bottom)
+        }
         guard !skeu.isDark, !prominent else {
             return LinearGradient(
                 stops: [.init(color: skeu.edgeLight.opacity(0.55 * strength), location: 0.0),
@@ -212,19 +223,24 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// is an edge shadow that fades toward the centre. The same trick the
     /// troughs use, at a fraction of their weight.
     ///
-    /// LEFT, RIGHT and TOP only. The bottom of a prominent piece already
-    /// carries the glow, and shading the one place the light collects would
-    /// cancel the thing that makes it read as glass — so the mask takes this
-    /// to nothing by the time it reaches it.
+    /// LEFT, RIGHT and BOTTOM. It ran the other way up first — the founder
+    /// asked for it inverted on sight (2026-08-23), dark along the bottom and
+    /// clear along the top, which is the reading a piece lit from above
+    /// actually has: the top edge catches the light, the bottom sits in its
+    /// own shade.
     private var innerShade: some View {
         shape
-            .strokeBorder(skeu.edgeShade.opacity(0.50), lineWidth: 9 * k)
-            .blur(radius: 6.5 * k)
+            // WIDER than it first was (founder direction 2026-08-23): the
+            // stroke is thicker and the blur broader, so the shade reaches
+            // further in before it goes. Same weight at the edge — only the
+            // distance it travels changed.
+            .strokeBorder(skeu.edgeShade.opacity(0.375), lineWidth: 15 * k)
+            .blur(radius: 11 * k)
             .mask {
                 LinearGradient(
-                    stops: [.init(color: .black, location: 0.0),
-                            .init(color: .black.opacity(0.72), location: 0.45),
-                            .init(color: .clear, location: 0.92)],
+                    stops: [.init(color: .clear, location: 0.08),
+                            .init(color: .black.opacity(0.72), location: 0.55),
+                            .init(color: .black, location: 1.0)],
                     startPoint: .top, endPoint: .bottom)
             }
             .clipShape(shape)

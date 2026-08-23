@@ -2073,11 +2073,22 @@ private struct SkeuTaskRow: View {
                 // 2026-08-23). It sits beside the grip now, and two marks at
                 // the right of a row want one weight between them.
                 .opacity(ReorderGrip.restingOpacity)
-                // LEADING only. The eight points on its right were the whole
-                // gap to the grip, and the founder wanted the two closer
-                // (2026-08-23).
+                // LEADING only — the eight points on its right were the
+                // first thing between it and the grip.
+                //
+                // The rest of that distance belongs to the grip's own touch
+                // target. Measured off screen: the glyph is 18.3pt wide inside
+                // a 44pt square, so 12.8pt of that square sits empty on its
+                // left, and the stack's own 10.2pt gap comes before it — 23pt
+                // all told. The founder asked for 40% off (2026-08-23), which
+                // is the 9.2 below.
+                //
+                // NEGATIVE, because the space is not the chip's to give, and
+                // AFTER the frame — applied before it, the height frame
+                // re-measured and the pull was lost.
                 .padding(.leading, SkeuSpace.sm)
                 .frame(height: rowH)
+                .padding(.trailing, -9.2)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true) // the row's label already says it
         }
