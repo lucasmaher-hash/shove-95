@@ -720,9 +720,34 @@ final class TaskStore {
         commit()
     }
 
-    /// Long-press-drag reorder (TASK-025): move `task` by whole row steps
-    /// within its bucket's active list. Free placement — the user's order is
-    /// theirs afterwards (locked Q17-B).
+    /// Drag-reorder by the row's grip (TASK-025, restored 2026-08-23).
+    ///
+    /// The task is placed BETWEEN its two new neighbours and nothing else is
+    /// touched — one write, whatever the list is worth in length. Free
+    /// placement: the user's order is theirs afterwards (locked Q17-B).
+    ///
+    /// Midpoints halve the gap every time, so a run of drops into the same
+    /// crack eventually lands on two orders that no longer differ. That is
+    /// what `needsRenormalization` watches for, and the whole list is spread
+    /// out again on the rare pass where it says so.
+    ///
+    /// This is the function whose doc comment sat stranded above
+    /// `undoLastAction` from 2026-08-04, when the drag was cut for competing
+    /// with the row's other three gestures, until 2026-08-23 gave it a grip of
+    /// its own.
+    func reorder(_ task: TaskItem, between above: TaskItem?, and below: TaskItem?,
+                 visible: [TaskItem]) {
+        task.sortOrder = Placement.sortOrder(between: above?.sortOrder,
+                                             and: below?.sortOrder)
+        let settled = visible.sorted { $0.sortOrder < $1.sortOrder }
+        if Placement.needsRenormalization(visible: settled) {
+            for (task, order) in Placement.renormalized(visible: settled) {
+                task.sortOrder = order
+            }
+        }
+        commit()
+    }
+
     func undoLastAction() {
         switch lastAction {
         case let .moved(taskID, _, _, previousDueDate, previousSortOrder, previousOverduePlaced):

@@ -162,6 +162,9 @@ struct SkeuRootView: View {
     @State private var onboarding = OnboardingCoordinator()
     /// Which field is open and where its bottom edge sits.
     @State private var editing = EditingCoordinator()
+    /// Seeded with the list's own row gap: part of the distance a row travels
+    /// before it displaces the next one — see `ReorderCoordinator`.
+    @State private var reorder = { let c = ReorderCoordinator(); c.rowGap = F.rowGap; return c }()
     /// How much of the list the keyboard is covering, in points.
     @State private var keyboardOverlap: CGFloat = 0
     /// The keyboard's top edge in global coordinates; .infinity when hidden.
@@ -247,6 +250,9 @@ struct SkeuRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         // The row menu draws above everything, unclipped by the scroll view.
         .overlay { SkeuMenuOverlay() }
+        // And so does the row being carried — above the bars as well, since a
+        // row dragged to the top of the screen passes over them.
+        .overlay { carriedRow.ignoresSafeArea() }
         // Only one thing can be live, so sending a second one asks first.
         .overlay {
             if menu.pendingLive != nil {
@@ -265,6 +271,7 @@ struct SkeuRootView: View {
         .animation(SkeuMotion.present, value: menu.pendingLive?.id)
         .environment(menu)
         .environment(editing)
+        .environment(reorder)
         // The walkthrough — see Onboarding.swift. The host is generic over
         // its overlay, which is what let two looks share one walkthrough.
         .modifier(OnboardingHost(onboarding: onboarding,
@@ -386,7 +393,7 @@ struct SkeuRootView: View {
                         // under a closed heading belongs to nothing visible.
                         if !settings.isCollapsed(section.day) {
                             ForEach(section.active, id: \.id) { task in
-                                taskRow(task)
+                                reorderRow(task, in: section.active)
                                     .id(task.id.uuidString)
                             }
 
@@ -420,7 +427,7 @@ struct SkeuRootView: View {
                     // one".
                     let firstID = active.first?.id
                     ForEach(active, id: \.id) { task in
-                        taskRow(task)
+                        reorderRow(task, in: active)
                             .id(task.id.uuidString)
                             // The walkthrough points at the FIRST row, which is
                             // the one it just asked you to write — and only
@@ -555,8 +562,45 @@ struct SkeuRootView: View {
     /// and keeps its stale look after a toggle — the task moved to the
     /// completed section but kept rendering unchecked (caught on device
     /// 2026-08-13).
-    private func taskRow(_ task: TaskItem) -> some View {
-        SkeuTaskRow(task: task)
+    private func taskRow(_ task: TaskItem, siblings: [TaskItem] = []) -> some View {
+        SkeuTaskRow(task: task, siblings: siblings)
+    }
+
+    /// A row in the list, which gets out of the way when a neighbour is being
+    /// carried past it.
+    ///
+    /// The row being carried is INVISIBLE here — it is drawn by
+    /// `carriedRow`, floating above the whole screen. Its slot stays, which is
+    /// what the rows around it close up into.
+    ///
+    /// Only the rows getting out of the way are animated; nothing else here
+    /// moves under its own steam.
+    private func reorderRow(_ task: TaskItem, in siblings: [TaskItem]) -> some View {
+        let shift = reorder.offset(for: task.id)
+        return taskRow(task, siblings: siblings)
+            .opacity(reorder.isDragging(task.id) ? 0 : 1)
+            .offset(y: shift)
+            .animation(ReorderCoordinator.displace, value: shift)
+    }
+
+    /// The row under the finger, drawn OVER everything.
+    ///
+    /// See `SkeuTaskRow.carried` for why it is a copy rather than the row
+    /// itself. It is placed in global coordinates from the frame the row had
+    /// when it was picked up, plus however far the finger has gone since.
+    @ViewBuilder
+    private var carriedRow: some View {
+        if let task = reorder.carriedTask {
+            let frame = reorder.grabFrame
+            SkeuTaskRow(task: task, siblings: [], carried: true)
+                .frame(width: frame.width)
+                // A little bigger and off the page. Small on purpose — the row
+                // is being carried, not thrown.
+                .scaleEffect(1.03)
+                .shadow(color: skeu.shadow.opacity(0.30), radius: 16, y: 10)
+                .position(x: frame.midX, y: frame.midY + reorder.travel)
+                .allowsHitTesting(false)
+        }
     }
 
 }
@@ -1285,10 +1329,25 @@ private struct SkeuTaskRow: View {
     @Environment(TaskStore.self) private var store
     @Environment(MenuCoordinator.self) private var menu
     @Environment(EditingCoordinator.self) private var editing
+    @Environment(ReorderCoordinator.self) private var reorder
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
     let task: TaskItem
+    /// The rows this one can be dragged among: its own block, in the order it
+    /// is drawn. Handed in rather than looked up, because only the list knows
+    /// which block a row belongs to — Soon draws one per day.
+    let siblings: [TaskItem]
+    /// True for the COPY that floats above the list while this task is being
+    /// carried. It is a picture of a row, not a row: it takes no touches, owns
+    /// no gestures, and the real one is hidden underneath it.
+    ///
+    /// A copy is needed because `zIndex` does not order the children of a
+    /// `LazyVStack` — measured on 2026-08-23, at 1 and again at 1000, with the
+    /// row being passed drawing over the row doing the passing either way. So
+    /// the carried row leaves the stack entirely for the length of the drag,
+    /// which is also how UIKit has always done it.
+    var carried = false
 
     // Dynamic Type (FR-015): text on the full curve, chrome at half — see
     // SkeuTypeScale for why the two differ.
@@ -1337,14 +1396,17 @@ private struct SkeuTaskRow: View {
     private static let commitVelocity: CGFloat = 300
     private static let rubberResistance: CGFloat = 0.3
 
-    /// Held, sliding, holding an open menu, or being EDITED — the states in
-    /// which this row is the one being acted on.
+    /// Held, sliding, holding an open menu, being EDITED, or being DRAGGED to
+    /// a new place — the states in which this row is the one being acted on.
     ///
     /// Editing was the odd one out: the row with the caret in it was the only
     /// one you could be working on that did not say so, while a row merely
-    /// held down did (founder direction 2026-08-17). All four are listed.
+    /// held down did (founder direction 2026-08-17). Reordering joined the
+    /// list on 2026-08-23 for the same reason, and for one of its own — see
+    /// the ground below.
     private var isMarked: Bool {
-        isPressing || dragOffset != 0 || isEditing || menu.request?.taskID == task.id
+        isPressing || dragOffset != 0 || isEditing
+            || menu.request?.taskID == task.id || reorder.isDragging(task.id)
     }
 
     var body: some View {
@@ -1374,6 +1436,21 @@ private struct SkeuTaskRow: View {
                     .animation(SkeuMotion.tint, value: isMarked)
                     .allowsHitTesting(false)
             }
+            // OPAQUE, and only while the row is being carried.
+            //
+            // A task is plain text on the ground with nothing behind it, which
+            // is the whole look — and a row with nothing behind it cannot pass
+            // over another one. Dragged, the two titles simply printed on top
+            // of each other at the moment they crossed (caught on a frame of
+            // the first working drag, 2026-08-23). It takes the page with it
+            // for as long as it is off the page.
+            .background {
+                RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
+                    .fill(skeu.canvas)
+                    .opacity(reorder.isDragging(task.id) ? 1 : 0)
+                    .animation(ReorderCoordinator.lift, value: reorder.isDragging(task.id))
+                    .allowsHitTesting(false)
+            }
             // The SLIDE comes after the mark, so the mark slides with it.
             //
             // `offset` moves what is drawn, not the layout frame a background
@@ -1397,8 +1474,14 @@ private struct SkeuTaskRow: View {
                         .onAppear { rowWidth = proxy.size.width }
                         .onChange(of: proxy.frame(in: .global)) { _, frame in
                             frames.rect = frame
+                            // What a row is worth in height is what the rows
+                            // behind it close up by — see ReorderCoordinator.
+                            reorder.heights.record(frame.height, for: task.id)
                         }
-                        .task { frames.rect = proxy.frame(in: .global) }
+                        .task {
+                            frames.rect = proxy.frame(in: .global)
+                            reorder.heights.record(proxy.size.height, for: task.id)
+                        }
                 }
             }
             .onAppear {
@@ -1605,6 +1688,47 @@ private struct SkeuTaskRow: View {
     /// pick tomorrow and the row sat there unchanged until Return, which is
     /// what the founder came back about (2026-08-22). It moves now, and the
     /// list travels to the tab it moved to rather than letting it vanish.
+    /// Dragging the row by its grip.
+    ///
+    /// `minimumDistance: 0` on purpose: the handle lights up the moment the
+    /// finger lands, before anything has moved. Waiting for a threshold would
+    /// mean pressing a control that does not answer, which is the one thing a
+    /// grip must never do.
+    ///
+    /// Nothing is written down until the finger lifts. The coordinator holds
+    /// the order the list had when the drag began and works out where the row
+    /// would land; the store hears about it once.
+    private var dragToReorder: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if !reorder.isDragging(task.id) {
+                    reorder.begin(task, in: siblings.map(\.id), frame: frames.rect)
+                }
+                reorder.update(value.translation.height)
+            }
+            .onEnded { _ in
+                let move = reorder.destination()
+                let byID = Dictionary(siblings.map { ($0.id, $0) },
+                                      uniquingKeysWith: { first, _ in first })
+                // The copy flies to the slot FIRST and the real row is
+                // uncovered once it is there. Writing the move and dropping
+                // the copy in one breath would show the row twice for a frame
+                // — once floating, once landed.
+                SkeuHaptic.press()
+                withAnimation(ReorderCoordinator.drop) { reorder.flyHome() }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(ReorderCoordinator.flightTime))
+                    if let move, let moved = byID[move.moved] {
+                        store.reorder(moved,
+                                      between: move.above.flatMap { byID[$0] },
+                                      and: move.below.flatMap { byID[$0] },
+                                      visible: siblings)
+                    }
+                    reorder.end()
+                }
+            }
+    }
+
     private func pickDay(_ day: Date) {
         guard isEditing else {
             withAnimation(SkeuMotion.layout) { store.schedule(task, on: day) }
@@ -1884,22 +2008,9 @@ private struct SkeuTaskRow: View {
                     .accessibilityLabel("Schedule")
             }
 
-            if !isEditing, let chip = ChipFormat.label(dueDate: task.dueDate,
-                                                  isCompleted: task.isCompleted,
-                                                  now: store.now(),
-                                                  calendar: store.calendar) {
-                // BARE TEXT — no glass, no frame (founder direction
-                // 2026-08-14). The chip states a fact; it is not a control,
-                // and a lens around it read as something you could press.
-                // Hit-transparent like the title and the thumbnails — the row
-                // owns the touch.
-                Text(chip)
-                    .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
-                    .foregroundStyle(skeu.inkMuted)
-                    .padding(.horizontal, SkeuSpace.sm)
-                    .frame(height: rowH)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true) // the row's label already says it
+            if !isEditing {
+                dayChip
+                grip
             }
         }
         // NO surface. A task is plain text on the ground (founder direction
@@ -1907,6 +2018,54 @@ private struct SkeuTaskRow: View {
         .padding(.leading, SkeuSpace.xs)
         .padding(.trailing, F.padTrail)
         .frame(minHeight: rowH)
+    }
+
+    /// The day this task is for, when it has one to state.
+    ///
+    /// BARE TEXT — no glass, no frame (founder direction 2026-08-14). The chip
+    /// states a fact; it is not a control, and a lens around it read as
+    /// something you could press. Hit-transparent like the title and the
+    /// thumbnails — the row owns the touch.
+    @ViewBuilder
+    private var dayChip: some View {
+        if let chip = ChipFormat.label(dueDate: task.dueDate,
+                                       isCompleted: task.isCompleted,
+                                       now: store.now(),
+                                       calendar: store.calendar) {
+            Text(chip)
+                .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
+                .foregroundStyle(skeu.inkMuted)
+                // A quarter quieter than it was (founder direction
+                // 2026-08-23). It sits beside the grip now, and two marks at
+                // the right of a row want one weight between them.
+                .opacity(ReorderGrip.restingOpacity)
+                .padding(.horizontal, SkeuSpace.sm)
+                .frame(height: rowH)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true) // the row's label already says it
+        }
+    }
+
+    /// The handle, LAST so the day chip reads to its left (founder direction
+    /// 2026-08-23).
+    ///
+    /// Only on ACTIVE tasks. Done ones are ordered by when they were ticked
+    /// rather than by hand, so a handle there would be a control that does
+    /// nothing.
+    @ViewBuilder
+    private var grip: some View {
+        if !task.isCompleted {
+            // The copy shows a grip that is already lit, and takes no touches:
+            // the finger is still on the real one underneath.
+            if carried {
+                ReorderGrip(isActive: true, size: glyphSize, bandHeight: rowH)
+                    .allowsHitTesting(false)
+            } else {
+                ReorderGrip(isActive: reorder.isDragging(task.id),
+                            size: glyphSize, bandHeight: rowH)
+                    .gesture(dragToReorder)
+            }
+        }
     }
 
     /// Thumbnails accumulate left to right in the order added. Tapping one
