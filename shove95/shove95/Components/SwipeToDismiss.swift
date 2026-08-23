@@ -44,7 +44,26 @@ import SwiftUI
 struct SwipeToDismiss: ViewModifier {
     /// Height of the band, measured from below the safe area, in which a
     /// downward drag dismisses — the header and its button, nothing lower.
+    ///
+    /// `.infinity` makes it the whole screen. That is right only where there
+    /// is nothing underneath that a downward drag already means something to:
+    /// the photo viewer has no scroll view, and a swipe down is what people
+    /// already do to put a picture away.
     let headerHeight: CGFloat
+    /// Whether the gesture is listening at all.
+    ///
+    /// The photo viewer stands it down while the picture is zoomed, where a
+    /// downward drag is how you look at the bottom of the photo rather than a
+    /// way out of it (2026-08-23).
+    var enabled: Bool = true
+    /// Whether the LEFT-EDGE drag is listening, separately from the downward
+    /// one.
+    ///
+    /// The photo viewer pages sideways between a task's photos, and a drag
+    /// that both turns the page and closes the viewer is one gesture doing two
+    /// things. It is allowed only on the first photo, where turning back has
+    /// nothing to turn to (2026-08-23).
+    var allowsEdge: Bool = true
     /// What shows through while the sheet travels. The sheet's own ground.
     let backdrop: Color
     let onDismiss: () -> Void
@@ -160,10 +179,11 @@ struct SwipeToDismiss: ViewModifier {
     private enum Mode { case horizontal, vertical, none }
 
     private func mode(for value: DragGesture.Value) -> Mode {
+        guard enabled else { return .none }
         let band = topInset + headerHeight + Self.reach
         let dx = value.translation.width, dy = value.translation.height
         // Started at the leading edge and travelling right — "back".
-        if value.startLocation.x <= Self.edge, dx > abs(dy) { return .horizontal }
+        if allowsEdge, value.startLocation.x <= Self.edge, dx > abs(dy) { return .horizontal }
         // Started anywhere in the header band and travelling down.
         if value.startLocation.y <= band, dy > abs(dx) { return .vertical }
         return .none
@@ -174,9 +194,13 @@ extension View {
     /// Closes this full-screen sheet on a drag in from the left edge, or down
     /// from its header. See `SwipeToDismiss`.
     func swipeToDismiss(headerHeight: CGFloat,
+                        enabled: Bool = true,
+                        allowsEdge: Bool = true,
                         backdrop: Color,
                         _ onDismiss: @escaping () -> Void) -> some View {
         modifier(SwipeToDismiss(headerHeight: headerHeight,
+                                enabled: enabled,
+                                allowsEdge: allowsEdge,
                                 backdrop: backdrop,
                                 onDismiss: onDismiss))
     }

@@ -137,21 +137,33 @@ struct SkeuSegment<Content: View>: View {
             .background {
                 ZStack {
                     if let fill {
-                        // ALL the same size, selected or not (founder
-                        // direction 2026-08-17, reversing the shrink of the
-                        // day before). The glass frame alone marks the choice,
-                        // and holding every swatch at one size is what makes
-                        // the chosen colour read as sitting INSIDE that panel
-                        // rather than as a bigger colour.
-                        // Inset a little, so the selected swatch's glass rim
-                        // shows AROUND the colour rather than over it — which
-                        // is what makes it read as a colour sitting inside a
-                        // panel (founder direction 2026-08-17). Applied to
-                        // every swatch, not just the chosen one, so nothing
-                        // changes size when the selection moves.
-                        Capsule()
-                            .fill(fill)
-                            .padding(SkeuToggle.swatchInset * chromeScale)
+                        // The chosen swatch fills its column; the rest are
+                        // HALF as wide (founder direction 2026-08-23).
+                        //
+                        // This has now been decided three ways: the unchosen
+                        // ones shrank, then every swatch was held at one size
+                        // (2026-08-17, on the reasoning that the glass frame
+                        // alone should mark the choice), and now they shrink
+                        // again — by a stated half rather than by feel.
+                        //
+                        // The COLUMN does not move. Only the colour inside it
+                        // changes width, so the row keeps its rhythm, the
+                        // pill still glides between fixed stops, and every
+                        // swatch keeps a full-width target to press.
+                        //
+                        // The inset is what leaves the selected swatch's glass
+                        // rim showing AROUND the colour rather than over it
+                        // (founder direction 2026-08-17).
+                        GeometryReader { proxy in
+                            let inset = SkeuToggle.swatchInset * chromeScale
+                            let full = max(0, proxy.size.width - inset * 2)
+                            Capsule()
+                                .fill(fill)
+                                .frame(width: isSelected ? full : full * 0.5,
+                                       height: max(0, proxy.size.height - inset * 2))
+                                .frame(width: proxy.size.width,
+                                       height: proxy.size.height)
+                        }
                     }
                     // The glass is a lens with no fill, so it goes OVER the
                     // colour — as a background layer its rim would be hidden

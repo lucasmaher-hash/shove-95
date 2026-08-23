@@ -1481,6 +1481,13 @@ private struct SkeuTaskRow: View {
                             }
                         }
                     }
+                    // CLEAR, so what shows behind the photo as it travels off
+                    // is the list it came from. A full-screen cover renders
+                    // nothing underneath by default, so moving it exposed the
+                    // void — the black flash the founder reported on closing
+                    // (2026-08-23). The viewer paints its own canvas and takes
+                    // it along; this is what it uncovers.
+                    .presentationBackground(.clear)
                 }
             }
             // VoiceOver (FR-016). The row's whole interaction vocabulary is
@@ -1944,6 +1951,12 @@ private struct SkeuTaskRow: View {
         }
         .padding(.leading, SkeuControl.minTouch + F.glassGap)
         .padding(.trailing, F.padTrail)
+        // A STATED gap above the strip. There was none: the space over a
+        // photo was whatever the title's `minHeight` happened to leave, and a
+        // title that wraps uses all of it — so a one-line task sat well clear
+        // of its photo and a long one landed right on top of it (founder bug
+        // report 2026-08-23).
+        .padding(.top, SkeuSpace.sm)
         .padding(.bottom, SkeuSpace.sm)
     }
 }
@@ -1965,6 +1978,10 @@ private struct SkeuPhotoViewer: View {
     var onRemove: (Int) -> Void
     var onClose: () -> Void
 
+    /// True once the reader has pinched in. The way out is a downward drag,
+    /// and while zoomed that is how you look at the bottom of the picture.
+    @State private var isZoomed = false
+
     var body: some View {
         ZStack {
             skeu.canvas.ignoresSafeArea()
@@ -1984,8 +2001,10 @@ private struct SkeuPhotoViewer: View {
             TabView(selection: $index) {
                 ForEach(Array(photos.enumerated()), id: \.offset) { offset, data in
                     if let image = PhotoCache.image(data) {
-                        ZoomableImageView(image: image)
-                            .tag(offset)
+                        ZoomableImageView(image: image) { zoomed in
+                            isZoomed = zoomed
+                        }
+                        .tag(offset)
                     }
                 }
             }
@@ -2005,6 +2024,24 @@ private struct SkeuPhotoViewer: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(SkeuSpace.xl)
         }
+        // The same two ways out as every full-screen sheet, on the same
+        // distances, the same curve and the same haptic (founder direction
+        // 2026-08-23) — the ✕ was the only exit here.
+        //
+        // The band is the WHOLE screen rather than a header: there is no
+        // scroll view under it to take a downward drag away from, and a swipe
+        // down is already what a picture means.
+        //
+        // A CLEAR backdrop, unlike the sheets. Those travel over their own
+        // canvas colour because that is what sits behind them; here what sits
+        // behind is the list, and painting anything over it is the black
+        // screen this was meant to avoid. See the cover's presentation
+        // background.
+        .swipeToDismiss(headerHeight: .infinity,
+                        enabled: !isZoomed,
+                        allowsEdge: index == 0,
+                        backdrop: .clear,
+                        onClose)
     }
 
     /// FROSTED, unlike every other glass piece in the app. These two sit on
