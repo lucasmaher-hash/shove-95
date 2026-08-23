@@ -235,9 +235,11 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// not gone. It is the ring again, masked to the left and right so it adds
     /// nothing to the bevel it sits over.
     ///
-    /// Every figure below then came down a further fifth (founder direction
-    /// 2026-08-23). The RIM is left where it is: it is the frame round the
-    /// piece, not part of the relief inside it.
+    /// Every figure below then came down a fifth, and the SHADE alone a
+    /// further fifth after that (founder direction 2026-08-23) — the highlight
+    /// was where he wanted it by then and only the dark half was still too
+    /// heavy. The RIM is left where it is throughout: it is the frame round
+    /// the piece, not part of the relief inside it.
     private var innerShade: some View {
         ZStack {
             shape
@@ -246,12 +248,12 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                             .init(color: skeu.edgeLight.opacity(0.123), location: 0.14),
                             .init(color: .clear, location: 0.34),
                             .init(color: .clear, location: 0.60),
-                            .init(color: skeu.edgeShade.opacity(0.128), location: 0.80),
-                            .init(color: skeu.edgeShade.opacity(0.30), location: 1.00)],
+                            .init(color: skeu.edgeShade.opacity(0.102), location: 0.80),
+                            .init(color: skeu.edgeShade.opacity(0.24), location: 1.00)],
                     startPoint: .top, endPoint: .bottom))
 
             shape
-                .strokeBorder(skeu.edgeShade.opacity(0.16), lineWidth: 13 * k)
+                .strokeBorder(skeu.edgeShade.opacity(0.128), lineWidth: 13 * k)
                 .blur(radius: 9 * k)
                 .mask {
                     LinearGradient(
