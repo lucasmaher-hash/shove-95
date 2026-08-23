@@ -178,12 +178,16 @@ final class ReorderCoordinator {
 
     /// How far this row sits from where the list would otherwise put it.
     ///
-    /// The dragged row follows the finger exactly — no animation, no easing;
-    /// it is the finger. Everything between its old slot and its new one has
-    /// closed up by the height the dragged row took with it.
+    /// The dragged row does not move AT ALL. It is invisible — the copy above
+    /// the list is what follows the finger — and it used to be offset by the
+    /// travel anyway, which fed straight back into the gesture measuring that
+    /// travel: the view moved with the finger, so the finger only ever
+    /// appeared to have gone half as far, and the task trailed further behind
+    /// the further it was dragged (founder bug report 2026-08-23). Its slot
+    /// stays put; that is what the rows around it close into.
     func offset(for id: UUID) -> CGFloat {
         guard let draggingID else { return 0 }
-        if id == draggingID { return travel }
+        if id == draggingID { return 0 }
         guard let i = slots.firstIndex(of: id) else { return 0 }
         let vacated = heights.height(for: draggingID) + rowGap
         if fromIndex < toIndex, i > fromIndex, i <= toIndex { return -vacated }

@@ -1699,7 +1699,11 @@ private struct SkeuTaskRow: View {
     /// the order the list had when the drag began and works out where the row
     /// would land; the store hears about it once.
     private var dragToReorder: some Gesture {
-        DragGesture(minimumDistance: 0)
+        // GLOBAL space, belt and braces. A drag measured in the row's own
+        // space is measured against something the drag itself can move — see
+        // `ReorderCoordinator.offset(for:)` for the half-speed this caused.
+        // The screen cannot be moved by dragging on it.
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 if !reorder.isDragging(task.id) {
                     reorder.begin(task, in: siblings.map(\.id), frame: frames.rect)
