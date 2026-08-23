@@ -45,7 +45,6 @@ struct SkeuLiveSection: View {
     /// over the bottom of it (founder direction 2026-08-22, against MonoNote,
     /// where the field takes the whole space above the keys).
     @State private var keyboardOverlap: CGFloat = 0
-    @State private var keyboardAnimation: Animation = SkeuMotion.layout
     /// This screen's own clearance from the bottom of the display, so the
     /// keyboard is not counted twice — see `KeyboardDock.read`.
     @State private var bottomGap: CGFloat = 0
@@ -78,30 +77,27 @@ struct SkeuLiveSection: View {
         // (2026-08-22). A slot cannot be moved by what is put in it.
         GeometryReader { geo in
             VStack(spacing: SkeuSpace.lg) {
-                // The box is centred at rest and fills the screen when the
-                // keyboard is up, so the spacers stand down for the expansion
-                // — left in, they would claim half the growth each.
-                if !isExpanded { Spacer(minLength: 0) }
-                box(maxHeight: boxHeight(in: geo))
+                box(height: boxHeight(in: geo))
                 // Directly under the box, not pushed to the floor (founder
                 // direction 2026-08-17). They act on what is IN the box, and a
                 // control parked at the far end of the screen reads as
                 // belonging to the screen instead.
                 controls
-                if !isExpanded { Spacer(minLength: 0) }
             }
-            // TOP-aligned once expanded. The box is sized to the space above
-            // the keys, but a centred stack puts that size in the middle of
-            // the whole screen and half of it ends up behind them.
-            .frame(maxWidth: .infinity, maxHeight: .infinity,
-                   alignment: isExpanded ? .top : .center)
-            .padding(.vertical, SkeuSpace.xl)
+            // Everything that moves is a NUMBER — this lead and the box's
+            // height. It was a pair of spacers and a top/centre alignment
+            // flip, and neither of those is a value SwiftUI can travel
+            // through: the layout arrived at its destination in one frame
+            // whatever animation it was given, which is what the founder saw
+            // on the way shut (2026-08-22).
+            .padding(.top, SkeuSpace.xl + topLead(in: geo))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.bottom, SkeuSpace.xl)
             .bottomGapToScreen($bottomGap)
             .onReceive(NotificationCenter.default.publisher(
                 for: UIResponder.keyboardWillChangeFrameNotification)) { note in
                 guard let change = KeyboardDock.read(note, clearance: bottomGap) else { return }
-                keyboardAnimation = change.animation
-                withAnimation(change.animation) { keyboardOverlap = change.overlap }
+                withAnimation(motion(for: change)) { keyboardOverlap = change.overlap }
             }
         // A downward drag anywhere puts the keyboard away, which is the
         // gesture every reader already has in their hand. There is no scroll
@@ -132,8 +128,42 @@ struct SkeuLiveSection: View {
         } // GeometryReader
     }
 
+    /// How the box travels, which is not the same going each way (founder
+    /// direction 2026-08-22).
+    ///
+    /// Opening SPRINGS with some bounce: the box is being thrown open by the
+    /// keys arriving under it, and a little overshoot is what that reads as.
+    /// Closing EASES OUT and takes slightly longer than the keyboard does, so
+    /// the box settles back rather than being back — the founder's complaint
+    /// was that it simply reappeared at its resting size.
+    ///
+    /// Both take the keyboard's own DURATION as their base, so neither drifts
+    /// away from the keys it is moving with. Zero means the keyboard is not
+    /// animating at all — a hardware one attaching — and nothing here should
+    /// either.
+    private func motion(for change: KeyboardDock.Change) -> Animation {
+        guard change.duration > 0 else { return .linear(duration: 0) }
+        if change.overlap > 0 {
+            return .spring(response: change.duration, dampingFraction: 0.62)
+        }
+        return .easeOut(duration: change.duration * 1.45)
+    }
+
     /// The box's resting size: one line, shown at the size it deserves.
     private var restingHeight: CGFloat { 260 * chromeScale }
+
+    /// How far down the stack starts.
+    ///
+    /// Zero when expanded — the box begins right under the workspace bar and
+    /// runs to the keys. At rest it is whatever centres the stack, computed
+    /// rather than left to a spacer so the two positions are one number with
+    /// two values and the trip between them can be animated.
+    private func topLead(in geo: GeometryProxy) -> CGFloat {
+        guard !isExpanded else { return 0 }
+        let room = geo.size.height - SkeuSpace.xl * 2
+        let content = restingHeight + SkeuSpace.lg + buttonH
+        return max(0, (room - content) / 2)
+    }
 
     /// How tall the box may grow, given the space this screen was handed.
     ///
@@ -155,7 +185,7 @@ struct SkeuLiveSection: View {
 
     /// A trough, not a card: this is a place a thing SITS, cut into the page,
     /// which is the same reading every field in the app gets.
-    private func box(maxHeight: CGFloat) -> some View {
+    private func box(height: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
 
         return TextField("", text: $draft,
@@ -197,11 +227,14 @@ struct SkeuLiveSection: View {
             }
         .frame(maxWidth: .infinity)
         .padding(SkeuSpace.xl)
-        // At rest this is a floor and the box grows with wrapped text; with
-        // the keyboard up it is both floor and ceiling, and the box stands
-        // exactly in the space above the keys.
-        .frame(minHeight: restingHeight,
-               maxHeight: isExpanded ? maxHeight : nil)
+        // STATED, both ways. This was a `minHeight` with the ceiling left off
+        // at rest, and an absent ceiling is not a value: SwiftUI had nothing
+        // to travel from, so the box arrived back at its resting size in a
+        // single frame however it was animated — measured at two frames on the
+        // way shut, against roughly twenty for the same trip now (2026-08-22).
+        // 260pt over a 22pt line is six lines of room, so nothing that belongs
+        // in this box needs the ceiling lifted.
+        .frame(height: height)
         // The rim is stated at CONTROL size, not at the box's own.
         //
         // `skeuTrough` scales every inset by `height / 148.2`, so handing it

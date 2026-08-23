@@ -27,6 +27,13 @@ enum KeyboardDock {
         let overlap: CGFloat
         /// The keyboard's own animation, for everything that moves with it.
         let animation: Animation
+        /// That animation's DURATION, on its own.
+        ///
+        /// For the few places that want their own curve — a spring with some
+        /// bounce on the way open, a longer glide on the way shut — but still
+        /// want to travel with the keys rather than beside them. Taking the
+        /// duration and leaving the curve is the smallest way to stay in step.
+        let duration: Double
     }
 
     /// `clearance` is how far the LIST's bottom edge already sits above the
@@ -51,7 +58,8 @@ enum KeyboardDock {
         let covered = max(0, screenHeight - frame.origin.y)
         return Change(top: covered > 0 ? frame.origin.y : .infinity,
                       overlap: max(0, covered - clearance),
-                      animation: animation(from: note))
+                      animation: animation(from: note),
+                      duration: duration(from: note))
     }
 
     private static var screenHeight: CGFloat? {
@@ -71,9 +79,13 @@ enum KeyboardDock {
     /// and no SwiftUI equivalent. `easeInOut` is its closest relative and is
     /// what the default branch is for; the named curves are handled anyway
     /// because a hardware keyboard attaching does send them.
-    private static func animation(from note: Notification) -> Animation {
-        let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey]
+    private static func duration(from note: Notification) -> Double {
+        note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey]
             as? Double ?? 0.25
+    }
+
+    private static func animation(from note: Notification) -> Animation {
+        let duration = duration(from: note)
         // Zero means "do not animate": a hardware keyboard connecting, or a
         // frame change with nothing to show for it.
         guard duration > 0 else { return .linear(duration: 0) }
