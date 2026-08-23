@@ -124,6 +124,13 @@ struct shove95App: App {
                     if UserDefaults.standard.bool(forKey: "seedSoonSpread") {
                         store.seedSoonSpread()
                     }
+                    if UserDefaults.standard.bool(forKey: "seedArchive") {
+                        // AFTER the root has pointed the store at a workspace.
+                        // Seeded before that, the tasks carry no workspace and
+                        // every query filters them out again.
+                        try? await Task.sleep(for: .milliseconds(500))
+                        store.seedArchive()
+                    }
                     if UserDefaults.standard.bool(forKey: "seedDemo") {
                         store.seedDemo()
                     }

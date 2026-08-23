@@ -212,17 +212,57 @@ struct SkeuArchiveView: View {
                 // Newest day first; the day itself is the only grouping.
                 LazyVStack(alignment: .leading, spacing: SkeuSpace.lg) {
                     ForEach(days, id: \.day) { group in
-                        SkeuPanel(title: group.day.formatted(
-                            .dateTime.weekday(.abbreviated).day().month(.abbreviated))) {
-                            VStack(spacing: SkeuSpace.sm) {
-                                ForEach(group.tasks, id: \.id) { task in
-                                    row(task)
-                                }
-                            }
-                        }
+                        day(group)
                     }
                 }
             }
+        }
+    }
+
+    /// One day's block: the date ABOVE the frame, and the tasks cut into the
+    /// page below it (founder direction 2026-08-23).
+    ///
+    /// It was a raised card with the date inside it — `SkeuPanel`, which is
+    /// what About and How to use still are. Two changes at once:
+    ///
+    ///   - INDENTED rather than standing off the page, like the live box. A
+    ///     screen of read-only records is a set of things filed away, and the
+    ///     look already says "filed" with a trough.
+    ///   - The date is a LABEL for the frame, so it sits above it rather than
+    ///     inside it.
+    ///
+    /// And it is the reason the screen was heavy. Every panel carried two
+    /// blurred shadows, at radius 26.8 and 49, one pair per day and none of
+    /// them baked — the archive was the last place in the app still paying
+    /// that per frame. A trough's inner shadows are rasterised once (see
+    /// InnerShadow), so the whole cost goes.
+    @ViewBuilder
+    private func day(_ group: (day: Date, tasks: [TaskItem])) -> some View {
+        let shape = RoundedRectangle(cornerRadius: S.cardRadius, style: .continuous)
+
+        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+            Text(group.day.formatted(
+                .dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                .font(SkeuFont.eyebrow)
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .foregroundStyle(skeu.inkFaint)
+                .padding(.leading, SkeuSpace.sm)
+
+            VStack(spacing: SkeuSpace.sm) {
+                ForEach(group.tasks, id: \.id) { task in
+                    row(task)
+                }
+            }
+            .padding(S.cardPad)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // SHALLOWER than the live box, which the founder asked for by
+            // name: the ramp finishes sooner, the shade runs at under half
+            // weight and the floor is lifted further. A well holding a few
+            // lines of struck-through text should read as a recess, not as a
+            // pit.
+            .skeuTrough(shape, height: 56, fillStop: 0.20, shadeScale: 0.42,
+                        fillLift: 0.70)
         }
     }
 

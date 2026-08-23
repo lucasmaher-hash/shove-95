@@ -188,6 +188,7 @@ struct SkeuRootView: View {
     private var labelSize: CGFloat { F.label * textScale }
     private var rowH: CGFloat { F.rowHeight * chromeScale }
     private var checkSize: CGFloat { F.check * chromeScale }
+
     private var glyphSize: CGFloat { F.plusIcon * chromeScale }
     private var glyphBox: CGFloat { F.plus * chromeScale }
     private var bottomBarHeight: CGFloat { F.bottomHeight * chromeScale }
@@ -1359,6 +1360,21 @@ private struct SkeuTaskRow: View {
     private var labelSize: CGFloat { F.label * textScale }
     private var rowH: CGFloat { F.rowHeight * chromeScale }
     private var checkSize: CGFloat { F.check * chromeScale }
+    /// How far down the FIRST LINE of the title starts.
+    ///
+    /// Everything on a row's first-line band — the tick, the day chip, the
+    /// grip — centres at `rowH / 2`. A one-line title did too, because its
+    /// `minHeight` centred it there; a wrapped one did not, because a title
+    /// taller than the band simply began at the top. So the tick read six
+    /// points high beside a short task and twelve low beside a long one
+    /// (founder bug report 2026-08-23, measured off both).
+    ///
+    /// Insetting the title by half the leftover puts its first line in the
+    /// same band whatever it is worth in lines, which is the one figure that
+    /// makes all four agree.
+    private var firstLineInset: CGFloat {
+        max(0, (rowH - UIFont.systemFont(ofSize: labelSize).lineHeight) / 2)
+    }
     private var glyphSize: CGFloat { F.plusIcon * chromeScale }
     private var glyphBox: CGFloat { F.plus * chromeScale }
 
@@ -1939,6 +1955,10 @@ private struct SkeuTaskRow: View {
                 SkeuHaptic.toggle()
                 withAnimation(SkeuMotion.press) { store.toggleCompleted(task) }
             }
+            // The first-line band, so the tick centres on the line it belongs
+            // to — see `firstLineInset`. The 44pt target above is untouched;
+            // this only says where the square sits.
+            .frame(height: rowH)
             .accessibilityLabel(task.isCompleted ? "Completed" : "Not completed")
             .accessibilityAddTraits(.isButton)
 
@@ -1962,7 +1982,8 @@ private struct SkeuTaskRow: View {
                     .onChange(of: editFocused) { _, focused in
                         if !focused { commitEdit() }
                     }
-                    .frame(minHeight: rowH)
+                    .padding(.top, firstLineInset)
+                    .frame(minHeight: rowH, alignment: .top)
             } else {
                 Text(task.title)
                     .font(SkeuFont.at(labelSize))
@@ -1975,7 +1996,11 @@ private struct SkeuTaskRow: View {
                     .strikethrough(task.isCompleted, color: skeu.inkMuted)
                     .fixedSize(horizontal: false, vertical: true) // wraps, never truncates
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: rowH)
+                    // INSET first, then the band — see `firstLineInset`. The
+                    // one-line case is unchanged; a wrapped title now starts
+                    // its first line where a one-line title sits.
+                    .padding(.top, firstLineInset)
+                    .frame(minHeight: rowH, alignment: .top)
                     .allowsHitTesting(false) // the ROW owns tap-to-edit
             }
 

@@ -915,6 +915,39 @@ final class TaskStore {
         try? context.save()
         revision += 1
     }
+
+    /// Tasks already in the ARCHIVE, spread over several past days.
+    ///
+    /// Nothing reaches the archive without the clock moving — a dated task
+    /// archives once its completion is yesterday — so there was no way to look
+    /// at that screen with anything on it. Added for the 2026-08-23 rebuild of
+    /// it.
+    func seedArchive() {
+        let today = DateEngine.startOfToday(now: now(), calendar: calendar)
+        // Queries are scoped by the workspace's stamp, so the tasks are born
+        // into whichever one is on screen. See the caller: it waits for the
+        // scope to be synced, because a task seeded before that has no
+        // workspace and is filtered straight back out.
+        let home = workspaceID
+        for back in 1...3 {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today) else { continue }
+            for i in 1...3 {
+                let task = TaskItem()
+                task.title = "Erledigt vor \(back) Tagen – \(i)"
+                // Queries are workspace-scoped, and this runs before the
+                // scope has been synced — so the default is stated rather
+                // than inherited from a store that does not know yet.
+                task.workspaceID = home
+                task.dueDate = day
+                task.isCompleted = true
+                task.completedAt = calendar.date(byAdding: .hour, value: 10 + i, to: day)
+                task.sortOrder = Double(i)
+                context.insert(task)
+            }
+        }
+        try? context.save()
+        revision += 1
+    }
     #endif
 
     // MARK: - Private
