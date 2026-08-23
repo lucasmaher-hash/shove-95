@@ -63,15 +63,21 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// In the dark the lit rim has all the room it needs and the buttons read
     /// as objects. In the light it has none — the material already sits near
     /// the top of the range — so a prominent piece is a pale shape on a pale
-    /// page. The resting pieces were given a CONTACT edge for exactly this
-    /// reason on 2026-08-16; prominent ones never were, because the glow was
-    /// supposed to carry them, and on a light palette it does not.
+    /// page.
     ///
-    /// This gives a prominent piece both edges at once: lit along the top,
-    /// where the key light lands, and shaded along the bottom, where it sits
-    /// on the page. If the founder likes it, it stops being a flag and
-    /// becomes what light mode does.
+    /// The first attempt put a CONTACT edge along the bottom, opposite the lit
+    /// top. The founder rejected it and asked for the contrast to come from
+    /// INSIDE instead: the white frame first, then the interior shaded — hard
+    /// against the edge and easing to nothing toward the middle. Not along the
+    /// bottom, where the glow already lifts the piece, so it runs on three
+    /// sides only. And the white line itself a touch thicker.
+    ///
+    /// If the founder likes it, it stops being a flag and becomes what light
+    /// mode does.
     var contrastProbe: Bool = false
+
+    /// Whether the trial applies here: a prominent piece on a light page.
+    private var shadesInward: Bool { contrastProbe && !skeu.isDark && prominent }
 
     private var k: CGFloat { height / 104.54 }
 
@@ -104,7 +110,10 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                 }
             }
             .overlay {
-                shape.strokeBorder(rim, lineWidth: max(0.8, 2.971 * k))
+                if shadesInward { innerShade }
+            }
+            .overlay {
+                shape.strokeBorder(rim, lineWidth: rimWidth)
             }
             .clipShape(shape)
             .shadow(color: drop(0.05), radius: 17.525 * k, y: 29.895 * k)
@@ -173,16 +182,6 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// and the full-strength stops to carry it, and that is the look as signed
     /// off.
     private var rim: LinearGradient {
-        // The trial: on a light page, a prominent piece gets a lit top AND a
-        // contact bottom. See `contrastProbe`.
-        if contrastProbe, !skeu.isDark, prominent {
-            return LinearGradient(
-                stops: [.init(color: skeu.edgeLight.opacity(0.70), location: 0.0),
-                        .init(color: skeu.edgeLight.opacity(0.04), location: 0.38),
-                        .init(color: skeu.edgeShade.opacity(0.22), location: 0.62),
-                        .init(color: skeu.edgeShade.opacity(0.55), location: 1.0)],
-                startPoint: .top, endPoint: .bottom)
-        }
         guard !skeu.isDark, !prominent else {
             return LinearGradient(
                 stops: [.init(color: skeu.edgeLight.opacity(0.55 * strength), location: 0.0),
@@ -197,6 +196,39 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                     .init(color: skeu.edgeShade.opacity(0.14), location: 0.45),
                     .init(color: skeu.edgeShade.opacity(0.42), location: 1.0)],
             startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The white line round the outside. A touch thicker under the trial
+    /// (founder direction 2026-08-23) — the edge is doing more work on a light
+    /// page, so it is given more to work with.
+    private var rimWidth: CGFloat {
+        max(0.8, 2.971 * k * (shadesInward ? 1.35 : 1))
+    }
+
+    /// Shading INSIDE the piece: hard against the edge, gone by the middle.
+    ///
+    /// A stroke on the shape's own border, blurred so it spreads both ways,
+    /// then clipped back to the shape — what is left is the inward half, which
+    /// is an edge shadow that fades toward the centre. The same trick the
+    /// troughs use, at a fraction of their weight.
+    ///
+    /// LEFT, RIGHT and TOP only. The bottom of a prominent piece already
+    /// carries the glow, and shading the one place the light collects would
+    /// cancel the thing that makes it read as glass — so the mask takes this
+    /// to nothing by the time it reaches it.
+    private var innerShade: some View {
+        shape
+            .strokeBorder(skeu.edgeShade.opacity(0.50), lineWidth: 9 * k)
+            .blur(radius: 6.5 * k)
+            .mask {
+                LinearGradient(
+                    stops: [.init(color: .black, location: 0.0),
+                            .init(color: .black.opacity(0.72), location: 0.45),
+                            .init(color: .clear, location: 0.92)],
+                    startPoint: .top, endPoint: .bottom)
+            }
+            .clipShape(shape)
+            .allowsHitTesting(false)
     }
 
     private func drop(_ alpha: Double) -> Color {
