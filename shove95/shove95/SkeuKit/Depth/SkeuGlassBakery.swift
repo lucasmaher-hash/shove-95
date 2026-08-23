@@ -113,7 +113,64 @@ struct SkeuGlassBackground<S: InsettableShape>: View {
         ZStack {
             lensStack
             if prominent { glow }
+            if shadesInward { innerRelief }
         }
+    }
+
+    /// Whether this piece carries the light-mode relief: a prominent one, on a
+    /// light page.
+    private var shadesInward: Bool { !skeu.isDark && prominent }
+
+    /// The inside of the piece: lit at the top, shaded at the bottom, and
+    /// drawn in at the sides.
+    ///
+    /// It lives HERE, in the baked half, and not as an overlay on the live
+    /// one. The side layer is a blurred stroke, and a blur per glass piece per
+    /// frame is exactly the bill the whole bakery exists to stop paying — the
+    /// app has forty-odd of these on a full screen. Baked, it is drawn once
+    /// per shape, size and palette and then blitted.
+    ///
+    /// Being baked also puts it UNDER the label rather than over it, which is
+    /// where a material belongs.
+    ///
+    /// TWO layers, because they answer to different axes and the founder tuned
+    /// them separately (2026-08-23):
+    ///
+    ///   - The vertical one is the bevel. On a light page the lit rim has
+    ///     nowhere brighter to go, so a prominent piece was a pale shape on a
+    ///     pale page; this gives it an actual lit band at the top and a shade
+    ///     rising to the bottom edge.
+    ///   - The horizontal one is a ring, masked to the left and right, so it
+    ///     draws the sides in without adding to the bevel it sits over.
+    ///
+    /// The figures are the founder's, arrived at over five passes. The RIM is
+    /// not part of this: it is the frame round the piece and stays live.
+    private var innerRelief: some View {
+        ZStack {
+            shape
+                .fill(LinearGradient(
+                    stops: [.init(color: skeu.edgeLight.opacity(0.392), location: 0.00),
+                            .init(color: skeu.edgeLight.opacity(0.123), location: 0.14),
+                            .init(color: .clear, location: 0.34),
+                            .init(color: .clear, location: 0.60),
+                            .init(color: skeu.edgeShade.opacity(0.102), location: 0.80),
+                            .init(color: skeu.edgeShade.opacity(0.24), location: 1.00)],
+                    startPoint: .top, endPoint: .bottom))
+
+            shape
+                .strokeBorder(skeu.edgeShade.opacity(0.128), lineWidth: 13 * k)
+                .blur(radius: 9 * k)
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .black, location: 0.00),
+                                .init(color: .clear, location: 0.30),
+                                .init(color: .clear, location: 0.70),
+                                .init(color: .black, location: 1.00)],
+                        startPoint: .leading, endPoint: .trailing)
+                }
+                .clipShape(shape)
+        }
+        .allowsHitTesting(false)
     }
 
     /// Five concentric layers at 1% white each. Thickness, not a highlight.

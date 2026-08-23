@@ -58,26 +58,24 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
     /// the palette back over the blur, so the piece frosts without changing
     /// colour. Still no texture: a blur is a lens, not an image fill.
     var frosted: Bool = false
-    /// TRIAL, on one control only (founder direction 2026-08-23).
+    /// Whether this piece carries the light-mode relief: a prominent one on a
+    /// light page.
     ///
     /// In the dark the lit rim has all the room it needs and the buttons read
     /// as objects. In the light it has none — the material already sits near
-    /// the top of the range — so a prominent piece is a pale shape on a pale
+    /// the top of the range — so a prominent piece was a pale shape on a pale
     /// page.
     ///
-    /// The first attempt put a CONTACT edge along the bottom, opposite the lit
-    /// top. The founder rejected it and asked for the contrast to come from
-    /// INSIDE instead: the white frame first, then the interior shaded — hard
-    /// against the edge and easing to nothing toward the middle. Not along the
-    /// bottom, where the glow already lifts the piece, so it runs on three
-    /// sides only. And the white line itself a touch thicker.
+    /// The relief that answers that is drawn in the BAKED half; see
+    /// `SkeuGlassBackground.innerRelief`, which records what it is and why it
+    /// lives there rather than here. What it changes on THIS side is the rim:
+    /// a third thicker, and its top stop lifted 30%, because with the shade
+    /// off the top the rim is the only thing left saying where the light comes
+    /// from.
     ///
-    /// If the founder likes it, it stops being a flag and becomes what light
-    /// mode does.
-    var contrastProbe: Bool = false
-
-    /// Whether the trial applies here: a prominent piece on a light page.
-    private var shadesInward: Bool { contrastProbe && !skeu.isDark && prominent }
+    /// It was a flag on one control while the founder tuned it over five
+    /// passes (2026-08-23). It is what light mode does now.
+    private var shadesInward: Bool { !skeu.isDark && prominent }
 
     private var k: CGFloat { height / 104.54 }
 
@@ -108,9 +106,6 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
                     // plus-lighter over arbitrary content behind frosted glass
                     // is not something that can be predicted.
                 }
-            }
-            .overlay {
-                if shadesInward { innerShade }
             }
             .overlay {
                 shape.strokeBorder(rim, lineWidth: rimWidth)
@@ -216,58 +211,6 @@ struct SkeuGlass<S: InsettableShape>: ViewModifier {
         max(0.8, 2.971 * k * (shadesInward ? 1.35 : 1))
     }
 
-    /// The inside of the piece: lit at the top, shaded at the bottom, and
-    /// drawn in at the sides.
-    ///
-    /// TWO layers, because they answer to different axes and the founder
-    /// tuned them separately (2026-08-23).
-    ///
-    /// The vertical one is the bevel. It replaced a blurred stroke round the
-    /// whole outline — a stroke round an outline necessarily hugs the ends,
-    /// which is where the first version's side shading came from, and it left
-    /// the top with nothing but the rim: a line a couple of points wide, and
-    /// so no lit AREA to answer the shadow below. A gradient carries both ends
-    /// of the lighting and cannot draw the sides at all. Its top is at 0.7 of
-    /// where it started, the founder having found the first strength too much
-    /// once it was finally visible.
-    ///
-    /// The horizontal one puts the sides back — the ask was for them subtler,
-    /// not gone. It is the ring again, masked to the left and right so it adds
-    /// nothing to the bevel it sits over.
-    ///
-    /// Every figure below then came down a fifth, and the SHADE alone a
-    /// further fifth after that (founder direction 2026-08-23) — the highlight
-    /// was where he wanted it by then and only the dark half was still too
-    /// heavy. The RIM is left where it is throughout: it is the frame round
-    /// the piece, not part of the relief inside it.
-    private var innerShade: some View {
-        ZStack {
-            shape
-                .fill(LinearGradient(
-                    stops: [.init(color: skeu.edgeLight.opacity(0.392), location: 0.00),
-                            .init(color: skeu.edgeLight.opacity(0.123), location: 0.14),
-                            .init(color: .clear, location: 0.34),
-                            .init(color: .clear, location: 0.60),
-                            .init(color: skeu.edgeShade.opacity(0.102), location: 0.80),
-                            .init(color: skeu.edgeShade.opacity(0.24), location: 1.00)],
-                    startPoint: .top, endPoint: .bottom))
-
-            shape
-                .strokeBorder(skeu.edgeShade.opacity(0.128), lineWidth: 13 * k)
-                .blur(radius: 9 * k)
-                .mask {
-                    LinearGradient(
-                        stops: [.init(color: .black, location: 0.00),
-                                .init(color: .clear, location: 0.30),
-                                .init(color: .clear, location: 0.70),
-                                .init(color: .black, location: 1.00)],
-                        startPoint: .leading, endPoint: .trailing)
-                }
-                .clipShape(shape)
-        }
-        .allowsHitTesting(false)
-    }
-
     private func drop(_ alpha: Double) -> Color {
         skeu.shadow.opacity(alpha * skeu.shadowIntensity * strength)
     }
@@ -279,10 +222,8 @@ extension View {
     func skeuGlass<S: InsettableShape>(_ shape: S,
                                        height: CGFloat = 44,
                                        prominent: Bool = true,
-                                       frosted: Bool = false,
-                                       contrastProbe: Bool = false) -> some View {
+                                       frosted: Bool = false) -> some View {
         modifier(SkeuGlass(shape: shape, height: height,
-                           prominent: prominent, frosted: frosted,
-                           contrastProbe: contrastProbe))
+                           prominent: prominent, frosted: frosted))
     }
 }
