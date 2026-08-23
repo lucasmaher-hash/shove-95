@@ -143,9 +143,14 @@ struct SkeuLiveSection: View {
     ///
     /// Opening SPRINGS with some bounce: the box is being thrown open by the
     /// keys arriving under it, and a little overshoot is what that reads as.
-    /// Closing EASES OUT and takes slightly longer than the keyboard does, so
-    /// the box settles back rather than being back — the founder's complaint
-    /// was that it simply reappeared at its resting size.
+    /// Closing EASES OUT, so the box settles back rather than being back —
+    /// the founder's complaint was that it simply reappeared at its resting
+    /// size.
+    ///
+    /// It ran at 1.45× the keyboard's own duration and was cut by 30% at the
+    /// founder's word once it could be seen at all (2026-08-23). What is left
+    /// is 1.015 — near enough the keyboard's own time, which is a reasonable
+    /// place for it to have landed: the box arrives as the keys do.
     ///
     /// Both take the keyboard's own DURATION as their base, so neither drifts
     /// away from the keys it is moving with — and when it names none, the one
@@ -155,7 +160,7 @@ struct SkeuLiveSection: View {
         if change.overlap > 0 {
             return .spring(response: base, dampingFraction: 0.62)
         }
-        return .easeOut(duration: base * 1.45)
+        return .easeOut(duration: base * 1.015)
     }
 
     /// The box's resting size: one line, shown at the size it deserves.
