@@ -83,7 +83,12 @@ enum SkeuGlassBakery {
                 .frame(width: size.width, height: size.height)
                 .padding(pad)
         )
-        renderer.scale = UIScreen.main.scale
+        // The CURRENT trait collection, not `UIScreen.main` — that was
+        // deprecated in iOS 26 (the app's deployment target) and was always
+        // the wrong question to ask on a device that can drive a second
+        // display. The trait carries the scale of whatever this view is
+        // actually being drawn on.
+        renderer.scale = UITraitCollection.current.displayScale
         // Opaque would fill the transparent ground black; the lens stack is
         // almost entirely alpha.
         renderer.isOpaque = false

@@ -380,6 +380,6 @@ struct SkeuLiveSection: View {
         // back on. Silent when nothing changed.
         guard text != note?.title else { return }
         SkeuHaptic.success()
-        withAnimation(SkeuMotion.layout) { store.writeLiveNote(text) }
+        withAnimation(SkeuMotion.layout) { _ = store.writeLiveNote(text) }
     }
 }
