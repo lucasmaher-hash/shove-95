@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import CoreData   // NSPersistentStoreRemoteChange — see observeRemoteChanges
 import UIKit
 import Shove95Kit
 
@@ -24,6 +25,15 @@ struct TaskSnapshot {
     let createdAt: Date
     let sortOrder: Double
     let overduePlaced: Bool
+    /// WHICH LIST it came from. Absent, undo rebuilt the task with a nil
+    /// workspace, which the scoped queries read as the default one — so
+    /// undoing a delete inside "Work" silently moved the task to Personal and
+    /// it looked like undo had simply failed (found in review 2026-08-26).
+    let workspaceID: String?
+    /// Live state, so undoing the replacement `makeLive` performs can put the
+    /// old note back where it was rather than as a loose task.
+    let isLiveNote: Bool
+    let isPinned: Bool
     /// Raw bytes, oldest first — the records themselves are gone by the time
     /// undo runs (cascade delete), so the snapshot has to carry the payload.
     let photos: [Data]
@@ -49,13 +59,23 @@ enum LastAction {
 @Observable @MainActor
 final class TaskStore {
     @ObservationIgnored private let context: ModelContext
-    @ObservationIgnored let calendar = Calendar.current
+    /// AUTOUPDATING, so the store follows the device across a time zone.
+    /// `Calendar.current` is a snapshot: captured once into a `let` on an
+    /// object that lives for the whole process, it froze the departure zone.
+    /// Flying Berlin → New York then left the rollover pass computing "today"
+    /// in Berlin, marking a whole evening's tasks overdue and PERSISTING the
+    /// reshuffle via `overduePlaced`, which is a one-way latch (found in
+    /// review 2026-08-26).
+    @ObservationIgnored let calendar = Calendar.autoupdatingCurrent
     /// Injectable clock — the one place real time enters the system.
     @ObservationIgnored var now: () -> Date = { .now }
 
-    /// Bumped on every mutation. Query methods read it so views re-render;
-    /// the CloudKit phase adds a remote-change observer that bumps it too.
+    /// Bumped on every mutation, and by the remote-change observer below, so
+    /// query methods re-render for a sync as well as for a local edit.
     private(set) var revision = 0
+
+    /// Watches for changes CloudKit imported behind our back.
+    @ObservationIgnored private var remoteChangeObserver: (any NSObjectProtocol)?
 
     /// Single-level undo (PRD FR-009). The panel that surfaces it retires
     /// itself on a timer — it reports a change, it is not standing chrome.
@@ -86,36 +106,39 @@ final class TaskStore {
 
     init(context: ModelContext) {
         self.context = context
+        observeRemoteChanges()
     }
 
-    // MARK: Synced preferences (see AppPreferences.swift)
-
-    /// The account-wide preference record, created on first use. Deduped by
-    /// fixed id, oldest wins — two devices can each make one before they meet.
-    func preferences() -> AppPreferences {
-        _ = revision
-        let all = ((try? context.fetch(FetchDescriptor<AppPreferences>())) ?? [])
-            .filter { $0.id == AppPreferences.singletonID }
-            .sorted { $0.createdAt < $1.createdAt }
-        if let existing = all.first { return existing }
-        let fresh = AppPreferences()
-        context.insert(fresh)
-        commit()
-        return fresh
+    deinit {
+        if let remoteChangeObserver {
+            NotificationCenter.default.removeObserver(remoteChangeObserver)
+        }
     }
 
-    func setFontID(_ id: String) {
-        let preferences = preferences()
-        guard preferences.fontID != id else { return }
-        preferences.fontID = id
-        commit()
-    }
-
-    func setSchemeID(_ id: String) {
-        let preferences = preferences()
-        guard preferences.schemeID != id else { return }
-        preferences.schemeID = id
-        commit()
+    /// The observer the comment on `revision` had promised for a while and
+    /// that did not actually exist (found in review 2026-08-26).
+    ///
+    /// Every read in the app goes through this store and is gated on
+    /// `revision` — there is no `@Query` anywhere — so an import that no one
+    /// announces is invisible. A task added on another device landed in the
+    /// local store and simply did not appear until something else forced a
+    /// re-render, which made sync look broken on the very screen it serves.
+    private func observeRemoteChanges() {
+        remoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // The notification arrives off the main actor's knowledge even
+            // when delivered on the main queue, so the hop is explicit.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                // The context has to be told to pick the changes up before
+                // anything re-queries, or the re-render reads the old graph.
+                self.context.processPendingChanges()
+                self.revision &+= 1
+            }
+        }
     }
 
     // MARK: Workspaces (synced records — see Workspace.swift)
@@ -656,8 +679,15 @@ final class TaskStore {
     }
 
     /// Removes the live note entirely — the bin in the Live section.
+    ///
+    /// `!isCompleted` matters as much here as it does in `liveNote()`, and for
+    /// the same reason: a live note that has been ticked off is an ARCHIVE
+    /// record, not the live note. Without the clause this deleted every live
+    /// note the archive had ever kept, so writing a new one silently destroyed
+    /// the history of the old ones (found in review 2026-08-26).
     func clearLiveNote() {
-        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })
+        let descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isLiveNote && !$0.isCompleted })
         for note in (try? context.fetch(descriptor)) ?? [] {
             context.delete(note)
         }
@@ -675,7 +705,10 @@ final class TaskStore {
     /// Deletion here is not final: `delete(_:)` writes the undo snapshot, so
     /// the bar offers it back for the few seconds anyone would notice.
     func makeLive(_ task: TaskItem) {
-        let descriptor = FetchDescriptor<TaskItem>(predicate: #Predicate { $0.isLiveNote })
+        // `!isCompleted` for the reason given on `clearLiveNote` — archived
+        // live notes are not the incumbent and must not be swept up here.
+        let descriptor = FetchDescriptor<TaskItem>(
+            predicate: #Predicate { $0.isLiveNote && !$0.isCompleted })
         for held in (try? context.fetch(descriptor)) ?? [] where held.id != task.id {
             delete(held)
         }
@@ -715,7 +748,9 @@ final class TaskStore {
             title: task.title, dueDate: task.dueDate, isImportant: task.isImportant,
             isCompleted: task.isCompleted, completedAt: task.completedAt,
             createdAt: task.createdAt, sortOrder: task.sortOrder,
-            overduePlaced: task.overduePlaced, photos: task.allPhotos))
+            overduePlaced: task.overduePlaced, workspaceID: task.workspaceID,
+            isLiveNote: task.isLiveNote, isPinned: task.isPinned,
+            photos: task.allPhotos))
         context.delete(task)
         commit()
     }
@@ -766,6 +801,12 @@ final class TaskStore {
             task.createdAt = snapshot.createdAt
             task.sortOrder = snapshot.sortOrder
             task.overduePlaced = snapshot.overduePlaced
+            task.workspaceID = snapshot.workspaceID
+            task.isPinned = snapshot.isPinned
+            // Live is a SINGLE seat. If something else took it while the undo
+            // bar was still up, the restored note comes back as an ordinary
+            // task rather than fighting the incumbent for the Lock Screen.
+            task.isLiveNote = snapshot.isLiveNote && liveNote() == nil
             for (index, data) in snapshot.photos.enumerated() {
                 insertPhoto(data, into: task, order: index)
             }

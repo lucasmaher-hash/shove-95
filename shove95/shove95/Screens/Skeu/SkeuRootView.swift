@@ -547,6 +547,30 @@ struct SkeuRootView: View {
                 withTransaction(t) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
             }
         }
+        // The walkthrough's START signal is the add row's frame arriving —
+        // see OnboardingHost. The list is LAZY and the add row sits at its
+        // foot, so on a list long enough to fold, the row was never laid
+        // out, its frame never published, and "Show me" set the flag and
+        // then nothing happened (founder bug report 2026-08-25). Bringing
+        // the row on screen IS the start. Both hooks are needed: onChange
+        // for a replay while the root is up, onAppear for a launch that is
+        // already mid-walkthrough.
+        .onChange(of: settings.hasOnboarded) { _, done in
+            guard !done else { return }
+            Task { @MainActor in
+                withAnimation(SkeuMotion.layout) {
+                    proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
+                }
+            }
+        }
+        .onAppear {
+            guard !settings.hasOnboarded else { return }
+            Task { @MainActor in
+                withAnimation(SkeuMotion.layout) {
+                    proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
+                }
+            }
+        }
         } // ScrollViewReader
     }
 
@@ -1606,6 +1630,13 @@ private struct SkeuTaskRow: View {
             // becomes an input.
             .accessibilityElement(children: isEditing ? .contain : .ignore)
             .accessibilityLabel(isEditing ? "" : accessibilityDescription)
+            // The DEFAULT action, so a double-tap opens the row for typing the
+            // way a tap does for everyone else. Tap-to-edit is routed through
+            // the UIKit gesture catcher, which VoiceOver activation does not
+            // drive — so without this a VoiceOver user could create a task and
+            // delete it but never fix a typo in one (found in review
+            // 2026-08-26).
+            .accessibilityAction { if !isEditing { beginEditing() } }
             .accessibilityActions { if !isEditing { accessibilityMoveActions } }
     }
 
@@ -1648,8 +1679,62 @@ private struct SkeuTaskRow: View {
             Button(task.isImportant ? "Unmark Important" : "Mark as Important") {
                 store.toggleImportant(task)
             }
+            // REORDERING, which is otherwise a drag on `ReorderGrip` and so
+            // reachable by finger only. The grip's own accessibility label was
+            // dead code — it renders only when the row is NOT being edited,
+            // which is exactly when the row collapses its children away.
+            if canMoveUp {
+                Button("Move up") { moveByOne(up: true) }
+            }
+            if canMoveDown {
+                Button("Move down") { moveByOne(up: false) }
+            }
+        }
+        // The PHOTOS. The thumbnails are `.allowsHitTesting(false)` and opened
+        // by hit arithmetic, so their labels promised a full-screen view that
+        // no VoiceOver user could reach.
+        ForEach(Array(task.allPhotos.enumerated()), id: \.offset) { index, _ in
+            Button("Open photo \(index + 1)") { openViewer(index) }
         }
         Button("Delete") { store.delete(task) }
+    }
+
+    /// Where this row sits among the rows it can be reordered against. Nil
+    /// when the list did not hand any down — a completed run, or the carried
+    /// copy under the finger.
+    private var siblingIndex: Int? {
+        siblings.firstIndex { $0.id == task.id }
+    }
+
+    private var canMoveUp: Bool {
+        guard let index = siblingIndex else { return false }
+        return index > 0
+    }
+
+    private var canMoveDown: Bool {
+        guard let index = siblingIndex else { return false }
+        return index < siblings.count - 1
+    }
+
+    /// One place, in the given direction — the keyboard-and-VoiceOver
+    /// equivalent of picking the row up by its grip. Expressed as "which two
+    /// rows does it land between", which is what the store's reorder takes.
+    private func moveByOne(up: Bool) {
+        guard let index = siblingIndex else { return }
+        let above: TaskItem?
+        let below: TaskItem?
+        if up {
+            guard index > 0 else { return }
+            above = index >= 2 ? siblings[index - 2] : nil
+            below = siblings[index - 1]
+        } else {
+            guard index < siblings.count - 1 else { return }
+            above = siblings[index + 1]
+            below = index + 2 < siblings.count ? siblings[index + 2] : nil
+        }
+        withAnimation(SkeuMotion.layout) {
+            store.reorder(task, between: above, and: below, visible: siblings)
+        }
     }
 
     private var handlers: RowGestureHandlers {
@@ -1966,7 +2051,8 @@ private struct SkeuTaskRow: View {
                 // Wraps by itself as the text grows — the only way a task
                 // gains a line. Return commits (intercepted in the binding).
                 TextField("", text: returnCommitting, axis: .vertical)
-                    .font(SkeuFont.at(labelSize))
+                    // Semibold as well as red — see the resting title below.
+                    .font(SkeuFont.at(labelSize, weight: task.isImportant ? .semibold : .regular))
                     .tracking(-0.02 * F.label)
                     // Important stays red while you edit it — the flag doesn't
                     // pause because the caret is in the field.
@@ -1986,7 +2072,13 @@ private struct SkeuTaskRow: View {
                     .frame(minHeight: rowH, alignment: .top)
             } else {
                 Text(task.title)
-                    .font(SkeuFont.at(labelSize))
+                    // WEIGHT carries importance too, not just hue. Red alone
+                    // was the whole marker, so importance vanished entirely in
+                    // greyscale and for a colour-blind reader — WCAG 1.4.1
+                    // (found in review 2026-08-26). Semibold survives both.
+                    .font(SkeuFont.at(labelSize,
+                                      weight: task.isImportant && !task.isCompleted
+                                          ? .semibold : .regular))
                     .tracking(-0.02 * F.label)
                     // Important stays red — colour carries exactly one
                     // meaning.
@@ -2068,11 +2160,12 @@ private struct SkeuTaskRow: View {
                                        calendar: store.calendar) {
             Text(chip)
                 .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
-                .foregroundStyle(skeu.inkMuted)
-                // A quarter quieter than it was (founder direction
-                // 2026-08-23). It sits beside the grip now, and two marks at
-                // the right of a row want one weight between them.
-                .opacity(ReorderGrip.restingOpacity)
+                .foregroundStyle(skeu.ink)
+                // Quiet, but still READABLE — this is the only place the list
+                // says when a task is due, so it answers to 4.5:1. Quieted by
+                // opacity over `ink` rather than by reaching for `inkMuted`
+                // and dimming that too; see ReorderGrip.labelOpacity.
+                .opacity(ReorderGrip.labelOpacity)
                 // LEADING only — the eight points on its right were the
                 // first thing between it and the grip.
                 //

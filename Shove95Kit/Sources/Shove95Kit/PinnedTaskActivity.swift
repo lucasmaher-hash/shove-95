@@ -10,16 +10,16 @@
 //  appears.
 //
 //  COLOUR TRAVELS RESOLVED. The obvious design was to send a theme id and let
-//  the widget rebuild the palette, which would have meant moving Win95Theme,
-//  SkeuPalette and everything they touch into this package and making all of
-//  it public. Instead the app — which already owns the palette, and is the
-//  only place allowed to know colours (CLAUDE.md rule 2) — resolves them and
-//  sends the six it needs. The widget draws what it is handed and has no
-//  concept of a theme at all. Re-skinning the app re-skins the Lock Screen
-//  for free, with no widget code involved.
+//  the widget rebuild the palette, which would have meant moving SkeuPalette
+//  and everything it touches into this package and making all of it public.
+//  Instead the app — which already owns the palette, and is the only place
+//  allowed to know colours (CLAUDE.md rule 2) — resolves them and sends the
+//  six it needs. The widget draws what it is handed and has no concept of a
+//  theme at all. Re-skinning the app re-skins the Lock Screen for free, with
+//  no widget code involved.
 //
-//  What the widget still owns is GEOMETRY: a 2px bevel is not a colour, and
-//  neither is a soft-shadowed capsule. Those are drawn there.
+//  What the widget still owns is GEOMETRY: a soft-shadowed capsule is a
+//  drawing, not a colour. Those are drawn there.
 //
 
 import Foundation
@@ -71,9 +71,9 @@ public struct ActivityPalette: Codable, Hashable, Sendable {
     public var ink: ActivityColor
     public var inkMuted: ActivityColor
     public var accent: ActivityColor
-    /// Win95: the bright bevel edge. Skeu: the rim light.
+    /// The rim light.
     public var light: ActivityColor
-    /// Win95: the dark bevel edge. Skeu: the contact shadow.
+    /// The contact shadow.
     public var dark: ActivityColor
 
     public init(surface: ActivityColor, ink: ActivityColor, inkMuted: ActivityColor,

@@ -13,7 +13,6 @@ import Shove95Kit
 @Observable @MainActor
 final class AppSettings {
     private enum Key {
-        static let design = "settings.design"
         static let appearance = "settings.appearance"
         static let skeuTheme = "settings.skeu.theme"
         static let skeuFace = "settings.skeu.face"
@@ -59,13 +58,6 @@ final class AppSettings {
     /// founder should be able to make without a migration each time.
     var themeID: String = SkeuTheme.all[0].id {
         didSet { UserDefaults.standard.set(themeID, forKey: Key.themeID) }
-    }
-
-    /// Which visual language the app speaks. One case since 2026-08-22 — the
-    /// type survives because it is what the stored preference decodes into, so
-    /// an install that has a value written still reads cleanly.
-    var design: DesignMode {
-        didSet { UserDefaults.standard.set(design.rawValue, forKey: Key.design) }
     }
 
     /// Light / dark / follow-the-device.
@@ -149,11 +141,6 @@ final class AppSettings {
 
     init() {
 
-        // Skeu on a fresh install (founder direction 2026-08-17). Anyone who
-        // has already chosen keeps their choice — this is the fallback, not an
-        // override.
-        design = DesignMode(rawValue: UserDefaults.standard.string(forKey: Key.design) ?? "")
-            ?? .skeu
         appearance = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: Key.appearance) ?? "")
             ?? .system
         // "w95" was the all-pixel face, cut on 2026-08-22. Decoding it now

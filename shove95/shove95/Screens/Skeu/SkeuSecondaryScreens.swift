@@ -85,10 +85,14 @@ private struct SkeuSheet<Content: View>: View {
                     content
                         .padding(.horizontal, S.margin)
                         // Room for the panels' own shadows. They reach about
-                        // 16pt above their frame, and the scroll view clips to
-                        // its bounds — so the first card's top shading was cut
-                        // straight off (founder bug report 2026-08-17).
-                        .padding(.top, SkeuSpace.md)
+                        // 16pt above their frame (radius 26.8 minus offset
+                        // 10.6), and the scroll view clips to its bounds — so
+                        // the first card's top shading was cut straight off
+                        // (founder bug report 2026-08-17). The first fix gave
+                        // 12pt against a 16pt reach, which only moved the cut
+                        // line (founder bug report 2026-08-25) — 20pt actually
+                        // clears it.
+                        .padding(.top, SkeuSpace.xl)
                         // Clears the home indicator by padding, since the
                         // scroll view now runs past the safe area — the same
                         // fix the settings sheet took (2026-08-16).
@@ -105,6 +109,16 @@ private struct SkeuSheet<Content: View>: View {
                 // passes under it — the settings sheet got this and Archive,
                 // About and How to use were left without it.
                 .skeuScrollEdgeFade(28 * chromeScale, edges: .top)
+                // ALWAYS-ON, unlike the scroll fade above, and sized to the
+                // top clearance so it ends where the first card begins. The
+                // panels' wide shadow (radius 49) washes far past any padding
+                // the sheet could give it, so at rest — when the scroll fade
+                // is off — the wash still met the clip in a hard line
+                // (founder bug report 2026-08-25). Ramping it to nothing at
+                // the bound is the only thing that reads as falloff rather
+                // than as a cut. Masks multiply, so stacking this under the
+                // scroll fade only steepens the very top while scrolled.
+                .skeuEdgeFade(top: SkeuSpace.xl * chromeScale)
                 // LAST, after the fade — the order settings uses.
                 //
                 // The fade is a MASK, and a mask is built from the bounds of
@@ -422,16 +436,19 @@ struct SkeuHowToView: View {
     /// sheet on top of it would be pointing at controls nobody can see.
     var onReplay: () -> Void
 
-    /// Drives the label's breath. Set once on appear.
+    /// Drives the label's breath. Set once on appear. The inner light needs
+    /// no state — its wander rides a TimelineView, see `replayBar`.
     @State private var breathing = false
-    /// The docked bar's measured height, so the last card can clear it.
-    /// Measured rather than assumed: the bar is a tenth of the screen, which
-    /// is not a number this file otherwise knows.
-    @State private var barHeight: CGFloat = 0
 
     var body: some View {
         SkeuSheet(title: "How to use", onClose: onClose) {
             LazyVStack(alignment: .leading, spacing: SkeuSpace.lg) {
+                // FIRST, and part of the page (founder direction 2026-08-26,
+                // superseding the docked bottom bar of 2026-08-17): it
+                // scrolls away with everything else rather than standing
+                // over the list.
+                replayBar
+
                 // The shape of the app: its own panel, and untitled, because
                 // these are not a category — see HowToContent.
                 SkeuPanel {
@@ -458,54 +475,112 @@ struct SkeuHowToView: View {
                     }
                 }
             }
-            // Clears the docked bar below, which lies OVER this scroll view
-            // rather than beside it — the sheet's own frame is one piece.
-            .padding(.bottom, barHeight)
         }
-        .overlay(alignment: .bottom) { replayBar }
     }
 
-    /// The whole bottom edge of the screen, a tenth of it tall (founder
-    /// direction 2026-08-17).
+    /// A tenth of the screen tall, riding at the top of the scroll.
     private var replayBar: some View {
-        Text("Show me")
-            .font(SkeuFont.at(labelSize * 1.32, weight: .semibold))
-            // The CANVAS, on the accent — the one pairing in the palette that
-            // is guaranteed to hold at both appearances, since the canvas is
-            // what the accent is always seen against.
-            .foregroundStyle(skeu.canvas)
-            // The BREATH. Scale, not tone: the founder asked for it to grow
-            // and shrink, and tone in this look already means depth.
-            .scaleEffect(breathing && !reduceMotion ? 1.08 : 1.0)
-            .animation(breath, value: breathing)
+        let shape = RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
+
+        return Text("Show me")
+            .font(SkeuFont.at(labelSize * 1.6, weight: .semibold))
+            // The accent driven DOWN, not the canvas: the body is the accent
+            // washed pale, and pale-on-pale is no pairing at all. The
+            // darkened accent keeps the word inside the jelly's own family.
+            .foregroundStyle(skeu.accent.shifted(sat: 0.08, bri: -0.30))
             .frame(maxWidth: .infinity)
             // A tenth of the SCREEN, inset from all three edges (founder
             // direction 2026-08-17). It was a full-bleed slab, which is the
             // one thing this look never does — nothing here runs into the
             // bezel, and a rounded shape needs room to be seen rounding.
             .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
-            // FLAT, and the one flat object in the look (founder direction
-            // 2026-08-17). Everything else here is a surface with a rim and a
-            // shadow; this is asked to stand apart from all of it, and the
-            // accent at full strength with no depth is what does that. The
-            // press still answers — `skeuPress` scales it — so the control is
-            // not silent, it simply has no material.
+            // JELLY, not a slab (founder direction 2026-08-25, from a
+            // reference image): a pale glassy body with a saturated light
+            // INSIDE it, every corner equally rounded.
             .background {
-                RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
-                    .fill(skeu.accent)
+                shape.fill(
+                    LinearGradient(colors: [skeu.accent.shifted(sat: -0.32, bri: 0.34),
+                                            skeu.accent.shifted(sat: -0.18, bri: 0.22)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
             }
-            .padding(.horizontal, S.margin)
-            .padding(.bottom, SkeuSpace.lg)
-            .contentShape(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous))
+            // The INNER LIGHT, and it WANDERS: two blobs on layered sine
+            // paths whose frequencies share no common divisor, so the motion
+            // loops without ever visibly repeating — up, down, across, and
+            // gently swelling and dimming as it goes (founder direction
+            // 2026-08-25: all directions, with a fade, natural). A timeline
+            // rather than a two-pose toggle: a toggle can only ever slide
+            // between its two poses. Clipped to the shape: the light is IN
+            // the jelly, never spilling past its skin. Reduce Motion pauses
+            // the timeline, which holds the light still.
+            .overlay {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+                    GeometryReader { geo in
+                        let w = geo.size.width, h = geo.size.height
+                        let t = reduceMotion ? 0
+                            : context.date.timeIntervalSinceReferenceDate
+                        // BRIGHTENED, never the raw accent: the raw accent is
+                        // darker than the pale body, and dark-in-light reads
+                        // as a stain, not a glow.
+                        let glow = skeu.accent.shifted(sat: 0.30, bri: 0.14)
+                        ZStack {
+                            Circle()
+                                .fill(RadialGradient(colors: [glow.opacity(0.60 + 0.13 * sin(t * 0.83 + 0.9)),
+                                                              glow.opacity(0)],
+                                                     center: .center, startRadius: 0, endRadius: h * 1.45))
+                                .frame(width: h * 2.9, height: h * 2.9)
+                                .position(x: w * (0.50 + 0.16 * sin(t * 0.59) + 0.05 * sin(t * 1.51 + 2.1)),
+                                          y: h * (0.40 + 0.16 * sin(t * 0.97 + 1.3)))
+                                .blur(radius: 6)
+                            Circle()
+                                .fill(RadialGradient(colors: [glow.opacity(0.32 + 0.10 * sin(t * 1.13 + 2.6)),
+                                                              glow.opacity(0)],
+                                                     center: .center, startRadius: 0, endRadius: h * 1.0))
+                                .frame(width: h * 2.0, height: h * 2.0)
+                                .position(x: w * (0.50 - 0.13 * sin(t * 0.73 + 0.6) + 0.05 * sin(t * 1.87)),
+                                          y: h * (0.52 - 0.14 * sin(t * 0.47 + 3.4)))
+                                .blur(radius: 8)
+                        }
+                    }
+                }
+                .clipShape(shape)
+                .allowsHitTesting(false)
+            }
+            // The SKIN: a bright glossy rim, strongest at the top where the
+            // light hits, and a sheen across the upper face. `edgeLight`
+            // rather than any literal white — the token that plays the rim
+            // light everywhere else.
+            .overlay {
+                shape.fill(
+                    LinearGradient(stops: [.init(color: skeu.edgeLight.opacity(0.5), location: 0.0),
+                                           .init(color: skeu.edgeLight.opacity(0.08), location: 0.3),
+                                           .init(color: .clear, location: 0.5)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .padding(S.cardRim * 0.5)
+                .allowsHitTesting(false)
+            }
+            .overlay {
+                shape.strokeBorder(
+                    LinearGradient(stops: [.init(color: skeu.edgeLight, location: 0.0),
+                                           .init(color: skeu.edgeLight.opacity(0.35), location: 0.5),
+                                           .init(color: skeu.edgeLight.opacity(0.7), location: 1.0)],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: S.cardRim * 0.6)
+            }
+            // The pair every raised surface carries: contact + ambient.
+            .shadow(color: skeu.shadow.opacity(0.22 * skeu.shadowIntensity),
+                    radius: 9, x: -2.2, y: 4.5)
+            .shadow(color: skeu.shadow.opacity(0.16 * skeu.shadowIntensity),
+                    radius: 24, x: -6, y: 12)
+            // The BREATH — on the WHOLE button, decoration and all, not just
+            // the word (founder direction 2026-08-25). Scale, not tone: tone
+            // in this look already means depth.
+            .scaleEffect(breathing && !reduceMotion ? 1.03 : 1.0)
+            .animation(breath, value: breathing)
+            .contentShape(shape)
             .skeuPress { onReplay() }
             .onAppear { breathing = true }
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { barHeight = proxy.size.height }
-                        .onChange(of: proxy.size.height) { _, h in barHeight = h }
-                }
-            }
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Show me how to use the app")
     }
