@@ -54,9 +54,15 @@ enum DayPickerRange {
         }
     }
 
+    /// Gregorian components for a Gregorian name table — see
+    /// `DayHeading.naming`, which this shares the reasoning (and the bug) with:
+    /// a Hebrew or Ethiopic calendar reports month 13 and ran off the end of
+    /// this array, crashing the day picker (found in review 2026-08-26).
     static func title(for month: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.year, .month], from: month)
-        return "\(monthNames[parts.month ?? 1]) \(parts.year ?? 0)"
+        let parts = DayHeading.naming(calendar).dateComponents([.year, .month], from: month)
+        let index = parts.month ?? 1
+        let name = monthNames.indices.contains(index) ? monthNames[index] : ""
+        return "\(name) \(parts.year ?? 0)"
     }
 
     /// One month as a flat run of cells — see `MonthGrid`, which lives in the

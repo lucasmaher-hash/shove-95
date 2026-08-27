@@ -78,8 +78,22 @@ final class LiveActivityController {
         // Adopt anything already running — after a cold launch this process
         // has no handle on the activity from the last one, and requesting a
         // second would leave two cards on the Lock Screen.
+        // A handle whose activity iOS has already ENDED is not a running
+        // card. iOS retires every Live Activity at an eight-hour ceiling and
+        // tells nobody, so `current` stayed non-nil pointing at a dead
+        // activity — every later reconcile then `update`d into the void and
+        // the Lock Screen stayed empty for the rest of the process (found in
+        // review 2026-08-26). Dropping the stale handle lets the request path
+        // below build a fresh card.
+        if let running = current, running.activityState != .active {
+            current = nil
+        }
+
         if current == nil {
+            // `.active` only, for the reason above — `Activity.activities` can
+            // still list one iOS has just ended.
             let running = Activity<PinnedTaskAttributes>.activities
+                .filter { $0.activityState == .active }
             current = running.first
             // Retire any extras a previous run left behind. Without this a
             // ghost from a crashed session is invisible to every code path

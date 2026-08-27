@@ -214,6 +214,75 @@ struct DayHeadingTests {
         let day = Fixed.date(2026, 8, 3, 0, 0)
         #expect(DayHeading.label(for: day, calendar: Fixed.calendar) == "Mon 3 Aug")
     }
+
+    // MARK: The device calendar (regression, review 2026-08-26)
+    //
+    // The name tables have 8 and 13 slots, but `weekday` and `month` were read
+    // through the USER's calendar. A Hebrew leap year, and every Coptic and
+    // Ethiopic year, reports month 13 — which ran off the end of the table and
+    // trapped. The Soon tab builds one of these per day heading, so the tab
+    // crashed outright for anyone whose device calendar was one of those.
+
+    /// Every calendar Foundation ships.
+    static let allCalendars: [Calendar.Identifier] = [
+        .gregorian, .buddhist, .chinese, .coptic, .ethiopicAmeteMihret,
+        .ethiopicAmeteAlem, .hebrew, .indian, .islamic, .islamicCivil,
+        .islamicTabular, .islamicUmmAlQura, .iso8601, .japanese, .persian,
+        .republicOfChina
+    ]
+
+    private static func calendar(_ identifier: Calendar.Identifier) -> Calendar {
+        var calendar = Calendar(identifier: identifier)
+        calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
+        return calendar
+    }
+
+    /// A full year against every calendar — 5 856 labels, none of which may
+    /// trap. Stepping by day rather than by month is deliberate: monthly steps
+    /// would skip the thirteenth month a leap year introduces.
+    @Test("never traps, on any calendar, on any day of the year")
+    func neverTrapsOnAnyDeviceCalendar() {
+        for identifier in Self.allCalendars {
+            let calendar = Self.calendar(identifier)
+            for dayOffset in 0..<366 {
+                let day = Fixed.calendar.date(byAdding: .day, value: dayOffset,
+                                              to: Fixed.date(2026, 1, 1, 0, 0))!
+                #expect(!DayHeading.label(for: day, calendar: calendar).isEmpty)
+            }
+        }
+    }
+
+    /// The exact case that crashed.
+    @Test("a Hebrew thirteenth month does not trap")
+    func hebrewThirteenthMonth() {
+        let hebrew = Self.calendar(.hebrew)
+        let day = Fixed.date(2026, 8, 26, 0, 0)
+        #expect(hebrew.dateComponents([.month], from: day).month == 13,
+                "the regression needs a month-13 date to be meaningful")
+        #expect(DayHeading.label(for: day, calendar: hebrew) == "Wed 26 Aug")
+    }
+
+    /// The names stay GREGORIAN whatever the reader runs: Hebrew month 5 is
+    /// not May, and a heading that renamed itself per device would also reflow
+    /// the list it heads.
+    @Test("names stay Gregorian regardless of the device calendar")
+    func namingIsGregorian() {
+        let day = Fixed.date(2026, 4, 14, 0, 0)
+        for identifier in Self.allCalendars {
+            #expect(DayHeading.label(for: day, calendar: Self.calendar(identifier)) == "Tue 14 Apr")
+        }
+    }
+
+    /// The TIME ZONE still comes from the caller — which day a moment falls on
+    /// is a question about where the reader is standing.
+    @Test("the caller's time zone still decides the day")
+    func timeZoneStillHonoured() {
+        // 00:30 in Berlin is still 12:30 the previous afternoon in Honolulu.
+        let moment = Fixed.date(2026, 4, 14, 0, 30)
+        var honolulu = Calendar(identifier: .hebrew)
+        honolulu.timeZone = TimeZone(identifier: "Pacific/Honolulu")!
+        #expect(DayHeading.label(for: moment, calendar: honolulu) == "Mon 13 Apr")
+    }
 }
 
 @Suite("Month grid layout")

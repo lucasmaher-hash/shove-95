@@ -34,10 +34,28 @@ public enum DayHeading {
     private static let months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+    /// These names are GREGORIAN, so the components that index them have to be
+    /// Gregorian too — read through the user's calendar they were both wrong
+    /// and unsafe. A Hebrew, Coptic or Ethiopic calendar reaches month 13,
+    /// which ran straight off the end of a 13-element table and crashed the
+    /// Soon tab (found in review 2026-08-26); short of that it simply printed
+    /// the wrong month, since Hebrew month 5 is not May.
+    ///
+    /// The TIME ZONE still comes from the caller's calendar: which day a date
+    /// falls on is a question about where the reader is, and only the naming
+    /// is fixed.
+    public static func naming(_ calendar: Calendar) -> Calendar {
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = calendar.timeZone
+        return gregorian
+    }
+
     public static func label(for day: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.weekday, .day, .month], from: day)
-        let weekday = weekdays[parts.weekday ?? 1]
-        let month = months[parts.month ?? 1]
+        let parts = naming(calendar).dateComponents([.weekday, .day, .month], from: day)
+        // Indexed defensively as well as corrected above: a label is not worth
+        // a crash under any component this table has not anticipated.
+        let weekday = weekdays.indices.contains(parts.weekday ?? 1) ? weekdays[parts.weekday ?? 1] : ""
+        let month = months.indices.contains(parts.month ?? 1) ? months[parts.month ?? 1] : ""
         return "\(weekday) \(parts.day ?? 1) \(month)"
     }
 }
