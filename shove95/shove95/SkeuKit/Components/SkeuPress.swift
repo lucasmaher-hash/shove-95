@@ -41,11 +41,18 @@ private struct SkeuPress: ViewModifier {
     let haptic: Bool
 
     @State private var swollen = false
+    /// §8.5, and this modifier was the one that missed it. `SkeuPressStyle`
+    /// and `SkeuPulse` both guard their motion; this is the most-used of the
+    /// three (27 call sites — every control in the look), so with Reduce
+    /// Motion on, the whole app still sprang on every tap (found in review
+    /// 2026-08-26). The press still ANSWERS — the haptic and the action are
+    /// untouched — it simply stops moving.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         let shape = content
-            .scaleEffect(swollen ? SkeuMotion.pressGrow : 1)
-            .animation(SkeuMotion.pressSwell, value: swollen)
+            .scaleEffect(reduceMotion ? 1 : (swollen ? SkeuMotion.pressGrow : 1))
+            .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.pressSwell, value: swollen)
 
         if let action {
             shape

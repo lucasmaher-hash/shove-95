@@ -121,11 +121,17 @@ extension SkeuPalette {
                 // old stops were mid-tones tuned against a mid-tone material.
                 positive:       Color(h: 0.35, s: 0.52, b: 0.42),
                 caution:        Color(h: 0.10, s: 0.72, b: 0.52),
-                // Brighter than the rest of the light ladder on purpose.
-                // Important is the one thing on the screen that has to shout,
-                // and at b 0.48 the strike read as maroon beside a pure red
-                // (founder direction 2026-08-17).
-                critical:       Color(h: 0.02, s: 0.88, b: 0.74),
+                // DARK, and deliberately so, reversing the 2026-08-17
+                // direction that kept it bright because "important has to
+                // shout". It shouted at 2.66:1 against the cream canvas and
+                // 1.76:1 against rose — colour-only signalling, under half the
+                // 4.5:1 text floor, so the one thing that had to shout was the
+                // one thing a low-vision reader could not hear (measured in
+                // review 2026-08-26). 0.42 clears 4.5:1 on all four canvases.
+                // The shout now comes from WEIGHT as well as hue — an
+                // important title is semibold — which is what makes the marker
+                // survive greyscale at all (founder direction 2026-08-26).
+                critical:       Color(h: 0.02, s: 0.88, b: 0.42),
 
                 // Also absolute, and also on purpose: shadow carries the
                 // depth on a light theme, so it must not lift with the base.
@@ -180,7 +186,7 @@ extension SkeuPalette {
             // the dark-mode strike came out coral — bright enough and not RED
             // enough, which is the half of the complaint the light branch did
             // not answer (founder direction 2026-08-17).
-            critical:       Color(h: 0.02, s: 0.80, b: 0.86),
+            critical:       Color(h: 0.02, s: 0.60, b: 1.00),
 
             shadow:         Color(h: s.h, s: min(s.s * 1.5, 1), b: 0.04),
             shadowIntensity: 0.9,

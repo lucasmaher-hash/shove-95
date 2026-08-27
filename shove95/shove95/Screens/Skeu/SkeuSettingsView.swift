@@ -943,5 +943,10 @@ private struct SkeuTabMenu: View {
                 settings.setTimeRules(isOn, for: bucket)
             }
         }
+        // The traits every other segmented control in the app carries. Without
+        // them these read as two pieces of static text, and since selection is
+        // otherwise carried purely by the glass pill, a VoiceOver user had no
+        // way to tell which of On/Off was active (found in review 2026-08-26).
+        .accessibilityAddTraits(enabled == isOn ? [.isButton, .isSelected] : .isButton)
     }
 }

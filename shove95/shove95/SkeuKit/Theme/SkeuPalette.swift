@@ -218,7 +218,7 @@ extension SkeuPalette {
         // 3:1. Critical was 3.58:1 against the light material and is 4.7 now.
         positive:       Color(hex: 0x46613C),
         caution:        Color(hex: 0x8A6320),
-        critical:       Color(hex: 0xD1462C), // lifted — see the derived palette
+        critical:       Color(hex: 0x6B180D), // darkened to 4.6:1 — see the derived palette
 
         shadow:         Color(hex: 0x2E1F12),
         shadowIntensity: 1.0,
@@ -264,7 +264,7 @@ extension SkeuPalette {
 
         positive:       Color(hex: 0x8AA37B),
         caution:        Color(hex: 0xD9A94E),
-        critical:       Color(hex: 0xE85A3C), // saturated — see the derived palette
+        critical:       Color(hex: 0xFF7866), // lifted to 5.2:1 — see the derived palette
 
         shadow:         Color(hex: 0x080503),
         shadowIntensity: 0.9,

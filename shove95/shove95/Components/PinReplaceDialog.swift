@@ -72,6 +72,12 @@ struct SkeuPinReplaceDialog: View {
             .skeuSurface(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
                          depth: .overlay)
             .padding(.horizontal, SkeuSpace.xl)
+            // MODAL to VoiceOver as well as to the finger. The scrim already
+            // swallows taps, but without this trait a VoiceOver user could
+            // swipe straight past the question into the list underneath and
+            // act on it — including deleting more — while "this goes for good"
+            // was still on screen (found in review 2026-08-26).
+            .accessibilityAddTraits(.isModal)
         }
     }
 

@@ -133,6 +133,10 @@ private struct SkeuCardView: View {
                     }
             }
             .buttonStyle(.plain)
+            // Without this VoiceOver reads the SF Symbol's name — "checkmark,
+            // button" — on the Lock Screen, which says nothing about what it
+            // does or to what (found in review 2026-08-26).
+            .accessibilityLabel("Complete \(state.title)")
         }
         .padding(18)
         .background {
@@ -179,6 +183,7 @@ private struct ExpandedIsland: View {
                     .foregroundStyle(Color(state.palette.accent))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Complete \(state.title)")
         }
         .padding(.horizontal, 4)
     }

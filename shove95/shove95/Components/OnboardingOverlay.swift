@@ -140,6 +140,11 @@ struct SkeuOnboardingOverlay: View {
         let height = SkeuToggle.height * chromeScale
 
         return HStack(spacing: SkeuSpace.md) {
+            // Both carry `.isButton`: `.skeuPress` is an onTapGesture on a
+            // Text, so without the trait VoiceOver announced the walkthrough's
+            // only two controls as static text (found in review 2026-08-26) —
+            // and the "shove" step otherwise advances on a swipe, which
+            // VoiceOver cannot perform, so Next is the only way through.
             Text("Skip")
                 .font(SkeuFont.at(labelSize, weight: .medium))
                 .foregroundStyle(skeu.inkMuted)
@@ -148,6 +153,8 @@ struct SkeuOnboardingOverlay: View {
                 .skeuGlass(Capsule(), height: height, prominent: false)
                 .contentShape(Capsule())
                 .skeuPress(onSkip)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Skip the walkthrough")
 
             Spacer(minLength: 0)
 
@@ -159,6 +166,7 @@ struct SkeuOnboardingOverlay: View {
                 .skeuGlass(Capsule(), height: height, prominent: true)
                 .contentShape(Capsule())
                 .skeuPress(onNext)
+                .accessibilityAddTraits(.isButton)
         }
         .padding(.horizontal, SkeuSpace.lg)
         .padding(.vertical, SkeuSpace.md)
