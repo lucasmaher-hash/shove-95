@@ -149,16 +149,32 @@ private struct SkeuSheet<Content: View>: View {
 /// The settings card, reused. Kept private to this file rather than shared
 /// with SkeuSettingsView: the two will drift, and a "generic card" that both
 /// import is the kind of premature abstraction that ends up with six flags.
-private struct SkeuPanel<Content: View>: View {
+/// A block CUT INTO the page: an optional label sitting ABOVE the frame, and
+/// the content in a shallow trough beneath it.
+///
+/// This replaced `SkeuPanel`, the raised card these screens used to be. The
+/// archive went first (founder direction 2026-08-23) and How to use followed
+/// (2026-09-01); About dropped its frames entirely, so nothing raised is left
+/// and the old panel went with it. Both remaining screens share THIS type
+/// rather than each drawing their own trough, so "the same as the archive"
+/// stays true rather than merely starting out true.
+///
+/// Why a trough. These are read-only screens — records filed away, gestures
+/// looked up — and a recess says "filed" where a raised card says "act on me".
+/// It is also what made them cheap: a raised panel carried two blurred
+/// shadows, radius 26.8 and 49, per frame and none of them baked, while a
+/// trough's inner shadows are rasterised once (see InnerShadow).
+private struct SkeuWell<Content: View>: View {
     @Environment(\.skeuTextScale) private var textScale
-    @Environment(\.skeuChromeScale) private var chromeScale
-
-    // Dynamic Type (FR-015) — see SkeuTypeScale.
-    private var labelSize: CGFloat { S.label * textScale }
-    private var pillH: CGFloat { S.pillHeight * chromeScale }
-    private var closeSize: CGFloat { S.closeCircle * chromeScale }
     @Environment(\.skeu) private var skeu
     var title: String?
+    /// A HEADING rather than an eyebrow: bigger, bolder and in full ink.
+    ///
+    /// The archive's dates are captions for a frame full of records, so they
+    /// stay faint and small. How to use has only three frames and the words
+    /// above them are the screen's structure, which is a different job
+    /// (founder direction 2026-09-01).
+    var prominentTitle: Bool = false
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -166,36 +182,27 @@ private struct SkeuPanel<Content: View>: View {
 
         VStack(alignment: .leading, spacing: SkeuSpace.sm) {
             if let title {
+                // A LABEL for the frame, so it sits above rather than inside.
                 Text(title)
-                    .font(SkeuFont.eyebrow)
+                    .font(prominentTitle
+                          ? SkeuFont.at(S.label * textScale * 1.3, weight: .bold)
+                          : SkeuFont.eyebrow)
                     .textCase(.uppercase)
                     .tracking(0.8)
-                    .foregroundStyle(skeu.inkFaint)
+                    .foregroundStyle(prominentTitle ? skeu.ink : skeu.inkFaint)
+                    .padding(.leading, SkeuSpace.sm)
             }
+
             content
+                .padding(S.cardPad)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // SHALLOWER than the live box, which the founder asked for by
+                // name: the ramp finishes sooner, the shade runs at under half
+                // weight and the floor is lifted further. A well holding a few
+                // lines of text should read as a recess, not as a pit.
+                .skeuTrough(shape, height: 56, fillStop: 0.20, shadeScale: 0.42,
+                            fillLift: 0.70)
         }
-        .padding(S.cardPad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            shape.fill(
-                LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-        }
-        .overlay {
-            // Raised contour: lit on top, falling into shade below.
-            shape.strokeBorder(
-                LinearGradient(
-                    stops: [.init(color: skeu.outlineLit, location: 0.0),
-                            .init(color: skeu.outline, location: 0.55),
-                            .init(color: skeu.outline, location: 1.0)],
-                    startPoint: .top, endPoint: .bottom),
-                lineWidth: S.cardRim)
-        }
-        .shadow(color: skeu.shadow.opacity(0.19 * skeu.shadowIntensity),
-                radius: 26.8, x: -6.5, y: 10.6)
-        .shadow(color: skeu.shadow.opacity(0.16 * skeu.shadowIntensity),
-                radius: 49, x: -25.4, y: 42)
     }
 }
 
@@ -234,49 +241,17 @@ struct SkeuArchiveView: View {
     }
 
     /// One day's block: the date ABOVE the frame, and the tasks cut into the
-    /// page below it (founder direction 2026-08-23).
-    ///
-    /// It was a raised card with the date inside it — `SkeuPanel`, which is
-    /// what About and How to use still are. Two changes at once:
-    ///
-    ///   - INDENTED rather than standing off the page, like the live box. A
-    ///     screen of read-only records is a set of things filed away, and the
-    ///     look already says "filed" with a trough.
-    ///   - The date is a LABEL for the frame, so it sits above it rather than
-    ///     inside it.
-    ///
-    /// And it is the reason the screen was heavy. Every panel carried two
-    /// blurred shadows, at radius 26.8 and 49, one pair per day and none of
-    /// them baked — the archive was the last place in the app still paying
-    /// that per frame. A trough's inner shadows are rasterised once (see
-    /// InnerShadow), so the whole cost goes.
+    /// page below it (founder direction 2026-08-23). The trough itself lives
+    /// in `SkeuWell`, which How to use now shares — see its note.
     @ViewBuilder
     private func day(_ group: (day: Date, tasks: [TaskItem])) -> some View {
-        let shape = RoundedRectangle(cornerRadius: S.cardRadius, style: .continuous)
-
-        VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-            Text(group.day.formatted(
-                .dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                .font(SkeuFont.eyebrow)
-                .textCase(.uppercase)
-                .tracking(0.8)
-                .foregroundStyle(skeu.inkFaint)
-                .padding(.leading, SkeuSpace.sm)
-
+        SkeuWell(title: group.day.formatted(
+            .dateTime.weekday(.abbreviated).day().month(.abbreviated))) {
             VStack(spacing: SkeuSpace.sm) {
                 ForEach(group.tasks, id: \.id) { task in
                     row(task)
                 }
             }
-            .padding(S.cardPad)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // SHALLOWER than the live box, which the founder asked for by
-            // name: the ramp finishes sooner, the shade runs at under half
-            // weight and the floor is lifted further. A well holding a few
-            // lines of struck-through text should read as a recess, not as a
-            // pit.
-            .skeuTrough(shape, height: 56, fillStop: 0.20, shadeScale: 0.42,
-                        fillLift: 0.70)
         }
     }
 
@@ -331,40 +306,59 @@ struct SkeuAboutView: View {
 
     var body: some View {
         SkeuSheet(title: "About", onClose: onClose) {
+            // NO panels here (founder direction 2026-09-01). About is the one
+            // screen with nothing to group — a name, a version, two licence
+            // lines — so the raised card was drawing a boundary around text
+            // that needed none. The words sit on the canvas instead; the
+            // section heading, which the panel used to supply, stays.
             VStack(alignment: .leading, spacing: SkeuSpace.lg) {
-                SkeuPanel {
-                    VStack(alignment: .leading, spacing: SkeuSpace.sm) {
-                        Text("shove.95")
-                            .font(SkeuFont.display)
-                            .foregroundStyle(skeu.ink)
+                VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+                    Text("shove.95")
+                        .font(SkeuFont.display)
+                        .foregroundStyle(skeu.ink)
 
-                        Text("Version \(version) (\(build))")
-                            .font(SkeuFont.at(labelSize))
-                            .foregroundStyle(skeu.inkMuted)
+                    Text("Version \(version) (\(build))")
+                        .font(SkeuFont.at(labelSize))
+                        .foregroundStyle(skeu.inkMuted)
 
-                        Text("Four tabs. One swipe moves a task between them.")
-                            .font(SkeuFont.at(labelSize))
-                            .foregroundStyle(skeu.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, SkeuSpace.xs)
-                    }
+                    Text("Four tabs. One swipe moves a task between them.")
+                        .font(SkeuFont.at(labelSize))
+                        .foregroundStyle(skeu.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, SkeuSpace.xs)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                SkeuPanel(title: "Credits") {
+                // The eyebrow the panel used to draw, kept verbatim so the
+                // credits still announce themselves as a section.
+                VStack(alignment: .leading, spacing: SkeuSpace.sm) {
+                    Text("Credits")
+                        .font(SkeuFont.eyebrow)
+                        .textCase(.uppercase)
+                        .tracking(0.8)
+                        .foregroundStyle(skeu.inkFaint)
+
                     VStack(alignment: .leading, spacing: SkeuSpace.md) {
-                        // Both credits are licence conditions, not courtesies.
+                        // A licence condition, not a courtesy: W95FA ships
+                        // under the SIL OFL, which requires the attribution.
+                        // The font is still bundled and still what "Retro"
+                        // selects, so this stays even though the Windows 95
+                        // chrome around it does not.
+                        //
+                        // The Microsoft non-affiliation line that used to sit
+                        // here went with that chrome (founder direction
+                        // 2026-09-01): nothing in the app imitates Windows 95
+                        // any more, so it was disclaiming a resemblance that
+                        // no longer exists.
                         Text("Typeface: W95FA by Alina Sava (SIL OFL)")
                             .font(SkeuFont.at(labelSize))
                             .foregroundStyle(skeu.inkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Not affiliated with Microsoft. Windows 95 is a trademark of Microsoft Corporation.")
-                            .font(SkeuFont.at(labelSize))
-                            .foregroundStyle(skeu.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-
                         // Same pill as Privacy policy below it — one glass
-                        // control, two errands.
+                        // control, two errands. These two stay raised: they
+                        // are controls, and a tappable thing that looks like
+                        // the prose around it is not tappable-looking at all.
                         Text("Rate the app")
                             .font(SkeuFont.at(labelSize, weight: .medium))
                             .foregroundStyle(skeu.ink)
@@ -397,6 +391,7 @@ struct SkeuAboutView: View {
                             .padding(.top, SkeuSpace.xs)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text("© \(year) Lucas Maher")
                     .font(SkeuFont.at(labelSize))
@@ -449,28 +444,25 @@ struct SkeuHowToView: View {
                 // over the list.
                 replayBar
 
-                // The shape of the app: its own panel, and untitled, because
-                // these are not a category — see HowToContent.
-                SkeuPanel {
-                    VStack(alignment: .leading, spacing: SkeuSpace.md) {
-                        ForEach(HowTo.essentials) { item in
-                            row(item)
-                        }
-                    }
-                }
-
-                // The GAP, and it is the whole point of the split: what
-                // follows is lookup, not more of the same. A rule would say
-                // "another section"; empty ground says "you can stop here"
-                // (founder direction 2026-08-17).
-                Color.clear.frame(height: SkeuSpace.xl)
-
-                ForEach(HowTo.sections) { section in
-                    SkeuPanel(title: section.title) {
+                // THREE, evenly spaced. The old screen put an extra gap
+                // between the essentials and the lookup below them, because
+                // the two halves did different jobs. There is no lookup half
+                // any more — three blocks, all the same weight — so the odd
+                // gap went with it and the stack's own `lg` spacing runs the
+                // whole way down (founder direction 2026-09-01).
+                ForEach(HowTo.blocks) { block in
+                    SkeuWell(title: block.title, prominentTitle: true) {
                         VStack(alignment: .leading, spacing: SkeuSpace.md) {
-                            ForEach(section.items) { item in
-                                row(item)
-                            }
+                            // The picture at the TOP, inside the frame, and
+                            // larger than the row glyphs it replaces — with
+                            // three on the screen it can afford the size.
+                            HowToGlyph(glyph: block.glyph, tint: skeu.inkMuted,
+                                       size: 36 * chromeScale)
+
+                            Text(block.body)
+                                .font(SkeuFont.at(labelSize))
+                                .foregroundStyle(skeu.inkMuted)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
@@ -484,67 +476,51 @@ struct SkeuHowToView: View {
 
         return Text("Show me")
             .font(SkeuFont.at(labelSize * 1.6, weight: .semibold))
-            // The accent driven DOWN, not the canvas: the body is the accent
-            // washed pale, and pale-on-pale is no pairing at all. The
-            // darkened accent keeps the word inside the jelly's own family.
-            .foregroundStyle(skeu.accent.shifted(sat: 0.08, bri: -0.30))
+            // The accent shifted AWAY from the body it sits on, in whichever
+            // direction that body is.
+            //
+            // It used to be driven down unconditionally, which was right when
+            // the body was the accent washed pale: pale-on-pale is no pairing
+            // at all, and darkening kept the word in the jelly's own family.
+            // Once the body became `material`, that assumption only held in
+            // the light — dark mode's material is near-black, so a darkened
+            // accent went invisible against it (founder bug report
+            // 2026-09-01, with a screenshot of the empty button).
+            //
+            // In the DARK the word is plain `ink`, the same as every other
+            // label on the screen (founder direction 2026-09-01). A lifted
+            // accent was legible but made the button the one blue thing in a
+            // grey room, which is louder than a replay control needs to be.
+            // The light half keeps the darkened accent: there it reads as
+            // emphasis rather than as a beacon.
+            .foregroundStyle(skeu.isDark
+                ? skeu.ink
+                : skeu.accent.shifted(sat: 0.08, bri: -0.30))
             .frame(maxWidth: .infinity)
             // A tenth of the SCREEN, inset from all three edges (founder
             // direction 2026-08-17). It was a full-bleed slab, which is the
             // one thing this look never does — nothing here runs into the
             // bezel, and a rounded shape needs room to be seen rounding.
             .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
-            // JELLY, not a slab (founder direction 2026-08-25, from a
-            // reference image): a pale glassy body with a saturated light
-            // INSIDE it, every corner equally rounded.
+            // NO background shading (founder direction 2026-09-01). This was
+            // a "jelly" (2026-08-25): a pale accent body with a saturated
+            // light wandering INSIDE it on layered sine paths. Both layers
+            // were the shading, so both are gone — the tinted gradient fill
+            // and the animated glow with it.
+            //
+            // The body is now the same neutral raised material every other
+            // surface in the app uses, so the button is a button by its
+            // relief alone. The accent survives in the word, which is the one
+            // place it still carries meaning.
+            //
+            // The wandering light was also the only always-running timeline
+            // on this screen, redrawing at 30fps for as long as How to use
+            // stayed open; removing it takes that with it.
             .background {
                 shape.fill(
-                    LinearGradient(colors: [skeu.accent.shifted(sat: -0.32, bri: 0.34),
-                                            skeu.accent.shifted(sat: -0.18, bri: 0.22)],
-                                   startPoint: .top, endPoint: .bottom)
+                    LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
-            }
-            // The INNER LIGHT, and it WANDERS: two blobs on layered sine
-            // paths whose frequencies share no common divisor, so the motion
-            // loops without ever visibly repeating — up, down, across, and
-            // gently swelling and dimming as it goes (founder direction
-            // 2026-08-25: all directions, with a fade, natural). A timeline
-            // rather than a two-pose toggle: a toggle can only ever slide
-            // between its two poses. Clipped to the shape: the light is IN
-            // the jelly, never spilling past its skin. Reduce Motion pauses
-            // the timeline, which holds the light still.
-            .overlay {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
-                    GeometryReader { geo in
-                        let w = geo.size.width, h = geo.size.height
-                        let t = reduceMotion ? 0
-                            : context.date.timeIntervalSinceReferenceDate
-                        // BRIGHTENED, never the raw accent: the raw accent is
-                        // darker than the pale body, and dark-in-light reads
-                        // as a stain, not a glow.
-                        let glow = skeu.accent.shifted(sat: 0.30, bri: 0.14)
-                        ZStack {
-                            Circle()
-                                .fill(RadialGradient(colors: [glow.opacity(0.60 + 0.13 * sin(t * 0.83 + 0.9)),
-                                                              glow.opacity(0)],
-                                                     center: .center, startRadius: 0, endRadius: h * 1.45))
-                                .frame(width: h * 2.9, height: h * 2.9)
-                                .position(x: w * (0.50 + 0.16 * sin(t * 0.59) + 0.05 * sin(t * 1.51 + 2.1)),
-                                          y: h * (0.40 + 0.16 * sin(t * 0.97 + 1.3)))
-                                .blur(radius: 6)
-                            Circle()
-                                .fill(RadialGradient(colors: [glow.opacity(0.32 + 0.10 * sin(t * 1.13 + 2.6)),
-                                                              glow.opacity(0)],
-                                                     center: .center, startRadius: 0, endRadius: h * 1.0))
-                                .frame(width: h * 2.0, height: h * 2.0)
-                                .position(x: w * (0.50 - 0.13 * sin(t * 0.73 + 0.6) + 0.05 * sin(t * 1.87)),
-                                          y: h * (0.52 - 0.14 * sin(t * 0.47 + 3.4)))
-                                .blur(radius: 8)
-                        }
-                    }
-                }
-                .clipShape(shape)
-                .allowsHitTesting(false)
             }
             // The SKIN: a bright glossy rim, strongest at the top where the
             // light hits, and a sheen across the upper face. `edgeLight`
@@ -593,29 +569,4 @@ struct SkeuHowToView: View {
             : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
     }
 
-    /// The gesture reads as the heading and its outcome as the body — the same
-    /// two-line stack the settings eyebrows use, so a reader can scan the left
-    /// column alone and still find what they came for.
-    /// Picture first, then the name of the gesture, then one line. A reader
-    /// looking something up scans the left column and only reads the line
-    /// under the picture that matches.
-    private func row(_ item: HowTo.Item) -> some View {
-        HStack(alignment: .top, spacing: SkeuSpace.md) {
-            HowToGlyph(glyph: item.glyph, tint: skeu.inkMuted,
-                       size: 26 * chromeScale)
-
-            VStack(alignment: .leading, spacing: SkeuSpace.xs) {
-                Text(item.action)
-                    .font(SkeuFont.at(labelSize, weight: .medium))
-                    .foregroundStyle(skeu.ink)
-
-                Text(item.result)
-                    .font(SkeuFont.at(labelSize))
-                    .foregroundStyle(skeu.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .accessibilityElement(children: .combine)
-    }
 }
