@@ -457,6 +457,11 @@ struct SkeuGoLiveDemo: View {
     /// "Off air" as the opening frame answered a question nobody had asked
     /// yet.
     @State private var on = true
+    /// The swell of the tap that is being demonstrated. A control that
+    /// changed state without ever appearing to be pressed read as changing by
+    /// itself, which is not what the block is describing (founder bug report
+    /// 2026-09-01).
+    @State private var pressed = false
 
     private var buttonH: CGFloat { SkeuTopBar.control * chromeScale }
 
@@ -497,6 +502,11 @@ struct SkeuGoLiveDemo: View {
         .frame(height: buttonH)
         .skeuGlass(Capsule(), height: buttonH, prominent: true)
         .fixedSize()
+        // `SkeuPress`'s own figures, so the demonstrated tap and a real one
+        // are the same movement.
+        .scaleEffect(reduceMotion ? 1 : (pressed ? SkeuMotion.pressGrow : 1))
+        .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.pressSwell,
+                   value: pressed)
     }
 
     private func run() async {
@@ -513,7 +523,14 @@ struct SkeuGoLiveDemo: View {
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(4800))
             guard !Task.isCancelled else { return }
+            // The swell and the state change happen TOGETHER, exactly as a
+            // real tap does: `SkeuPress` fires its action on the same touch
+            // that starts the swell.
+            pressed = true
             withAnimation(SkeuMotion.tint) { on.toggle() }
+            try? await Task.sleep(for: .milliseconds(260))
+            guard !Task.isCancelled else { return }
+            pressed = false
         }
     }
 }

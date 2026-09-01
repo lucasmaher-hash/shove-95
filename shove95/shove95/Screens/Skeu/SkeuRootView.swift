@@ -211,6 +211,11 @@ struct SkeuRootView: View {
     @State private var gearTurns = 0
     /// True when the Live section holds the screen instead of a task list.
     @State private var showLive = false
+    /// The Live tab's swell, held here rather than by `.skeuPress` — see
+    /// `liveTab` for why the modifier could not be used as-is. §8.5 is this
+    /// view's to honour now that it owns the scaling.
+    @State private var livePressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -959,13 +964,31 @@ extension SkeuRootView {
         let height = SkeuToggle.height * chromeScale
         let pill = height - SkeuToggle.padV * chromeScale * 2
 
+        // The SWELL rides the MARK, and the channel it sits in holds still
+        // (founder bug report 2026-09-01).
+        //
+        // `.skeuPress` was wrapped around the finished control — trough, bloom
+        // and all — so pressing Live grew the whole frame, while every tab
+        // beside it grows only its own pill inside a trough that never moves.
+        // One bar, two different reactions.
+        //
+        // The bucket tabs get this for free: their `.skeuPress` sits on the
+        // SEGMENT, and `SkeuSegmentedTrough` wraps all of them from outside,
+        // so it is never in the scaled subtree. Live has a trough of its own
+        // and no such separation, so the swell is held here by hand — the same
+        // thing SkeuWorkspacePill does, and for the same reason.
         return liveMark(pill: pill)
+            .scaleEffect(reduceMotion ? 1 : (livePressed ? SkeuMotion.pressGrow : 1))
+            .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.pressSwell,
+                       value: livePressed)
             .padding(SkeuToggle.padV * chromeScale)
             .frame(height: height)
             .skeuTrough(Capsule(), height: height)
             .background { liveBloom }
+            // The gesture stays on the OUTSIDE so the whole channel remains
+            // the target; only what it scales has moved inward.
             .contentShape(Rectangle())
-            .skeuPress(haptic: false) { selectLive() }
+            .onTapGesture { pressLive() }
             .accessibilityAddTraits(showLive ? [.isButton, .isSelected] : .isButton)
             .accessibilityLabel("Live")
     }
@@ -1030,6 +1053,17 @@ extension SkeuRootView {
                 .accessibilityLabel(settings.name(for: line))
             }
         }
+    }
+
+    /// `SkeuPress.swell` by hand: out, held, and back on the same timing every
+    /// other control in the app uses.
+    private func pressLive() {
+        livePressed = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            livePressed = false
+        }
+        selectLive()
     }
 
     /// Live comes in from the LEFT, because that is where its frame is.
@@ -1340,6 +1374,10 @@ struct SkeuWorkspacePillDemo: View {
 
     @State private var index = 0
     @State private var isOpen = false
+    /// The swell of the tap being demonstrated — the real pill swells on every
+    /// press, and a demo that opened without one read as opening by itself
+    /// (founder bug report 2026-09-01).
+    @State private var pressed = false
 
     var body: some View {
         let scale = F.topControlScale
@@ -1387,6 +1425,12 @@ struct SkeuWorkspacePillDemo: View {
         .fixedSize(horizontal: true, vertical: false)
         .skeuGlass(RoundedRectangle(cornerRadius: rowHeight / 2, style: .continuous),
                    height: rowHeight)
+        // The real pill scales the WHOLE thing, glass and open list included —
+        // see SkeuWorkspacePill, which lifts the swell off its label row for
+        // exactly this reason. Same figures.
+        .scaleEffect(reduceMotion ? 1 : (pressed ? SkeuMotion.pressGrow : 1))
+        .animation(reduceMotion ? SkeuMotion.tint : SkeuMotion.pressSwell,
+                   value: pressed)
         // ROOM HELD OPEN, always. The pill grows downward when it opens, and
         // letting that push the block's frame taller made the whole card
         // breathe in and out around it — the page moved when nothing on the
@@ -1396,6 +1440,15 @@ struct SkeuWorkspacePillDemo: View {
         .frame(height: rowHeight * 2, alignment: .topLeading)
         .accessibilityHidden(true)
         .task(id: reduceMotion) { await run() }
+    }
+
+    /// One demonstrated tap: the swell starts with the action, as `SkeuPress`
+    /// does, and is released on the same 260ms.
+    private func press(_ action: () -> Void) async {
+        pressed = true
+        action()
+        try? await Task.sleep(for: .milliseconds(260))
+        pressed = false
     }
 
     private func run() async {
@@ -1411,14 +1464,18 @@ struct SkeuWorkspacePillDemo: View {
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(2400))
             guard !Task.isCancelled else { return }
-            withAnimation(SkeuMotion.layout) { isOpen = true }
+            // Tap one: the pill swells and opens on the same beat.
+            await press { withAnimation(SkeuMotion.layout) { isOpen = true } }
 
             try? await Task.sleep(for: .milliseconds(2400))
             guard !Task.isCancelled else { return }
-            // The list folding away is the animated part; the name it leaves
-            // behind is not — see `contentTransition` above.
-            index = (index + 1) % names.count
-            withAnimation(SkeuMotion.layout) { isOpen = false }
+            // Tap two: choosing the other workspace. The list folding away is
+            // the animated part; the name it leaves behind is not — see
+            // `contentTransition` above.
+            await press {
+                index = (index + 1) % names.count
+                withAnimation(SkeuMotion.layout) { isOpen = false }
+            }
         }
     }
 }
