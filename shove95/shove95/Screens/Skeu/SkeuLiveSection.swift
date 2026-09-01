@@ -28,11 +28,14 @@ struct SkeuLiveSection: View {
     @Environment(\.skeuTextScale) private var textScale
     @Environment(\.skeuChromeScale) private var chromeScale
     @Environment(TaskStore.self) private var store
+    /// Asked of the coordinator so the ROOT draws the dialog — see
+    /// `MenuCoordinator.pendingLiveDelete`.
+    @Environment(MenuCoordinator.self) private var menu
 
     /// What is being typed before it becomes the note. Empty when a note
     /// already exists — the box shows that instead.
     @State private var draft = ""
-    @State private var pendingDelete = false
+
     @FocusState private var focused: Bool
 
     /// How far the keyboard eats into this screen, and the curve it travels
@@ -119,22 +122,6 @@ struct SkeuLiveSection: View {
                     if value.translation.height > 40 { focused = false }
                 }
         )
-        .overlay {
-            if pendingDelete {
-                SkeuPinReplaceDialog(
-                    outgoing: note?.title ?? "",
-                    title: "Delete this",
-                    message: "It goes for good, and it stops showing on the Lock Screen.",
-                    confirmLabel: "Delete",
-                    confirmTint: skeu.accent
-                ) {
-                    pendingDelete = false
-                    withAnimation(SkeuMotion.layout) { store.clearLiveNote() }
-                } onCancel: {
-                    pendingDelete = false
-                }
-            }
-        }
         } // GeometryReader
     }
 
@@ -276,17 +263,32 @@ struct SkeuLiveSection: View {
     private var controls: some View {
         HStack(spacing: SkeuSpace.md) {
             if note != nil {
-                liveSwitch
-                bin
-            } else {
-                // The field is always open, so this is not "start typing" any
-                // more — it is "send what I typed", and before that it is the
-                // thing that puts the cursor in the box.
-                pill(label: draft.isEmpty ? "Go Live" : "Go",
-                     filled: !draft.isEmpty) {
-                    if draft.isEmpty { focused = true } else { commit(); focused = false }
+                // Live or merely held in the box — the switch says which.
+                liveSwitch(on: note?.isPinned ?? false) {
+                    withAnimation(SkeuMotion.tint) {
+                        store.setLiveOnLockScreen(!(note?.isPinned ?? false))
+                    }
                 }
+            } else if !draft.isEmpty {
+                // The field is always open, so this is not "start typing" any
+                // more — it is "send what I typed".
+                pill(label: "Go", filled: true) { commit(); focused = false }
+            } else {
+                // NOTHING is live, so the control says exactly that (founder
+                // bug report 2026-09-01). It used to read "Go Live" here,
+                // which is the one state where the app had no live note at
+                // all: a fresh install opened on a button promising a thing
+                // rather than a switch reporting one, and the word never seen
+                // on first launch was the true one. Same switch, same muted
+                // contents; tapping it puts the cursor in the box, which is
+                // the only way to reach the on state from here.
+                liveSwitch(on: false) { focused = true }
             }
+
+            // ALWAYS present now. It used to appear only alongside a note, so
+            // the row's shape changed as you typed and the two controls jumped
+            // width (founder direction 2026-09-01). It greys out instead.
+            bin
         }
         // TWO THIRDS of the screen, centred. Run edge to edge these two read
         // as a bar across the bottom of the section rather than as the pair of
@@ -299,11 +301,14 @@ struct SkeuLiveSection: View {
     }
 
     /// Reads as what it CONTROLS, not as what it will do: lit when the note is
-    /// on the Lock Screen, dark when it is only in this box.
-    private var liveSwitch: some View {
-        let on = note?.isPinned ?? false
-
-        return HStack(spacing: SkeuSpace.sm) {
+    /// on the Lock Screen, dark when it is only in this box — and dark, saying
+    /// "Off air", when there is no note at all.
+    ///
+    /// Takes its state and its action rather than reading `note` itself, so
+    /// the empty screen can wear the same control. The alternative was a
+    /// second view that looked identical and would drift.
+    private func liveSwitch(on: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: SkeuSpace.sm) {
             LiveGlyph(tint: on ? skeu.accent : skeu.inkMuted,
                       lineWidth: 1.7 * chromeScale)
                 .frame(width: buttonH * 0.42, height: buttonH * 0.42)
@@ -331,28 +336,50 @@ struct SkeuLiveSection: View {
         // the word now; the button looks like a button either way.
         .skeuGlass(Capsule(), height: buttonH, prominent: true)
         .contentShape(Capsule())
-        .skeuPress {
-            withAnimation(SkeuMotion.tint) { store.setLiveOnLockScreen(!on) }
-        }
+        .skeuPress { action() }
         .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
         .accessibilityLabel(on ? "Showing on the Lock Screen" : "Not on the Lock Screen")
+    }
+
+    /// Whether there is anything in the box to throw away.
+    ///
+    /// Asked of the DRAFT rather than of `note`, because the bin answers to
+    /// what is written in front of you: text cleared but not yet committed
+    /// reads as an empty box, and a live bin beside an empty box is a control
+    /// with nothing to act on.
+    private var hasText: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var bin: some View {
         Image(systemName: "trash")
             .font(.system(size: binIcon * 0.72))
-            // FULL ink, not muted. It stands beside a switch that is muted on
-            // purpose — to say "not on air" — and wearing the same grey made
-            // the bin look like it was in that state too, when deleting is
-            // always available (founder direction 2026-08-17).
             .foregroundStyle(skeu.ink)
+            // GREYED when the box is empty, at exactly the weight the off-air
+            // switch beside it uses, and inert with it (founder direction
+            // 2026-09-01).
+            //
+            // Its own note from 2026-08-17 argued the opposite — full ink
+            // always, so it would not be mistaken for the muted "not on air"
+            // state next to it. That held while the bin only ever appeared
+            // beside a note, when there was always something to delete. Now it
+            // is always on screen, and half the time there is nothing: the
+            // grey is no longer borrowing the switch's meaning, it is stating
+            // its own.
+            .opacity(hasText ? 1 : 0.55)
+            .animation(SkeuMotion.tint, value: hasText)
             .frame(width: buttonH, height: buttonH)
             .skeuGlass(Circle(), height: buttonH)
             // A filled Circle is hittable only where the ink lands.
             .contentShape(Circle())
-            .skeuPress { pendingDelete = true }
+            .skeuPress { if hasText { menu.pendingLiveDelete = true } }
+            // The press animation is part of the affordance, so the whole
+            // control stops taking touches rather than swallowing them and
+            // looking alive.
+            .allowsHitTesting(hasText)
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Delete")
+            .accessibilityHidden(!hasText)
     }
 
     private func pill(label: String, filled: Bool,
@@ -374,12 +401,114 @@ struct SkeuLiveSection: View {
 
     private func commit() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else {
+            // EMPTYING THE BOX ENDS THE NOTE (founder bug report 2026-09-01).
+            //
+            // This used to return here, which left the note exactly as it was:
+            // still live, still on the Lock Screen, still carrying the words
+            // you had just rubbed out. The box in front of you and the card on
+            // the Lock Screen disagreed, and the box was the one you had told
+            // the truth to.
+            //
+            // At COMMIT rather than on every keystroke — clearing the line to
+            // retype it is an ordinary thing to do mid-edit, and ending the
+            // note under the cursor would be its own bug. Leaving the field,
+            // or pressing Return, is the point at which an empty box means it.
+            if note != nil {
+                SkeuHaptic.warning()
+                withAnimation(SkeuMotion.layout) { store.clearLiveNote() }
+            }
+            return
+        }
         // Renames what is there rather than replacing it, so editing the text
         // of something already live does not flick it off the Lock Screen and
         // back on. Silent when nothing changed.
         guard text != note?.title else { return }
         SkeuHaptic.success()
         withAnimation(SkeuMotion.layout) { _ = store.writeLiveNote(text) }
+    }
+}
+
+// MARK: - Demonstration for How to use
+
+/// The Live switch alone, changing state on a loop.
+///
+/// It lives HERE, next to the control it mirrors, for the reason the other two
+/// demos live next to theirs: it is built out of this file's `buttonH` and the
+/// same tokens as `liveSwitch`, and a picture of a control that drifts from
+/// the control is worse than no picture.
+///
+/// The round Live TAB stood beside it until 2026-09-01, pulsing in step. It
+/// went at the founder's word: the block is about going live, and the tab is
+/// how you reach the screen rather than part of the thing being explained —
+/// two round marks side by side asked the reader to tell apart two controls
+/// where the page only names one.
+///
+/// Inert and hidden from VoiceOver: the block's own words carry the meaning.
+struct SkeuGoLiveDemo: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var on = false
+
+    private var buttonH: CGFloat { SkeuTopBar.control * chromeScale }
+
+    var body: some View {
+        liveSwitch
+            .accessibilityHidden(true)
+            .task(id: reduceMotion) { await run() }
+    }
+
+    /// The switch above, minus its gesture — same mark, same word, same
+    /// recede-when-off treatment on the contents rather than on the glass.
+    private var liveSwitch: some View {
+        HStack(spacing: SkeuSpace.sm) {
+            LiveGlyph(tint: on ? skeu.accent : skeu.inkMuted,
+                      lineWidth: 1.7 * chromeScale)
+                .frame(width: buttonH * 0.42, height: buttonH * 0.42)
+
+            // The longer word RESERVES the width, so the pill is one size in
+            // both states (founder direction 2026-09-01). On the home screen
+            // this control is `maxWidth: .infinity` inside a fixed container,
+            // so it never moves; hugging its text here made it grow and shrink
+            // on every toggle, which the real one never does. Measured from
+            // the word rather than hard-coded, so it still follows Dynamic
+            // Type.
+            ZStack {
+                Text("Off air").hidden()
+                Text(on ? "Live" : "Off air")
+                    .foregroundStyle(on ? skeu.ink : skeu.inkMuted)
+                    // A hard swap: a cross-fade draws both words at once.
+                    .contentTransition(.identity)
+            }
+            .font(SkeuFont.at(SkeuToggle.label * textScale, weight: .medium))
+        }
+        .skeuPulse(on)
+        .opacity(on ? 1 : 0.55)
+        .animation(SkeuMotion.tint, value: on)
+        .padding(.horizontal, SkeuSpace.lg)
+        .frame(height: buttonH)
+        .skeuGlass(Capsule(), height: buttonH, prominent: true)
+        .fixedSize()
+    }
+
+    private func run() async {
+        // Reduce Motion holds it OFF rather than slowing the cycle: the loop is
+        // decoration, and "Off air" is the state the words below describe
+        // reaching from.
+        guard !reduceMotion else {
+            on = false
+            return
+        }
+        // DOUBLE the first pace (founder direction 2026-09-01). Each state is
+        // a thing to read, not a flicker to watch: 2.4s a side was a control
+        // changing its mind while you were still on the sentence below it.
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(4800))
+            guard !Task.isCancelled else { return }
+            withAnimation(SkeuMotion.tint) { on.toggle() }
+        }
     }
 }

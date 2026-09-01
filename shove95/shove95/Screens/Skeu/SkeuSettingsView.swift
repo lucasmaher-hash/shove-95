@@ -226,15 +226,7 @@ struct SkeuSettingsView: View {
             SkeuAboutView { showAbout = false }
         }
         .fullScreenCover(isPresented: $showHowTo) {
-            SkeuHowToView(onClose: { showHowTo = false }, onReplay: {
-                // Clearing the flag is the whole mechanism: the roots publish
-                // their control frames again, and the walkthrough starts from
-                // the first one that arrives. Both sheets have to go, or it
-                // would be pointing at a list nobody can see.
-                settings.hasOnboarded = false
-                showHowTo = false
-                onClose()
-            })
+            SkeuHowToView { showHowTo = false }
         }
         .overlay {
             if let workspace = pendingDelete {

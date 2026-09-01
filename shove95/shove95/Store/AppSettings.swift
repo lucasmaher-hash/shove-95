@@ -28,7 +28,6 @@ final class AppSettings {
         // And then reordered again the same day, which is what finally settled
         // the question — the colour is stored by NAME now. See `storedThemeID`.
         static let themeID = "settings.color.id"
-        static let onboarded = "settings.onboarded"
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
         static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
     }
@@ -107,14 +106,6 @@ final class AppSettings {
               let decoded = try? JSONDecoder().decode([Legacy].self, from: data)
         else { return [] }
         return decoded.map { ($0.id, $0.name) }
-    }
-
-    /// Whether the first-run walkthrough has already been through. Persisted,
-    /// unlike the folded sections below: it is a fact about this install, not
-    /// a view state, and it must survive a relaunch or the app would greet
-    /// every cold start as a first one.
-    var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: Key.onboarded) {
-        didSet { UserDefaults.standard.set(hasOnboarded, forKey: Key.onboarded) }
     }
 
     /// Which sections of Soon are folded shut. A nil day is General.

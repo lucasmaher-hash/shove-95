@@ -163,8 +163,6 @@ struct SkeuRootView: View {
     /// moves, so both halves of the transition agree on a direction.
     @State private var goingRight = true
     @State private var menu = MenuCoordinator()
-    /// The first run, held over this screen — see Onboarding.swift.
-    @State private var onboarding = OnboardingCoordinator()
     /// Which field is open and where its bottom edge sits.
     @State private var editing = EditingCoordinator()
     /// Seeded with the list's own row gap: part of the distance a row travels
@@ -275,20 +273,29 @@ struct SkeuRootView: View {
             }
         }
         .animation(SkeuMotion.present, value: menu.pendingLive?.id)
+        // The Live section's bin asks from HERE rather than from inside the
+        // section, so its scrim covers the bars as well — see
+        // `MenuCoordinator.pendingLiveDelete`.
+        .overlay {
+            if menu.pendingLiveDelete {
+                SkeuPinReplaceDialog(
+                    outgoing: store.liveNote()?.title ?? "",
+                    title: "Delete this",
+                    message: "It goes for good, and it stops showing on the Lock Screen.",
+                    confirmLabel: "Delete",
+                    confirmTint: skeu.accent
+                ) {
+                    menu.pendingLiveDelete = false
+                    withAnimation(SkeuMotion.layout) { store.clearLiveNote() }
+                } onCancel: {
+                    menu.pendingLiveDelete = false
+                }
+            }
+        }
+        .animation(SkeuMotion.present, value: menu.pendingLiveDelete)
         .environment(menu)
         .environment(editing)
         .environment(reorder)
-        // The walkthrough — see Onboarding.swift. The host is generic over
-        // its overlay, which is what let two looks share one walkthrough.
-        .modifier(OnboardingHost(onboarding: onboarding,
-                                 animation: SkeuMotion.layout) { step, next, skip in
-            SkeuOnboardingOverlay(
-                step: step,
-                target: onboarding.targets[step.target],
-                onNext: next,
-                onSkip: skip
-            )
-        })
         // The store's queries are scoped to the active workspace, and this
         // view is the one that has to keep that scope pointed at the pick.
         .onAppear {
@@ -322,7 +329,6 @@ struct SkeuRootView: View {
     private var workspaceBar: some View {
         HStack(alignment: .top, spacing: 0) {
             SkeuWorkspacePill()
-                .onboardingTarget(settings.hasOnboarded ? nil : .workspace)
 
             Spacer(minLength: SkeuSpace.sm)
 
@@ -422,24 +428,12 @@ struct SkeuRootView: View {
                                 // too, and General's is the one that stands in:
                                 // it is the block a task lands in when no day
                                 // is chosen (code review 2026-08-17).
-                                .onboardingTarget(
-                                    !settings.hasOnboarded && section.day == nil ? .addRow : nil)
                         }
                     }
                 } else {
-                    // `first?.id` rather than `enumerated()`: the latter
-                    // materialised an N-element tuple array on every render of
-                    // the app's hottest list, to answer "is this row the top
-                    // one".
-                    let firstID = active.first?.id
                     ForEach(active, id: \.id) { task in
                         reorderRow(task, in: active)
                             .id(task.id.uuidString)
-                            // The walkthrough points at the FIRST row, which is
-                            // the one it just asked you to write — and only
-                            // while there is a walkthrough to point with.
-                            .onboardingTarget(
-                                !settings.hasOnboarded && task.id == firstID ? .taskRow : nil)
                     }
                 }
 
@@ -456,7 +450,6 @@ struct SkeuRootView: View {
                 if bucket != .general {
                     SkeuAddRow(bucket: bucket)
                         .id(EditingCoordinator.addRowID)
-                        .onboardingTarget(settings.hasOnboarded ? nil : .addRow)
                 }
             }
             .padding(.vertical, SkeuSpace.lg)
@@ -545,30 +538,6 @@ struct SkeuRootView: View {
             Task { @MainActor in
                 var t = Transaction(); t.disablesAnimations = true
                 withTransaction(t) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
-            }
-        }
-        // The walkthrough's START signal is the add row's frame arriving —
-        // see OnboardingHost. The list is LAZY and the add row sits at its
-        // foot, so on a list long enough to fold, the row was never laid
-        // out, its frame never published, and "Show me" set the flag and
-        // then nothing happened (founder bug report 2026-08-25). Bringing
-        // the row on screen IS the start. Both hooks are needed: onChange
-        // for a replay while the root is up, onAppear for a launch that is
-        // already mid-walkthrough.
-        .onChange(of: settings.hasOnboarded) { _, done in
-            guard !done else { return }
-            Task { @MainActor in
-                withAnimation(SkeuMotion.layout) {
-                    proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
-                }
-            }
-        }
-        .onAppear {
-            guard !settings.hasOnboarded else { return }
-            Task { @MainActor in
-                withAnimation(SkeuMotion.layout) {
-                    proxy.scrollTo(EditingCoordinator.addRowID, anchor: .bottom)
-                }
             }
         }
         } // ScrollViewReader
@@ -999,7 +968,6 @@ extension SkeuRootView {
             .skeuPress(haptic: false) { selectLive() }
             .accessibilityAddTraits(showLive ? [.isButton, .isSelected] : .isButton)
             .accessibilityLabel("Live")
-            .onboardingTarget(settings.hasOnboarded ? nil : .liveButton)
     }
 
     /// Split out because the whole button in one expression put the type
@@ -1327,6 +1295,297 @@ private struct SkeuWorkspacePill: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(260))
             swollen = false
+        }
+    }
+}
+
+// MARK: - Demonstrations for How to use
+
+//  The two controls that never announce themselves, shown DOING the thing the
+//  page describes rather than drawn as a pictogram beside it (founder
+//  direction 2026-09-01).
+//
+//  They live in THIS file, next to the controls they mirror, because the real
+//  ones are built out of `F` and `ChevronGlyph`, both private here. Moving the
+//  demos to the How to use screen would mean copying those values across a
+//  file boundary, and a picture of a control that drifts from the control is
+//  worse than no picture — the whole point is that the reader recognises what
+//  they are about to touch.
+//
+//  Both are decoration and both are inert: no gestures, no store writes, and
+//  hidden from VoiceOver, which reads the block's own words instead.
+
+/// The workspace pill, opening and changing workspace on a loop.
+///
+/// Four beats: sit closed, grow open with the other name under it, commit to
+/// that name and close, and round again from the other side. It uses the same
+/// `SkeuMotion.layout` spring the real pill does, so the demonstration and the
+/// thing demonstrated move alike.
+///
+/// Reduce Motion holds it closed rather than slowing it down — the loop is
+/// decoration, and that setting turns decoration off (§8.5).
+struct SkeuWorkspacePillDemo: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Two names. The caller hands over the reader's OWN workspaces when they
+    /// have two to spare, so the picture is of their app rather than of an
+    /// example app.
+    let names: [String]
+
+    @State private var index = 0
+    @State private var isOpen = false
+
+    var body: some View {
+        let scale = F.topControlScale
+        let label = F.label * scale * textScale
+        let rowHeight = (F.topHeight - F.glassPadV * 2) * scale * chromeScale
+        let shown = names.isEmpty ? "" : names[index % names.count]
+        let other = names.count < 2 ? "" : names[(index + 1) % names.count]
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: F.glassGap * scale) {
+                Text(shown)
+                    .font(SkeuFont.at(label, role: .chrome))
+                    .tracking(-0.02 * label)
+                    .lineLimit(1)
+                    // A HARD swap, not a dissolve. A changing string inside a
+                    // `withAnimation` cross-fades by default, so at the moment
+                    // the demo committed to the other workspace both names
+                    // were drawn over each other and the pill read as a smear
+                    // (caught on the first run). Selecting a workspace is a
+                    // commitment; the name should simply be the new one.
+                    .contentTransition(.identity)
+
+                ChevronGlyph()
+                    .stroke(skeu.ink,
+                            style: StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round))
+                    .frame(width: label * 0.55, height: label * 0.32)
+                    .rotationEffect(.degrees(isOpen ? 180 : 0))
+            }
+            .foregroundStyle(skeu.ink)
+            .frame(height: rowHeight)
+
+            if isOpen {
+                Text(other)
+                    .font(SkeuFont.at(label, role: .chrome))
+                    .tracking(-0.02 * label)
+                    .foregroundStyle(skeu.inkMuted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: rowHeight)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, F.glassPadH * scale)
+        .frame(minWidth: SkeuControl.minTouch * 1.6, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
+        .skeuGlass(RoundedRectangle(cornerRadius: rowHeight / 2, style: .continuous),
+                   height: rowHeight)
+        // ROOM HELD OPEN, always. The pill grows downward when it opens, and
+        // letting that push the block's frame taller made the whole card
+        // breathe in and out around it — the page moved when nothing on the
+        // page had changed (founder direction 2026-09-01). Reserving the open
+        // height up front means the list unfolds into space that was already
+        // there, and only the pill moves.
+        .frame(height: rowHeight * 2, alignment: .topLeading)
+        .accessibilityHidden(true)
+        .task(id: reduceMotion) { await run() }
+    }
+
+    private func run() async {
+        guard !reduceMotion, names.count > 1 else {
+            isOpen = false
+            return
+        }
+        // A beat of stillness at each end: a loop with no rest reads as a
+        // fidget rather than as an action being performed. HALF the original
+        // pace (founder direction 2026-09-01) — at 1.2s a beat the pill
+        // demanded attention from the corner of the eye while the reader was
+        // still on the paragraph above it.
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(2400))
+            guard !Task.isCancelled else { return }
+            withAnimation(SkeuMotion.layout) { isOpen = true }
+
+            try? await Task.sleep(for: .milliseconds(2400))
+            guard !Task.isCancelled else { return }
+            // The list folding away is the animated part; the name it leaves
+            // behind is not — see `contentTransition` above.
+            index = (index + 1) % names.count
+            withAnimation(SkeuMotion.layout) { isOpen = false }
+        }
+    }
+}
+
+/// One task row, shoving itself sideways on a loop.
+///
+/// BUILT, not filmed (founder question 2026-09-01). A screen recording would
+/// be one fixed pixel grid, and this app has four themes in light and dark,
+/// two typefaces and the whole Dynamic Type range behind it — sixteen-odd
+/// clips to cover what one live row covers by simply being drawn in whatever
+/// look is current. A recording also goes stale the moment the row changes,
+/// and this file's history is mostly the row changing.
+///
+/// The checkbox is the real glass circle at the real `F.check`, and the title
+/// sits at the real `F.label`, so the picture is the row the reader is about
+/// to touch rather than a sketch of it.
+///
+/// Two rows and ONE sequence between them, rather than two rows each looping
+/// on their own — see `run()`.
+struct SkeuSwipeSequenceDemo: View {
+    @Environment(\.skeu) private var skeu
+    @Environment(\.skeuTextScale) private var textScale
+    @Environment(\.skeuChromeScale) private var chromeScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // The row's own figures, not approximations of them — see SkeuTaskRow.
+    private var labelSize: CGFloat { F.label * textScale }
+    private var rowH: CGFloat { F.rowHeight * chromeScale }
+    private var checkSize: CGFloat { F.check * chromeScale }
+    private var glyphSize: CGFloat { F.plusIcon * chromeScale }
+    /// SkeuTaskRow.firstLineInset, verbatim: what puts the tick, the title,
+    /// the chip and the grip on one band.
+    private var firstLineInset: CGFloat {
+        max(0, (rowH - UIFont.systemFont(ofSize: labelSize).lineHeight) / 2)
+    }
+
+    /// Measured, so "off screen" means off THIS card rather than some figure
+    /// guessed at build time.
+    @State private var width: CGFloat = 360
+
+    @State private var topOffset: CGFloat = 0
+    @State private var bottomOffset: CGFloat = 0
+    @State private var topCollapsed = false
+    @State private var topMarked = false
+    @State private var bottomMarked = false
+    @State private var visible = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SkeuSpace.xs) {
+            face("call the dentist", chip: "Tue", marked: topMarked)
+                .offset(x: topOffset)
+                // Its slot closing is what lifts the row beneath it. Height
+                // rather than a removal transition: the one below has to RISE,
+                // and a row that is simply taken out of the stack pops.
+                .frame(height: topCollapsed ? 0 : nil, alignment: .top)
+                .opacity(topCollapsed ? 0 : 1)
+                .clipped()
+
+            face("pick up the parcel", chip: "Thu", marked: bottomMarked)
+                .offset(x: bottomOffset)
+        }
+        .opacity(visible ? 1 : 0)
+        .background {
+            GeometryReader { proxy in
+                Color.clear.task { width = proxy.size.width }
+            }
+        }
+        // ROOM HELD OPEN, for the same reason the workspace pill holds it: the
+        // card must not breathe while the rows leave and close up.
+        .frame(height: rowH * 2 + SkeuSpace.xs, alignment: .top)
+        .accessibilityHidden(true)
+        .task(id: reduceMotion) { await run() }
+    }
+
+    /// `SkeuTaskRow.mainLine` with the interactive parts taken out: the same
+    /// checkbox, title, day chip and grip, in the same order, at the same
+    /// sizes, with the same padding — and the same lit slat behind it that the
+    /// real row wears while it is being slid.
+    private func face(_ title: String, chip: String, marked: Bool) -> some View {
+        HStack(alignment: .top, spacing: F.glassGap) {
+            Circle().fill(.clear)
+                .frame(width: checkSize, height: checkSize)
+                .skeuGlass(Circle(), height: checkSize, prominent: false)
+                .frame(width: SkeuControl.minTouch, height: SkeuControl.minTouch)
+                .frame(height: rowH)
+
+            Text(title)
+                .font(SkeuFont.at(labelSize))
+                .tracking(-0.02 * F.label)
+                .foregroundStyle(skeu.ink)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, firstLineInset)
+                .frame(minHeight: rowH, alignment: .top)
+
+            Text(chip)
+                .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
+                .foregroundStyle(skeu.ink)
+                .opacity(ReorderGrip.labelOpacity)
+                .padding(.top, firstLineInset)
+                .frame(minHeight: rowH, alignment: .top)
+
+            ReorderGrip(isActive: false, size: glyphSize, bandHeight: rowH)
+                .allowsHitTesting(false)
+        }
+        .padding(.leading, max(0, SkeuSpace.xs - F.edgeNudge))
+        .padding(.trailing, max(0, F.padTrail - F.edgeNudge))
+        .frame(minHeight: rowH)
+        // STRONGER than the row's own 0.55/0.35, and it has to be. On the list
+        // the mark sits on the page; here it sits inside a well, whose floor is
+        // already lifted away from the page — so the same opacity bought far
+        // less separation and the slid row barely read as marked (founder bug
+        // report 2026-09-01). The well's own lift is what these numbers are
+        // paying back.
+        .background {
+            RoundedRectangle(cornerRadius: SkeuRadius.md, style: .continuous)
+                .fill(skeu.isDark ? skeu.materialTop : skeu.recess)
+                .opacity(marked ? (skeu.isDark ? 0.95 : 0.6) : 0)
+                .animation(SkeuMotion.tint, value: marked)
+        }
+    }
+
+    /// One story, told in order (founder direction 2026-09-01): the top task is
+    /// shoved off to the left, the one under it rises into the space, and then
+    /// that one is shoved off to the right.
+    ///
+    /// It replaced two rows each looping on their own, which moved together
+    /// and only travelled far enough to twitch. A task leaving the list is the
+    /// POINT of the gesture — a swipe that stops halfway is one you changed
+    /// your mind about.
+    private func run() async {
+        // The WAITS are doubled, the shoves are not (founder direction
+        // 2026-09-01). A swipe is a fast thing and slowing it would misdescribe
+        // the gesture; what was hurried was the pause between the two, which
+        // gave no time to read what had just happened before the next one
+        // started.
+        guard !reduceMotion else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(2800))
+            guard !Task.isCancelled else { return }
+
+            // 1. The top one goes, all the way out to the left.
+            withAnimation(SkeuMotion.tint) { topMarked = true }
+            withAnimation(.easeIn(duration: 0.42)) { topOffset = -(width + 80) }
+            try? await Task.sleep(for: .milliseconds(560))
+            guard !Task.isCancelled else { return }
+
+            // 2. Its place closes, and the one below rises into it.
+            withAnimation(SkeuMotion.layout) { topCollapsed = true }
+            try? await Task.sleep(for: .milliseconds(2000))
+            guard !Task.isCancelled else { return }
+
+            // 3. And that one goes too, the other way.
+            withAnimation(SkeuMotion.tint) { bottomMarked = true }
+            withAnimation(.easeIn(duration: 0.42)) { bottomOffset = width + 80 }
+            try? await Task.sleep(for: .milliseconds(1400))
+            guard !Task.isCancelled else { return }
+
+            // 4. Fade the empty stage out, put everything back where it was
+            //    while nothing is visible, and fade back in. Sliding them home
+            //    would undo the story just told.
+            withAnimation(.easeOut(duration: 0.28)) { visible = false }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            topOffset = 0
+            bottomOffset = 0
+            topCollapsed = false
+            topMarked = false
+            bottomMarked = false
+            withAnimation(.easeIn(duration: 0.32)) { visible = true }
         }
     }
 }

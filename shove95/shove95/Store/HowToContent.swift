@@ -51,11 +51,29 @@ enum HowTo {
         case photo
     }
 
+    /// What stands at the top of a block.
+    ///
+    /// Two of the three are now the REAL control, alive and performing the
+    /// thing the words describe, rather than a pictogram of it (founder
+    /// direction 2026-09-01) — a reader recognises the object they are about
+    /// to touch, which a drawing of it only approximates. `glyph` remains for
+    /// anything a live control cannot show; the swipe is that case for now,
+    /// since it needs a task and a finger, not just a control sitting still.
+    enum Art {
+        case glyph(Glyph)
+        /// The Live tab, lit and breathing as though something were on air.
+        case liveTab
+        /// The workspace pill, opening and switching on a loop.
+        case workspacePill
+        /// Two task rows, the first shoving left and the second right.
+        case swipeRows
+    }
+
     /// One explained thing: a heading that sits above its frame, a single
     /// picture at the top inside it, and the words underneath.
     struct Block: Identifiable {
         let title: String
-        let glyph: Glyph
+        let art: Art
         let body: String
         var id: String { title }
     }
@@ -65,20 +83,19 @@ enum HowTo {
     /// the thing that quietly changes what the list contains.
     static let blocks: [Block] = [
         Block(title: "Go live",
-              glyph: .pin,
-              body: "One task at a time can be live. Tap the ring at the "
-                  + "bottom left, and it sits on your Lock Screen until you "
-                  + "tick it off."),
+              art: .liveTab,
+              body: "In the bottom left panel you can add a live task. "
+                  + "Clicking the \u{201C}Live\u{201D} button adds it "
+                  + "permanently to your Lock Screen until you tick it off."),
 
         Block(title: "Swiping",
-              glyph: .swipeRight,
-              body: "Swipe a task right to push it later — Today to Tomorrow, "
-                  + "Tomorrow to Soon. Swipe left to bring it back."),
+              art: .swipeRows,
+              body: "Not going to get a task done today? Swipe it right and "
+                  + "it moves to Tomorrow. Swipe left to bring it back."),
 
         Block(title: "Workspaces",
-              glyph: .workspace,
-              body: "The name at the top left switches between separate "
-                  + "lists, so work and home never share one. The live task "
-                  + "is shared between them."),
+              art: .workspacePill,
+              body: "Switch between workspaces with the button at the top "
+                  + "left. Add or rename them in Settings."),
     ]
 }

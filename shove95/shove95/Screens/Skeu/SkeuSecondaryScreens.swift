@@ -424,26 +424,12 @@ struct SkeuHowToView: View {
 
     private var labelSize: CGFloat { S.label * textScale }
     @Environment(\.skeu) private var skeu
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(TaskStore.self) private var store
     var onClose: () -> Void
-    /// Runs the first-run walkthrough again. The caller closes this screen
-    /// AND settings behind it — the walkthrough plays over the list, and a
-    /// sheet on top of it would be pointing at controls nobody can see.
-    var onReplay: () -> Void
-
-    /// Drives the label's breath. Set once on appear. The inner light needs
-    /// no state — its wander rides a TimelineView, see `replayBar`.
-    @State private var breathing = false
 
     var body: some View {
         SkeuSheet(title: "How to use", onClose: onClose) {
             LazyVStack(alignment: .leading, spacing: SkeuSpace.lg) {
-                // FIRST, and part of the page (founder direction 2026-08-26,
-                // superseding the docked bottom bar of 2026-08-17): it
-                // scrolls away with everything else rather than standing
-                // over the list.
-                replayBar
-
                 // THREE, evenly spaced. The old screen put an extra gap
                 // between the essentials and the lookup below them, because
                 // the two halves did different jobs. There is no lookup half
@@ -452,12 +438,18 @@ struct SkeuHowToView: View {
                 // whole way down (founder direction 2026-09-01).
                 ForEach(HowTo.blocks) { block in
                     SkeuWell(title: block.title, prominentTitle: true) {
-                        VStack(alignment: .leading, spacing: SkeuSpace.md) {
-                            // The picture at the TOP, inside the frame, and
-                            // larger than the row glyphs it replaces — with
-                            // three on the screen it can afford the size.
-                            HowToGlyph(glyph: block.glyph, tint: skeu.inkMuted,
-                                       size: 36 * chromeScale)
+                        // Half again on the gap under the picture (founder
+                        // direction 2026-09-01): two of the three pictures now
+                        // MOVE, and a caption sitting as close to a moving
+                        // thing as it would to a static glyph reads as part of
+                        // it rather than as a line about it.
+                        VStack(alignment: .leading, spacing: SkeuSpace.md * 1.5) {
+                            // The picture at the TOP, inside the frame. Two of
+                            // the three are the live control itself; the third
+                            // is still a pictogram, and larger than the row
+                            // glyphs it replaces — with three on the screen it
+                            // can afford the size.
+                            art(block.art)
 
                             Text(block.body)
                                 .font(SkeuFont.at(labelSize))
@@ -470,103 +462,36 @@ struct SkeuHowToView: View {
         }
     }
 
-    /// A tenth of the screen tall, riding at the top of the scroll.
-    private var replayBar: some View {
-        let shape = RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous)
-
-        return Text("Show me")
-            .font(SkeuFont.at(labelSize * 1.6, weight: .semibold))
-            // The accent shifted AWAY from the body it sits on, in whichever
-            // direction that body is.
-            //
-            // It used to be driven down unconditionally, which was right when
-            // the body was the accent washed pale: pale-on-pale is no pairing
-            // at all, and darkening kept the word in the jelly's own family.
-            // Once the body became `material`, that assumption only held in
-            // the light — dark mode's material is near-black, so a darkened
-            // accent went invisible against it (founder bug report
-            // 2026-09-01, with a screenshot of the empty button).
-            //
-            // In the DARK the word is plain `ink`, the same as every other
-            // label on the screen (founder direction 2026-09-01). A lifted
-            // accent was legible but made the button the one blue thing in a
-            // grey room, which is louder than a replay control needs to be.
-            // The light half keeps the darkened accent: there it reads as
-            // emphasis rather than as a beacon.
-            .foregroundStyle(skeu.isDark
-                ? skeu.ink
-                : skeu.accent.shifted(sat: 0.08, bri: -0.30))
-            .frame(maxWidth: .infinity)
-            // A tenth of the SCREEN, inset from all three edges (founder
-            // direction 2026-08-17). It was a full-bleed slab, which is the
-            // one thing this look never does — nothing here runs into the
-            // bezel, and a rounded shape needs room to be seen rounding.
-            .containerRelativeFrame(.vertical) { height, _ in height * 0.1 }
-            // NO background shading (founder direction 2026-09-01). This was
-            // a "jelly" (2026-08-25): a pale accent body with a saturated
-            // light wandering INSIDE it on layered sine paths. Both layers
-            // were the shading, so both are gone — the tinted gradient fill
-            // and the animated glow with it.
-            //
-            // The body is now the same neutral raised material every other
-            // surface in the app uses, so the button is a button by its
-            // relief alone. The accent survives in the word, which is the one
-            // place it still carries meaning.
-            //
-            // The wandering light was also the only always-running timeline
-            // on this screen, redrawing at 30fps for as long as How to use
-            // stayed open; removing it takes that with it.
-            .background {
-                shape.fill(
-                    LinearGradient(colors: [skeu.materialTop, skeu.material, skeu.materialBottom],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-            }
-            // The SKIN: a bright glossy rim, strongest at the top where the
-            // light hits, and a sheen across the upper face. `edgeLight`
-            // rather than any literal white — the token that plays the rim
-            // light everywhere else.
-            .overlay {
-                shape.fill(
-                    LinearGradient(stops: [.init(color: skeu.edgeLight.opacity(0.5), location: 0.0),
-                                           .init(color: skeu.edgeLight.opacity(0.08), location: 0.3),
-                                           .init(color: .clear, location: 0.5)],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-                .padding(S.cardRim * 0.5)
-                .allowsHitTesting(false)
-            }
-            .overlay {
-                shape.strokeBorder(
-                    LinearGradient(stops: [.init(color: skeu.edgeLight, location: 0.0),
-                                           .init(color: skeu.edgeLight.opacity(0.35), location: 0.5),
-                                           .init(color: skeu.edgeLight.opacity(0.7), location: 1.0)],
-                                   startPoint: .top, endPoint: .bottom),
-                    lineWidth: S.cardRim * 0.6)
-            }
-            // The pair every raised surface carries: contact + ambient.
-            .shadow(color: skeu.shadow.opacity(0.22 * skeu.shadowIntensity),
-                    radius: 9, x: -2.2, y: 4.5)
-            .shadow(color: skeu.shadow.opacity(0.16 * skeu.shadowIntensity),
-                    radius: 24, x: -6, y: 12)
-            // The BREATH — on the WHOLE button, decoration and all, not just
-            // the word (founder direction 2026-08-25). Scale, not tone: tone
-            // in this look already means depth.
-            .scaleEffect(breathing && !reduceMotion ? 1.03 : 1.0)
-            .animation(breath, value: breathing)
-            .contentShape(shape)
-            .skeuPress { onReplay() }
-            .onAppear { breathing = true }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityLabel("Show me how to use the app")
+    @ViewBuilder
+    private func art(_ art: HowTo.Art) -> some View {
+        switch art {
+        case .glyph(let glyph):
+            HowToGlyph(glyph: glyph, tint: skeu.inkMuted, size: 36 * chromeScale)
+        case .liveTab:
+            SkeuGoLiveDemo()
+        case .workspacePill:
+            SkeuWorkspacePillDemo(names: workspaceNames)
+        case .swipeRows:
+            // Left FIRST, then right (founder direction 2026-09-01). Note the
+            // paragraph below names them the other way round — worth keeping
+            // an eye on if either is ever reworded.
+            // BOUNDED, the way the screen edge bounds a real swipe. The rows
+            // travel their whole width to leave; clipping them at the card's
+            // padding is what makes them read as going off the list rather
+            // than as drawing over the page.
+            SkeuSwipeSequenceDemo()
+                .clipShape(RoundedRectangle(cornerRadius: SkeuRadius.md,
+                                            style: .continuous))
+        }
     }
 
-    /// §8.5: Reduce Motion holds it still rather than slowing it down — a
-    /// breath is decoration, and decoration is what that setting turns off.
-    private var breath: Animation {
-        reduceMotion
-            ? .easeOut(duration: 0.01)
-            : .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
+    /// The reader's OWN two workspaces where there are two, so the pill in the
+    /// picture carries the names they will actually see. A single workspace
+    /// has nothing to switch between, so the demonstration borrows the two
+    /// names the app ships with rather than showing a pill that cannot open.
+    private var workspaceNames: [String] {
+        let names = store.workspaces().map(\.name).filter { !$0.isEmpty }
+        return names.count >= 2 ? Array(names.prefix(2)) : ["Personal", "Work"]
     }
 
 }

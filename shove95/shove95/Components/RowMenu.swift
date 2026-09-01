@@ -41,6 +41,16 @@ final class MenuCoordinator {
     /// their dialog from the same signal.
     var pendingLive: TaskItem?
 
+    /// The live note waiting on a yes to be thrown away.
+    ///
+    /// Here for the same reason as `pendingLive`, and for one of its own: the
+    /// dialog was an overlay INSIDE the Live section, whose frame is only the
+    /// band between the workspace bar and the tab bar. Its scrim could not
+    /// reach past them however much safe area it ignored, so the screen dimmed
+    /// in the middle and stayed lit top and bottom (founder bug report
+    /// 2026-09-01). Asked from here, it is drawn by the root, over everything.
+    var pendingLiveDelete = false
+
     /// Sends a task live, asking first when something already holds it.
     func goLive(_ task: TaskItem, store: TaskStore) {
         if store.liveNote() == nil {
