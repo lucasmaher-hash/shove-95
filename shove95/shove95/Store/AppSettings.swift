@@ -20,7 +20,6 @@ final class AppSettings {
         // (2026-08-04); the bump orphans pre-release test data.
         static let workspaces = "settings.workspaces.v2"
         static let currentWorkspace = "settings.workspace.current"
-        static let language = "settings.language"
         static let colorSlot = "settings.color.slot"
         // v2: the palette was cut from six to four and reordered on
         // 2026-08-22, which moved every position.
@@ -31,19 +30,6 @@ final class AppSettings {
         static func name(_ bucket: Bucket) -> String { "settings.name.\(bucket.rawValue)" }
         static func timeRules(_ bucket: Bucket) -> String { "settings.timerules.\(bucket.rawValue)" }
     }
-
-    /// The chosen interface language, as a BCP-47 code.
-    ///
-    /// Stored and shown, and read by nothing else yet — the option ships
-    /// before the translations do (founder direction 2026-08-16). When strings
-    /// arrive, this is the value that selects them; until then choosing
-    /// Français changes what the picker says and nothing more, which
-    /// `Language.isTranslated` lets the picker admit.
-    var languageCode: String = Language.english_.code {
-        didSet { UserDefaults.standard.set(languageCode, forKey: Key.language) }
-    }
-
-    var language: Language { Language.named(languageCode) }
 
     /// The chosen colour, by NAME.
     ///
@@ -168,9 +154,6 @@ final class AppSettings {
 
         currentWorkspaceID = UserDefaults.standard.string(forKey: Key.currentWorkspace)
             ?? Workspace.defaultID
-
-        languageCode = UserDefaults.standard.string(forKey: Key.language)
-            ?? Language.english_.code
 
         themeID = Self.storedThemeID()
     }

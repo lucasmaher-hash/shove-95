@@ -23,7 +23,7 @@ Everything you type or attach:
 - whether it's done, flagged important, or archived
 - photos you attach
 - your settings: colour scheme, light or dark, typeface, tab names,
-  workspace names, language
+  workspace names
 
 This is held on your device. If you are signed into iCloud and sync is enabled,
 it is also mirrored to your **private CloudKit database** — the part of iCloud

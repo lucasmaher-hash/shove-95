@@ -65,11 +65,6 @@ private enum G {
     /// Room under the last panel for the home indicator, now that the scroll
     /// view runs past the safe area to the physical bottom edge.
     static let bottomClearance: CGFloat = 34
-
-    /// The open language list. Tall enough to show several choices at once,
-    /// short enough that the sheet underneath is still reachable — an
-    /// unbounded list would push Data off the bottom and eat the outer scroll.
-    static let languageListHeight: CGFloat = 232
 }
 
 struct SkeuSettingsView: View {
@@ -170,7 +165,6 @@ struct SkeuSettingsView: View {
 
                     tabNamesPanel
                     workspacesPanel
-                    languagePanel
                     dataPanel
                 }
                 .padding(.horizontal, SkeuTopBar.margin) // the root's screen margin
@@ -266,14 +260,9 @@ struct SkeuSettingsView: View {
         }
     }
 
-    // MARK: Language
 
     /// Below Workspaces and above Data — the last thing you SET, before the
     /// section that only shows you things.
-    private var languagePanel: some View {
-        card("Language") { SkeuLanguageRow() }
-    }
-
     // MARK: Workspaces
 
     private var workspacesPanel: some View {
@@ -622,160 +611,6 @@ private struct SkeuNameField: View {
     }
 }
 
-// MARK: - Language row
-
-/// The language picker: the workspace row's exact construction — a trough
-/// holding a field, a row button beside it — with a list that drops out
-/// underneath when the button is pressed.
-///
-/// The FIELD is the search box. Thirty languages is too long to scroll past
-/// politely, and a separate search box above a list is two controls where one
-/// will do: the row already has a field, so typing in it opens the list and
-/// filters it. Pressing Edit on an empty field opens the whole list to scroll.
-private struct SkeuLanguageRow: View {
-    @Environment(\.skeu) private var skeu
-    @Environment(\.skeuTextScale) private var textScale
-    @Environment(\.skeuChromeScale) private var chromeScale
-    /// Read only to re-render on a typeface change — see `\.skeuFace`.
-    @Environment(\.skeuFace) private var face
-    @Environment(AppSettings.self) private var settings
-
-    @State private var query = ""
-    @State private var isOpen = false
-    @FocusState private var focused: Bool
-
-    private var labelSize: CGFloat { G.label * textScale }
-    private var fieldH: CGFloat { G.fieldHeight * chromeScale }
-    /// The locale the app is CURRENTLY showing, so the search also matches
-    /// each language's name in that language — see `Language.matches`.
-    private var displayLocale: Locale { Locale(identifier: settings.languageCode) }
-    private var matches: [Language] {
-        Language.all.filter { $0.matches(query, displayedIn: displayLocale) }
-    }
-
-    var body: some View {
-        VStack(spacing: SkeuSpace.sm) {
-            HStack(spacing: SkeuSpace.sm) {
-                TextField("", text: $query,
-                          prompt: Text(settings.language.endonym)
-                            .foregroundStyle(skeu.inkFaint))
-                    .font(SkeuFont.at(labelSize))
-                    .foregroundStyle(skeu.ink)
-                    .focused($focused)
-                    .submitLabel(.done)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .padding(.horizontal, SkeuSpace.lg)
-                    .frame(height: fieldH)
-                    .skeuTrough(Capsule(), height: fieldH)
-                    // Typing IS the search — the list opens itself rather than
-                    // asking you to press Edit first and then type.
-                    .onChange(of: query) { _, new in
-                        guard !new.isEmpty, !isOpen else { return }
-                        withAnimation(SkeuMotion.layout) { isOpen = true }
-                    }
-                    // Touching the field is asking for the list. Requiring
-                    // Edit first made the field look like a place to type a
-                    // language name from memory (founder direction
-                    // 2026-08-17).
-                    .onChange(of: focused) { _, isFocused in
-                        guard isFocused, !isOpen else { return }
-                        withAnimation(SkeuMotion.layout) { isOpen = true }
-                    }
-            // DOCKED to the keyboard, not laid out under the field.
-            //
-            // Inline, the list opened into a page that the keyboard had
-            // already covered — the field it belongs to sat just above the
-            // keyboard, so its own choices landed behind it and you scrolled
-            // blind (founder direction 2026-08-17). A keyboard toolbar is the
-            // one placement that needs no arithmetic: iOS puts it exactly on
-            // top of the keyboard and moves it when the keyboard moves.
-                    .toolbar {
-                        ToolbarItem(placement: .keyboard) {
-                            if isOpen { list.padding(.horizontal, SkeuSpace.md) }
-                        }
-                    }
-
-                SkeuRowButton(title: isOpen ? "Done" : "Edit") {
-                    SkeuHaptic.press()
-                    withAnimation(SkeuMotion.layout) { isOpen.toggle() }
-                    if isOpen {
-                        focused = true
-                    } else {
-                        query = ""
-                        focused = false
-                    }
-                }
-                .accessibilityLabel(isOpen ? "Close language list" : "Choose language")
-            }
-        }
-    }
-
-    /// Sits in a trough like every other well on this screen, and is bounded
-    /// so it leaves the page it is floating over visible — the field it
-    /// belongs to has to stay on screen above it.
-    private var list: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(matches) { language in
-                    row(language)
-                }
-                if matches.isEmpty {
-                    Text("No match")
-                        .font(SkeuFont.at(labelSize))
-                        .foregroundStyle(skeu.inkFaint)
-                        .frame(maxWidth: .infinity, minHeight: fieldH)
-                }
-            }
-            .padding(.vertical, SkeuSpace.xs)
-        }
-        .frame(maxHeight: G.languageListHeight * chromeScale)
-        .skeuTrough(RoundedRectangle(cornerRadius: SkeuRadius.lg, style: .continuous),
-                    height: fieldH)
-        .transition(.opacity.combined(with: .move(edge: .top)))
-    }
-
-    private func row(_ language: Language) -> some View {
-        let selected = language.code == settings.languageCode
-        return HStack(spacing: SkeuSpace.sm) {
-            Text(language.endonym)
-                .font(SkeuFont.at(labelSize))
-                .foregroundStyle(skeu.ink)
-                .lineLimit(1)
-
-            // Honest about what the option currently does. The founder chose
-            // to ship the picker before the strings (2026-08-16); a language
-            // that changes nothing yet should say so rather than look broken.
-            if !language.isTranslated {
-                Text("soon")
-                    .font(SkeuFont.at(labelSize * 0.8))
-                    .foregroundStyle(skeu.inkFaint)
-            }
-
-            Spacer(minLength: 0)
-
-            // A SHAPE, not a tint — the selected row has to be identifiable
-            // without colour (N2).
-            if selected {
-                SkeuChromeGlyph(kind: .check, face: settings.skeuFace,
-                                size: labelSize, tint: skeu.accent)
-            }
-        }
-        .padding(.horizontal, SkeuSpace.lg)
-        .frame(minHeight: G.rowButtonH * chromeScale)
-        .skeuPress(haptic: false) {
-            SkeuHaptic.selection()
-            settings.languageCode = language.code
-            withAnimation(SkeuMotion.layout) { isOpen = false }
-            query = ""
-            focused = false
-        }
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityLabel(language.isTranslated
-                            ? language.endonym
-                            : "\(language.endonym), not translated yet")
-    }
-}
 
 // MARK: - Workspace row
 
