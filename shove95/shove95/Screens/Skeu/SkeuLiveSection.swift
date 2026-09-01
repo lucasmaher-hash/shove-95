@@ -451,7 +451,12 @@ struct SkeuGoLiveDemo: View {
     @Environment(\.skeuChromeScale) private var chromeScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var on = false
+    /// STARTS LIT (founder direction 2026-09-01). The block is called "Go
+    /// live" and its words describe a task reaching the Lock Screen, so the
+    /// first thing a reader sees should be the state that describes — and
+    /// "Off air" as the opening frame answered a question nobody had asked
+    /// yet.
+    @State private var on = true
 
     private var buttonH: CGFloat { SkeuTopBar.control * chromeScale }
 
@@ -498,10 +503,10 @@ struct SkeuGoLiveDemo: View {
         // Reduce Motion holds it OFF rather than slowing the cycle: the loop is
         // decoration, and "Off air" is the state the words below describe
         // reaching from.
-        guard !reduceMotion else {
-            on = false
-            return
-        }
+        // Reduce Motion holds it on the state it STARTED in, which is now
+        // the lit one — the loop is decoration, and turning decoration off
+        // should not also change which state is being illustrated.
+        guard !reduceMotion else { return }
         // DOUBLE the first pace (founder direction 2026-09-01). Each state is
         // a thing to read, not a flicker to watch: 2.4s a side was a control
         // changing its mind while you were still on the sentence below it.

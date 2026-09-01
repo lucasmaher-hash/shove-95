@@ -1516,8 +1516,7 @@ struct SkeuSwipeSequenceDemo: View {
 
             Text(chip)
                 .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
-                .foregroundStyle(skeu.ink)
-                .opacity(ReorderGrip.labelOpacity)
+                .foregroundStyle(skeu.inkFaint)
                 .padding(.top, firstLineInset)
                 .frame(minHeight: rowH, alignment: .top)
 
@@ -2422,12 +2421,16 @@ private struct SkeuTaskRow: View {
                                        calendar: store.calendar) {
             Text(chip)
                 .font(SkeuFont.at(labelSize * 0.85, weight: .medium))
-                .foregroundStyle(skeu.ink)
-                // Quiet, but still READABLE — this is the only place the list
-                // says when a task is due, so it answers to 4.5:1. Quieted by
-                // opacity over `ink` rather than by reaching for `inkMuted`
-                // and dimming that too; see ReorderGrip.labelOpacity.
-                .opacity(ReorderGrip.labelOpacity)
+                // The "add" placeholder's ink, matching the grip beside it
+                // (founder direction 2026-09-01) — see ReorderGrip.
+                //
+                // It was `ink` at 0.72, chosen to keep the chip at 4.5:1
+                // because it is the only place the list says when a task is
+                // due. `inkFaint` is 3.4:1, so this trades a little of that
+                // legibility for one grey shared by all three quiet things on
+                // the row. Recorded in docs/qa-accessibility.md rather than
+                // lost.
+                .foregroundStyle(skeu.inkFaint)
                 // LEADING only — the eight points on its right were the
                 // first thing between it and the grip.
                 //
