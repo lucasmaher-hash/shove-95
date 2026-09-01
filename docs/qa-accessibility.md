@@ -76,9 +76,18 @@ Documented in the palette rather than re-measured here:
 - `inkMuted` — 6.4:1 on material, used for body text
 - `inkFaint` — 3.4:1, **decorative labels only**
 - `critical` — lifted to 5.2:1 in the dark palette
-- `ReorderGrip.restingOpacity` 0.58 over `ink` — the grip is the only
-  affordance saying a row can be dragged, so it answers to 3:1 (WCAG 1.4.11).
-  It starts from the strong token rather than compounding two reductions.
+- The day chip and the reorder grip both take `inkFaint` at full strength —
+  **3.4:1** — matching the "add" placeholder (founder direction 2026-09-01).
+
+  This is a deliberate trade recorded rather than hidden. The grip is fine:
+  3.4:1 clears the 3:1 WCAG 1.4.11 asks of a control's affordance. The **day
+  chip is now below the 4.5:1 text floor** — it was `ink` at 0.72 precisely to
+  hold that, since the chip is the only place the list says when a task is
+  due. It was changed for visual consistency across the three quiet elements
+  on a row, with the contrast cost known.
+
+  Never DIM `inkFaint` further: measured at 1.90:1 in review 2026-08-26,
+  roughly half the floor and invisible in daylight.
 
 ### Touch targets
 
