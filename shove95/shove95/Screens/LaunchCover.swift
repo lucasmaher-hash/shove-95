@@ -2,40 +2,83 @@
 //  LaunchCover.swift
 //  shove95
 //
-//  The wordmark on the app's blue while the store opens.
+//  The wordmark, held still, while the store opens.
 //
-//  It is deliberately LATE, not early: shown only if the first frame hasn't
-//  arrived within a beat. A splash that always appears makes a fast launch
-//  feel slower, because it puts a screen between the tap and the app that
-//  wasn't there before. On a warm launch nobody should ever see this.
+//  A STILL CARD, not a journey (founder direction 2026-08-17, fifth pass).
+//  The chevron used to fly off the right edge, growing as it went, with the
+//  ground thinning around it — four passes of choreography, all of it now
+//  gone. What is left is exactly the frame that animation began on: both
+//  parts, at rest, left of centre. Held for `duration`, then lifted.
 //
-//  Once shown it stays for a minimum duration — a cover that flickers for
-//  80ms reads as a glitch, which is worse than either extreme.
+//  It plays on every COLD launch. Returning from the background does not
+//  re-run the process, so a warm return still goes straight to the list.
+//
+//  The ground follows the app's theme rather than the icon's fixed blue
+//  (founder direction, same pass): the accent, because that is the tone this
+//  look already carries white lettering on, so the wordmark stays legible in
+//  every palette.
 //
 
 import SwiftUI
 
 struct LaunchCover: View {
     @Environment(\.pixel) private var pixel
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.colorScheme) private var systemScheme
 
-    /// The icon's blue, so the cover and the icon are the same object.
-    private static let blue = Color(hex: 0x0C2EBE)
+    /// How long the card is held. It was the budget for a two-second
+    /// animation; with the animation gone it is simply the hold.
+    static let duration: TimeInterval = 2.0
+
+    /// The ground: this look's own strong tone, resolved for light or dark.
+    ///
+    /// The accent, because that is the tone this look already sets white
+    /// lettering on — the wordmark is white, so the ground has to be one that
+    /// carries it. It was the icon's fixed blue, which sat outside every
+    /// palette the app can be wearing (founder direction 2026-08-17).
+    private var ground: Color {
+        settings.skeuTheme
+            .palette(dark: settings.appearance.isDark(system: systemScheme))
+            .accent
+    }
+
+    /// The mark's own grid, in points at 1×. These were read from the Windows
+    /// look's pixel unit until that look was removed (2026-08-22); they are
+    /// stated here now because the wordmark is the icon, and the icon has its
+    /// own proportions rather than an interface's.
+    private enum Mark {
+        static let unit: CGFloat = 4        // the grid these figures are in
+        static let bodySize: CGFloat = 11   // the word's type size
+    }
+
+    /// How far left the mark sits. Kept from the animated version: this is
+    /// the frame that one began on, and the founder asked for that frame.
+    private var lead: CGFloat { Mark.unit * 11 * pixel }
 
     var body: some View {
         ZStack {
-            Self.blue.ignoresSafeArea()
+            ground.ignoresSafeArea()
 
-            HStack(spacing: Win95.Px.grid * 3 * pixel) {
+            HStack(spacing: 5 * pixel) {
                 Text("sho")
-                    .font(.system(size: Win95.Px.fontStandard * 2.6 * pixel,
+                    .font(.system(size: Mark.bodySize * 2.6 * pixel,
                                   weight: .regular, design: .monospaced))
                     .foregroundStyle(.white)
+
                 ChevronGlyph()
                     .fill(.white)
-                    .frame(width: Win95.Px.grid * 6 * pixel,
-                           height: Win95.Px.grid * 9 * pixel)
+                    // MEASURED off icon-1024 (founder direction 2026-08-17):
+                    // there the chevron is 0.62 of the word's width and the
+                    // gap between them 0.10 of it. 8 and 12 grid units give
+                    // the 6:9 drawing its icon size; the spacing above is the
+                    // icon's gap.
+                    .frame(width: Mark.unit * 8 * pixel,
+                           height: Mark.unit * 12 * pixel)
             }
+            .offset(x: -lead)
         }
+        // The app lifts it after `duration` with its own fade — there is
+        // nothing here that has to finish first any more.
         .transition(.opacity)
     }
 }
