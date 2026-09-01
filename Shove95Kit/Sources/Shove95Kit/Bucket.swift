@@ -26,11 +26,19 @@ public enum Bucket: String, CaseIterable, Sendable, Codable {
         }
     }
 
-    /// Abbreviated taskbar label for the 4× accessibility scale (FR-015).
+    /// The label to wear when the full name no longer fits (FR-015).
+    ///
+    /// Only `tomorrow` actually shortens: at the largest text sizes "Today"
+    /// and "Soon" still fit their share of the row, and abbreviating a word
+    /// that fits costs legibility for nothing. The other two keep their names
+    /// so the caller can ask every bucket the same question.
+    ///
+    /// "Tmw" rather than the old "Tom" (founder direction 2026-09-01): "Tom"
+    /// reads as a name.
     public var shortName: String {
         switch self {
-        case .today: "Tod"
-        case .tomorrow: "Tom"
+        case .today: "Today"
+        case .tomorrow: "Tmw"
         case .general: "Soon"
         }
     }

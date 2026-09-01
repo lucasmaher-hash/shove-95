@@ -1014,7 +1014,10 @@ extension SkeuRootView {
                 SkeuSegment(isSelected: !showLive && bucket == line,
                             namespace: tabPillNS,
                             geometryID: "tabPill") {
-                    Text(settings.name(for: line))
+                    // ABBREVIATED rather than shrunk once the row gets tight
+                    // — see AppSettings.tabLabel. The accessibility label
+                    // below still says the whole word.
+                    Text(settings.tabLabel(for: line, textScale: textScale))
                         .skeuSegmentLabel(textScale)
                         .foregroundStyle(skeu.ink)
                 }

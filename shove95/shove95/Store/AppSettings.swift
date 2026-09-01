@@ -246,12 +246,32 @@ final class AppSettings {
         customNames[bucket] ?? bucket.displayName
     }
 
-    /// Abbreviated label for the 4× taskbar.
+    /// Abbreviated label, for when the full one no longer fits.
     func shortName(for bucket: Bucket) -> String {
         if let custom = customNames[bucket] {
             return String(custom.prefix(3))
         }
         return bucket.shortName
+    }
+
+    /// What the tab bar should actually print at this text scale.
+    ///
+    /// The bar used to hand every label to `minimumScaleFactor` and let the
+    /// long one shrink. That is why "Tomorrow" arrived at the accessibility
+    /// sizes visibly smaller than "Today" and "Soon" beside it (founder bug
+    /// report 2026-09-01): the two short names fit and held their size, and
+    /// only the long one was squeezed, so the row read as two normal tabs and
+    /// one undersized one. A reader who has asked for large text is the last
+    /// one who should be given small text.
+    ///
+    /// Abbreviating instead keeps every label at the SAME size, which is the
+    /// point of a segmented row. Only names that genuinely run out of room are
+    /// touched: five characters still fit at 1.6×, so "Today" and "Soon" are
+    /// never abbreviated and neither is a short custom name.
+    func tabLabel(for bucket: Bucket, textScale: CGFloat) -> String {
+        let full = name(for: bucket)
+        guard textScale >= 1.22, full.count > 5 else { return full }
+        return shortName(for: bucket)
     }
 
     /// The longest a tab name may be.
