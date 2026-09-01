@@ -360,7 +360,7 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 6. Then read only the Reference sections listed above. Continue from the first unchecked task, marking each complete. When done: branch `phase-6/polish-and-app-store`, commit, push, PR — then archive and submit per the final tasks."
 
-- [ ] **TASK-058** — Accessibility audit
+- [x] **TASK-058** — Accessibility audit *(docs/qa-accessibility.md, 2026-09-01 — VoiceOver walkthrough still founder-only)*
   Files: `docs/qa-accessibility.md`, fixes across views
   Notes: Full VoiceOver walkthrough of every flow (add, edit, complete, move via custom actions, undo, archive, settings, photo viewer — viewer needs an accessible close); Accessibility Inspector audit; verify ≥44pt targets everywhere; contrast: `#222` on `#C0C0C0` and white pass, `#808080` chip text is secondary info (acceptable) — document. Verify: script in file, all items pass.
 
